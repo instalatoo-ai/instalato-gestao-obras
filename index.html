@@ -377,52 +377,48 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <!-- MODAIS -->
 <div class="modal-bg" id="modal-obra" style="align-items:flex-start;padding-top:0;">
   <div class="modal-sheet" style="max-height:95vh;border-radius:0 0 20px 20px;padding-top:24px;">
-    <div class="mhdr"><span class="mhdr-t" id="mo-t">Nova obra</span><button class="mhdr-x" type="button" onclick="closeModal('obra')">✕</button></div>
+    <div class="mhdr"><span class="mhdr-t" id="mo-t">Nova obra</span><button class="mhdr-x" type="button" onclick="closeModal('obra')">X</button></div>
     <div class="mf">
       <div><div class="fl">Nome</div><input class="inp" id="mo-nome" type="text"></div>
-      <div><div class="fl">Tipo</div><input class="inp" id="mo-tipo" type="text" placeholder="Ex: Residencial, Alto padrão..."></div>
+      <div><div class="fl">Tipo</div><input class="inp" id="mo-tipo" type="text" placeholder="Ex: Residencial, Predial..."></div>
       <div><div class="fl">Cliente</div><input class="inp" id="mo-cliente" type="text"></div>
       <div><div class="fl">Cidade</div><input class="inp" id="mo-cidade" type="text"></div>
-      <div><div class="fl">Endereço da obra</div><input class="inp" id="mo-endereco" type="text" placeholder="Ex: Rua das Flores, 123 - Centro"></div>
+      <div><div class="fl">Endereco</div><input class="inp" id="mo-endereco" type="text" placeholder="Ex: Rua das Flores, 123"></div>
       <div class="row2">
-        <div><div class="fl">Contrato R$</div><input class="inp" id="mo-contrato" type="number"></div>
+        <div><div class="fl">Metragem total da obra (m²)</div><input class="inp" id="mo-contrato" type="number" placeholder="Ex: 1250"></div>
         <div><div class="fl">Status</div>
           <select class="sel" id="mo-status">
             <option value="ativa">Em andamento</option>
-            <option value="concluida">Concluída</option>
+            <option value="concluida">Concluida</option>
             <option value="pausada">Pausada</option>
           </select>
         </div>
       </div>
       <div class="row2">
-        <div><div class="fl">Início</div><input class="inp" id="mo-inicio" type="date"></div>
+        <div><div class="fl">Inicio</div><input class="inp" id="mo-inicio" type="date"></div>
         <div><div class="fl">Entrega</div><input class="inp" id="mo-entrega" type="date"></div>
       </div>
-
-      <!-- SEÇÃO ANDARES / APARTAMENTOS -->
-      <div style="background:var(--lg);border-radius:12px;padding:13px;border-left:3px solid var(--gold);">
-        <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:10px;">🏗️ Estrutura da obra (andares e apartamentos)</div>
+      <div style="background:#fdf3e3;border-radius:12px;padding:13px;border-left:3px solid #B8860B;">
+        <div style="font-size:12px;font-weight:700;color:#B8860B;margin-bottom:10px;">Estrutura da obra</div>
         <div class="row2" style="margin-bottom:10px;">
           <div><div class="fl">Qtd de andares</div><input class="inp" id="mo-andares" type="number" placeholder="Ex: 16" oninput="gerarAndaresPreview()"></div>
           <div><div class="fl">Aptos por andar</div><input class="inp" id="mo-aptos-andar" type="number" placeholder="Ex: 4" oninput="gerarAndaresPreview()"></div>
         </div>
-        <div><div class="fl">Numeração inicial (1º andar)</div><input class="inp" id="mo-num-inicio" type="number" placeholder="Ex: 601" oninput="gerarAndaresPreview()"></div>
+        <div><div class="fl">Numeracao inicial (1o andar)</div><input class="inp" id="mo-num-inicio" type="number" placeholder="Ex: 601" oninput="gerarAndaresPreview()"></div>
         <div id="andares-preview" style="margin-top:10px;"></div>
       </div>
-
     </div>
-    <div class="macts"><button class="bmc" type="button" onclick="closeModal('obra')">Cancelar</button><button class="bmok" type="button" onclick="salvarObra()">✓ Salvar</button></div>
+    <div class="macts"><button class="bmc" type="button" onclick="closeModal('obra')">Cancelar</button><button class="bmok" type="button" onclick="salvarObra()">Salvar</button></div>
   </div>
 </div>
 
-<!-- MODAL AMBIENTES DO APARTAMENTO -->
 <div class="modal-bg" id="modal-ambientes" style="align-items:flex-start;padding-top:0;">
   <div class="modal-sheet" style="max-height:95vh;border-radius:0 0 20px 20px;padding-top:24px;">
-    <div class="mhdr"><span class="mhdr-t" id="ma-t">Ambientes — Apto <span id="ma-apto-nome"></span></span><button class="mhdr-x" type="button" onclick="closeModal('ambientes')">✕</button></div>
-    <div style="font-size:11px;color:var(--sub);margin-bottom:12px;">Configure os ambientes e metragens deste apartamento.</div>
+    <div class="mhdr"><span class="mhdr-t">Ambientes - Apto <span id="ma-apto-nome"></span></span><button class="mhdr-x" type="button" onclick="closeModal('ambientes')">X</button></div>
+    <div style="font-size:11px;color:#888;margin-bottom:12px;">Configure os ambientes e metragens deste apartamento.</div>
     <div id="ambientes-lista" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
-    <button class="btn-sec" type="button" onclick="addAmbienteLinha()" style="margin-bottom:14px;">＋ Adicionar ambiente</button>
-    <div class="macts"><button class="bmc" type="button" onclick="closeModal('ambientes')">Cancelar</button><button class="bmok" type="button" onclick="salvarAmbientesApto()">✓ Salvar</button></div>
+    <button class="btn-sec" type="button" onclick="addAmbienteLinha()" style="margin-bottom:14px;">+ Adicionar ambiente</button>
+    <div class="macts"><button class="bmc" type="button" onclick="closeModal('ambientes')">Cancelar</button><button class="bmok" type="button" onclick="salvarAmbientesApto()">Salvar</button></div>
   </div>
 </div>
 
@@ -521,6 +517,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="toast" id="toast"></div>
 
 <script>
+// CONFIG
 var SURL = 'https://qfqbbfcqkzzezzmopssv.supabase.co';
 var SKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmcWJiZmNxa3p6ZXp6bW9wc3N2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2NDMwMDUsImV4cCI6MjA5NDIxOTAwNX0.EiSpKp_ywz4JTxMC18EK_Dv0MWFNpx9Db5jFVQwSdJA';
 var GSCRIPT = window.location.origin + '/gscript';
@@ -536,7 +533,7 @@ var chkState = {};
 // UTILS
 function fmt(v) { return 'R$ ' + (parseFloat(v)||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
 function fmtK(v) { return 'R$ ' + (parseFloat(v)||0).toLocaleString('pt-BR', {maximumFractionDigits:0}); }
-function fmtD(d) { if(!d) return '--'; var p = (d.split('T')[0]).split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+function fmtD(d) { if(!d) return '—'; var p = (d.split('T')[0]).split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
 function hoje() { return new Date().toISOString().split('T')[0]; }
 function horaAgora() { return new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}); }
 function getEl(id) { return document.getElementById(id); }
@@ -622,7 +619,7 @@ var VERSES = [
   var v = VERSES[Math.floor(Math.random() * VERSES.length)];
   var vt = getEl('vt'); var vr = getEl('vr');
   if(vt) vt.textContent = v.t;
-  if(vr) vr.textContent = '- ' + v.r;
+  if(vr) vr.textContent = '— ' + v.r;
 })();
 
 // LOGIN
@@ -815,10 +812,10 @@ function renderLancar() {
     +'<button class="btn-gold" type="button" style="width:auto;padding:11px 14px;font-size:13px;" onclick="definirMeta()">Definir</button></div></div>'
     +'<div><div class="fl">Obra</div><select class="sel" id="l-obra" onchange="obraChanged()"><option value="">— Selecione —</option>'+oOpts+'</select>'
     +'<div id="obra-inf" style="display:none;background:rgba(184,134,11,.08);border-radius:10px;padding:8px 12px;font-size:11px;color:#854F0B;margin-top:6px;"></div></div>'
-    +'<div><div class="fl">Funcionário</div><select class="sel" id="l-func"><option value="">Selecione</option>'+fOpts+'</select></div>'
+    +'<div><div class="fl">Funcionario</div><select class="sel" id="l-func"><option value="">Selecione</option>'+fOpts+'</select></div>'
     +'<div><div class="fl">Apartamento</div><select class="sel" id="l-apto-sel"><option value="">Selecione a obra primeiro</option></select></div>'
-    +'<div class="row2"><div><div class="fl">Ambiente</div><select class="sel" id="l-amb"><option value="">Selecione o apto primeiro</option></select></div>'
-    +'<div><div class="fl">Área (m²)</div><input class="inp" type="number" id="l-area" placeholder="0" oninput="calcTotal()"></div></div>'
+    +'<div class="row2"><div><div class="fl">Ambiente</div><select class="sel" id="l-amb"><option value="">Selecione o apto</option></select></div>'
+    +'<div><div class="fl">Area (m2)</div><input class="inp" type="number" id="l-area" placeholder="0" oninput="calcTotal()"></div></div>'
     +'<div id="rate-inf" style="display:none;" class="info-box"></div>'
     +'<div><div class="fl">Outros <span style="font-weight:400;font-size:9px;color:var(--sub)">rodapés, soleiras, cortes...</span></div>'
     +'<div style="display:grid;grid-template-columns:1fr 80px 70px 32px;gap:6px;margin-bottom:4px;"><span class="fl" style="margin:0">Item</span><span class="fl" style="margin:0">Valor</span><span class="fl" style="margin:0">Qtd</span><span></span></div>'
@@ -861,67 +858,54 @@ function obraChanged() {
   var o = null; for(var i=0;i<obras.length;i++) if(obras[i].id===oId) { o=obras[i]; break; }
   var inf = getEl('obra-inf'); var ri = getEl('rate-inf');
   if(o) {
-    inf.style.display='block'; inf.textContent = (o.cliente||'') + ' · ' + (o.cidade||'') + ' · ' + (o.andares||0) + ' andares';
+    inf.style.display='block'; inf.textContent = (o.cliente||'') + ' - ' + (o.cidade||'') + ' - ' + (o.andares||0) + ' andares';
     var rate = getRate(oId);
-    ri.style.display='block'; ri.innerHTML = 'ℹ️ Valor do m²: <strong>R$ '+rate.toFixed(2)+'</strong>';
-    // Carregar estrutura de apartamentos
-    if(!_obraAndares[oId] && o.estrutura){
-      try { _obraAndares[oId]=JSON.parse(o.estrutura); } catch(e){}
-    }
+    ri.style.display='block'; ri.innerHTML = 'Valor do m2: <strong>R$ '+rate.toFixed(2)+'</strong>';
+    if(!_obraAndares[oId] && o.estrutura){ try{_obraAndares[oId]=JSON.parse(o.estrutura);}catch(e){} }
     carregarSelectApto(oId);
   } else {
     inf.style.display='none'; ri.style.display='none';
-    var sa=getEl('l-apto-sel'); if(sa){sa.innerHTML='<option value="">Selecione</option>'; sa.style.display='block';}
+    var sa=getEl('l-apto-sel'); if(sa) sa.innerHTML='<option value="">Selecione</option>';
     var am=getEl('l-amb'); if(am) am.innerHTML='<option value="">Selecione</option>';
   }
   calcTotal();
 }
 
 function carregarSelectApto(oId){
-  var sa=getEl('l-apto-sel');
+  var sa=getEl('l-apto-sel'); if(!sa) return;
   var est=_obraAndares[oId];
-  if(!sa) return;
   if(!est||!est.andares||!est.andares.length){
-    sa.innerHTML='<option value="">Nenhum apto cadastrado</option>';
-    return;
+    sa.innerHTML='<option value="">Nenhum apto cadastrado</option>'; return;
   }
-  var opts='<option value="">— Selecione o apto —</option>';
+  var opts='<option value="">Selecione o apto</option>';
   est.andares.forEach(function(andar){
-    opts+='<optgroup label="'+andar.num+'º Andar">';
-    andar.aptos.forEach(function(apto){
-      opts+='<option value="'+apto.nome+'">Apto '+apto.nome+'</option>';
-    });
+    opts+='<optgroup label="'+andar.num+'o Andar">';
+    andar.aptos.forEach(function(apto){ opts+='<option value="'+apto.nome+'">Apto '+apto.nome+'</option>'; });
     opts+='</optgroup>';
   });
   sa.innerHTML=opts;
-  sa.onchange=function(){ aptoChanged(oId, this.value); };
+  sa.onchange=function(){ aptoChanged(oId,this.value); };
   var am=getEl('l-amb'); if(am) am.innerHTML='<option value="">Selecione</option>';
-  getEl('l-area') && (getEl('l-area').value='');
+  if(getEl('l-area')) getEl('l-area').value='';
 }
 
-function aptoChanged(oId, aptoNome){
+function aptoChanged(oId,aptoNome){
   var am=getEl('l-amb'); if(!am) return;
-  var est=_obraAndares[oId];
-  if(!est) return;
+  var est=_obraAndares[oId]; if(!est) return;
   var ambientes=[];
   est.andares.forEach(function(andar){
-    andar.aptos.forEach(function(apto){
-      if(apto.nome===aptoNome) ambientes=apto.ambientes||[];
-    });
+    andar.aptos.forEach(function(apto){ if(apto.nome===aptoNome) ambientes=apto.ambientes||[]; });
   });
-  if(!ambientes.length){
-    am.innerHTML='<option value="">Nenhum ambiente cadastrado</option>';
-    return;
-  }
-  am.innerHTML='<option value="">— Selecione —</option>'+ambientes.map(function(a){
-    return '<option value="'+a.nome+'" data-m2="'+a.m2+'">'+a.nome+(a.m2?' ('+a.m2+'m²)':'')+'</option>';
+  if(!ambientes.length){ am.innerHTML='<option value="">Nenhum ambiente cadastrado</option>'; return; }
+  am.innerHTML='<option value="">Selecione</option>'+ambientes.map(function(a){
+    return '<option value="'+a.nome+'" data-m2="'+a.m2+'">'+a.nome+(a.m2?' ('+a.m2+'m2)':'')+'</option>';
   }).join('');
   am.onchange=function(){
     var opt=this.options[this.selectedIndex];
     var m2=opt?opt.getAttribute('data-m2'):'';
-    if(m2 && getEl('l-area')) { getEl('l-area').value=m2; calcTotal(); }
+    if(m2&&getEl('l-area')){ getEl('l-area').value=m2; calcTotal(); }
   };
-  getEl('l-area') && (getEl('l-area').value='');
+  if(getEl('l-area')) getEl('l-area').value='';
 }
 
 function getRate(obraId) {
@@ -1043,8 +1027,8 @@ function renderMeu() {
   var bonMedia=meus.length?Math.round(meus.reduce(function(s,l){return s+(l.bonus_pct||0);},0)/meus.length):0;
   var hist=meus.slice(0,5).map(function(l){
     var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===l.obra_id){o=obras[i];break;}
-    return '<div class="hi"><div class="hi-ico">🪵</div><div class="hi-b"><div class="hi-t">'+(l.ambiente||'--')+' · Apto '+(l.apartamento||'--')+'</div>'
-      +'<div class="hi-s">'+(o?o.nome:'--')+' · '+l.area_m2+'m²</div></div>'
+    return '<div class="hi"><div class="hi-ico">🪵</div><div class="hi-b"><div class="hi-t">'+(l.ambiente||'—')+' · Apto '+(l.apartamento||'—')+'</div>'
+      +'<div class="hi-s">'+(o?o.nome:'—')+' · '+l.area_m2+'m²</div></div>'
       +'<div class="hi-r"><div class="hi-v">'+fmt(l.total)+'</div><div class="hi-d">'+fmtD(l.data)+'</div></div></div>';
   }).join('');
   el.innerHTML='<div class="hero" style="background:var(--gold)"><p>Visualização · somente leitura</p><h2>Meu resultado</h2></div>'
@@ -1090,8 +1074,8 @@ function renderHistFiltro() {
     var u=null; for(var i=0;i<users.length;i++) if(users[i].id===l.usuario_id){u=users[i];break;}
     var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===l.obra_id){o=obras[i];break;}
     return '<div class="hi"><div class="hi-ico">🪵</div><div class="hi-b">'
-      +'<div class="hi-t">'+(u?u.apelido:'--')+' · '+(l.ambiente||'--')+' · Apto '+(l.apartamento||'--')+'</div>'
-      +'<div class="hi-s">'+(o?o.nome:'--')+' · '+l.area_m2+'m² · bônus '+l.bonus_pct+'%</div></div>'
+      +'<div class="hi-t">'+(u?u.apelido:'—')+' · '+(l.ambiente||'—')+' · Apto '+(l.apartamento||'—')+'</div>'
+      +'<div class="hi-s">'+(o?o.nome:'—')+' · '+l.area_m2+'m² · bônus '+l.bonus_pct+'%</div></div>'
       +'<div class="hi-r"><div class="hi-v">'+fmt(l.total)+'</div><div class="hi-d">'+fmtD(l.data)+'</div></div></div>';
   }).join('') || '<div class="empty"><p>Nenhum registro encontrado.</p></div>';
 }
@@ -1128,8 +1112,8 @@ function renderConf() {
       var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===l.obra_id){o=obras[i];break;}
       pendHtml+='<div class="pend-item" onclick="preencherConf(\''+l.id+'\',\''+l.obra_id+'\',\''+l.usuario_id+'\',\''+l.apartamento+'\',\''+l.ambiente+'\')">'
         +'<div style="display:flex;justify-content:space-between"><div>'
-        +'<div style="font-size:13px;font-weight:700">'+(u?u.apelido:'--')+' · Apto '+(l.apartamento||'--')+'</div>'
-        +'<div style="font-size:11px;color:var(--sub)">'+(o?o.nome:'--')+' · '+(l.ambiente||'--')+' · '+l.area_m2+'m²</div>'
+        +'<div style="font-size:13px;font-weight:700">'+(u?u.apelido:'—')+' · Apto '+(l.apartamento||'—')+'</div>'
+        +'<div style="font-size:11px;color:var(--sub)">'+(o?o.nome:'—')+' · '+(l.ambiente||'—')+' · '+l.area_m2+'m²</div>'
         +'<div style="font-size:10px;color:var(--sub)">'+fmtD(l.data)+(l.hora?' · '+l.hora:'')+'</div></div>'
         +'<div style="text-align:right"><div style="font-size:13px;font-weight:700;color:var(--gold)">'+fmt(l.total)+'</div>'
         +'<div style="font-size:10px;background:var(--lg);color:var(--gold);padding:2px 7px;border-radius:20px;margin-top:3px">Conferir →</div></div></div></div>';
@@ -1150,8 +1134,8 @@ function renderConf() {
     var icone=c.status==='aprovado'?'✅':c.status==='incompleto'?'⚠️':'❌';
     var cor=c.status==='aprovado'?'var(--green)':c.status==='incompleto'?'#BA7517':'var(--red)';
     return '<div class="hi" style="border-left:3px solid '+cor+'"><div class="hi-ico">'+icone+'</div>'
-      +'<div class="hi-b"><div class="hi-t">'+(p?p.apelido:'--')+' · Apto '+(c.apartamento||'--')+'</div>'
-      +'<div class="hi-s">'+(o?o.nome:'--')+' · '+(c.ambiente||'--')+'</div>'
+      +'<div class="hi-b"><div class="hi-t">'+(p?p.apelido:'—')+' · Apto '+(c.apartamento||'—')+'</div>'
+      +'<div class="hi-s">'+(o?o.nome:'—')+' · '+(c.ambiente||'—')+'</div>'
       +'<div class="hi-s" style="color:'+cor+';font-weight:600">'+c.status+'</div>'
       +(c.observacao?'<div class="hi-s" style="font-style:italic">"'+c.observacao+'"</div>':'')
       +'</div><div class="hi-r"><div class="hi-d">'+fmtD(c.data)+'</div><div class="hi-d">'+(c.hora||'')+'</div></div></div>';
@@ -1179,7 +1163,7 @@ function preencherConf(lancId,obraId,profId,apto,amb) {
   var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===obraId){o=obras[i];break;}
   var cs=getEl('conf-selecionado'); var ct=getEl('conf-info-txt');
   if(cs) cs.style.display='block';
-  if(ct) ct.textContent=(u?u.apelido:'--')+' · Apto '+(apto||'--')+' · '+(amb||'--')+' · '+(o?o.nome:'--');
+  if(ct) ct.textContent=(u?u.apelido:'—')+' · Apto '+(apto||'—')+' · '+(amb||'—')+' · '+(o?o.nome:'—');
   var btn=getEl('btn-conf');
   if(btn){btn.disabled=false;btn.style.opacity='1';btn.style.cursor='pointer';btn.textContent='📋 Salvar conferência';}
   for(var i=0;i<7;i++){var a=getEl('ca-'+i);var r=getEl('cr-'+i);if(a)a.classList.remove('on');if(r)r.classList.remove('on');}
@@ -1236,8 +1220,8 @@ function renderMat(){
     var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===m.obra_id){o=obras[i];break;}
     var itens=[]; try{itens=JSON.parse(m.itens||'[]');}catch(e){}
     return '<div class="hi"><div class="hi-ico">📦</div><div class="hi-b">'
-      +'<div class="hi-t">Apto '+(m.apartamento||'--')+'</div>'
-      +'<div class="hi-s">'+(u?u.apelido:'--')+' · '+(o?o.nome:'--')+' · '+itens.length+' item(s)</div>'
+      +'<div class="hi-t">Apto '+(m.apartamento||'—')+'</div>'
+      +'<div class="hi-s">'+(u?u.apelido:'—')+' · '+(o?o.nome:'—')+' · '+itens.length+' item(s)</div>'
       +itens.slice(0,2).map(function(i){return '<div class="hi-s">'+i.nome+': '+i.qty+'</div>';}).join('')
       +'</div><div class="hi-r"><div class="hi-d">'+fmtD(m.data)+'</div><div class="hi-d">'+(m.hora||'')+'</div></div></div>';
   }).join('');
@@ -1268,8 +1252,8 @@ function renderMatFiltro(){
     var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===m.obra_id){o=obras[i];break;}
     var itens=[]; try{itens=JSON.parse(m.itens||'[]');}catch(e){}
     return '<div class="hi"><div class="hi-ico">📦</div><div class="hi-b">'
-      +'<div class="hi-t">Apto '+(m.apartamento||'--')+'</div>'
-      +'<div class="hi-s">'+(u?u.apelido:'--')+' · '+(o?o.nome:'--')+'</div>'
+      +'<div class="hi-t">Apto '+(m.apartamento||'—')+'</div>'
+      +'<div class="hi-s">'+(u?u.apelido:'—')+' · '+(o?o.nome:'—')+'</div>'
       +itens.slice(0,2).map(function(i){return '<div class="hi-s">'+i.nome+': '+i.qty+'</div>';}).join('')
       +'</div><div class="hi-r"><div class="hi-d">'+fmtD(m.data)+'</div></div></div>';
   }).join('')||'<div class="empty"><p>Nenhum resultado.</p></div>';
@@ -1292,7 +1276,7 @@ function salvarMat(){
   document.querySelectorAll('#mat-wrap .mat-line').forEach(function(l){
     var ins=l.querySelectorAll('input');
     var nome=ins[0]?ins[0].value.trim():''; var qty=ins[1]?ins[1].value.trim():'';
-    if(nome) itens.push({nome:nome,qty:qty||'--'});
+    if(nome) itens.push({nome:nome,qty:qty||'—'});
   });
   if(!itens.length){toast('⚠️ Adicione pelo menos um material.');return;}
   dbInsert('materiais_lanc',{obra_id:oId||null,usuario_id:U.id,colaborador_id:cId,apartamento:apto,itens:JSON.stringify(itens),data:hoje(),hora:horaAgora()})
@@ -1312,7 +1296,7 @@ function renderOcorr(){
     var tObj=null; for(var i=0;i<tipos.length;i++) if(tipos[i].k===oc.tipo){tObj=tipos[i];break;}
     return '<div class="hi" style="border-left:3px solid var(--red)">'
       +'<div class="hi-ico">'+(tObj?tObj.i:'⚠️')+'</div>'
-      +'<div class="hi-b"><div class="hi-t">'+(u?u.apelido:'--')+' · '+(tObj?tObj.l:oc.tipo||'--')+'</div>'
+      +'<div class="hi-b"><div class="hi-t">'+(u?u.apelido:'—')+' · '+(tObj?tObj.l:oc.tipo||'—')+'</div>'
       +'<div class="hi-s">'+(o?o.nome:'Sem obra')+'</div>'
       +(oc.observacao?'<div class="hi-s" style="font-style:italic">"'+oc.observacao+'"</div>':'')+'</div>'
       +'<div class="hi-r"><div class="hi-d">'+fmtD(oc.data)+'</div><div class="hi-d">'+(oc.hora||'')+'</div>'
@@ -1346,7 +1330,7 @@ function renderOcorrFiltro(){
     var tObj=null; for(var i=0;i<tipos.length;i++) if(tipos[i].k===oc.tipo){tObj=tipos[i];break;}
     return '<div class="hi" style="border-left:3px solid var(--red)">'
       +'<div class="hi-ico">'+(tObj?tObj.i:'⚠️')+'</div>'
-      +'<div class="hi-b"><div class="hi-t">'+(u?u.apelido:'--')+' · '+(tObj?tObj.l:oc.tipo||'--')+'</div>'
+      +'<div class="hi-b"><div class="hi-t">'+(u?u.apelido:'—')+' · '+(tObj?tObj.l:oc.tipo||'—')+'</div>'
       +'<div class="hi-s">'+(o?o.nome:'Sem obra')+'</div>'
       +(oc.observacao?'<div class="hi-s" style="font-style:italic">"'+oc.observacao+'"</div>':'')+'</div>'
       +'<div class="hi-r"><div class="hi-d">'+fmtD(oc.data)+'</div></div></div>';
@@ -1393,7 +1377,7 @@ function renderPonto(){
     statusHtml='<div style="background:rgba(30,132,73,.1);border-radius:14px;padding:16px;text-align:center;border:2px solid var(--green);">'
       +'<div style="font-size:32px;margin-bottom:6px;">🟢</div>'
       +'<div style="font-size:15px;font-weight:700;color:var(--green)">Em serviço</div>'
-      +'<div style="font-size:12px;color:var(--sub);margin-top:4px">Entrada: '+(entradaAtiva.entrada_hora||'--')+(obraAtiva?' · '+obraAtiva.nome:'')+'</div>'
+      +'<div style="font-size:12px;color:var(--sub);margin-top:4px">Entrada: '+(entradaAtiva.entrada_hora||'—')+(obraAtiva?' · '+obraAtiva.nome:'')+'</div>'
       +'<div style="font-size:11px;color:var(--green);margin-top:4px;font-weight:600;">Para sair, clique em 🔴 Saída</div></div>';
   } else {
     statusHtml='<div style="background:var(--gray);border-radius:14px;padding:16px;text-align:center;">'
@@ -1413,8 +1397,8 @@ function renderPonto(){
       : '<div style="width:34px;height:34px;border-radius:50%;background:rgba(30,132,73,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px;position:relative;">👷<span style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;background:var(--green);border-radius:50%;border:2px solid #fff;"></span></div>';
     return '<div class="hi" style="border-left:3px solid '+(temSaida?'var(--red)':'var(--green)')+'">'
       +icoHtml
-      +'<div class="hi-b"><div class="hi-t">'+(u?u.apelido:U.apelido)+' · '+(o?o.nome:'--')+'</div>'
-      +'<div class="hi-s">Entrada: '+(p.entrada_hora||'--')+(temSaida?' · Saída: '+p.saida_hora:'<span style="color:var(--green);font-weight:600"> · Em serviço</span>')+'</div>'
+      +'<div class="hi-b"><div class="hi-t">'+(u?u.apelido:U.apelido)+' · '+(o?o.nome:'—')+'</div>'
+      +'<div class="hi-s">Entrada: '+(p.entrada_hora||'—')+(temSaida?' · Saída: '+p.saida_hora:'<span style="color:var(--green);font-weight:600"> · Em serviço</span>')+'</div>'
       +(p.endereco?'<div class="hi-s">📍 '+p.endereco+'</div>':'')
 
       +'</div><div class="hi-r"><div class="hi-d">'+fmtD(p.data)+'</div>'
@@ -1540,8 +1524,8 @@ function renderPontoFiltro(){
       : '<div style="width:34px;height:34px;border-radius:50%;background:rgba(30,132,73,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px;position:relative;">👷<span style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;background:var(--green);border-radius:50%;border:2px solid #fff;"></span></div>';
     return '<div class="hi" style="border-left:3px solid '+(temSaida?'var(--red)':'var(--green)')+'">'
       +icoHtml
-      +'<div class="hi-b"><div class="hi-t">'+(u?u.apelido:'--')+' · '+(o?o.nome:'--')+'</div>'
-      +'<div class="hi-s">Entrada: '+(p.entrada_hora||'--')+(temSaida?' · Saída: '+p.saida_hora:'<span style="color:var(--green);font-weight:600"> · Em serviço</span>')+'</div>'
+      +'<div class="hi-b"><div class="hi-t">'+(u?u.apelido:'—')+' · '+(o?o.nome:'—')+'</div>'
+      +'<div class="hi-s">Entrada: '+(p.entrada_hora||'—')+(temSaida?' · Saída: '+p.saida_hora:'<span style="color:var(--green);font-weight:600"> · Em serviço</span>')+'</div>'
       +(p.endereco?'<div class="hi-s">📍 '+p.endereco+'</div>':'')
 
       +'</div><div class="hi-r"><div class="hi-d">'+fmtD(p.data)+'</div>'
@@ -1766,10 +1750,10 @@ function enviarParaSheets(conf, obraId, profId, apto, amb, obs){
   }
 
   var payload = {
-    obra:        o ? o.nome : '--',
-    funcionario: p ? p.apelido : '--',
-    apartamento: apto || conf.apartamento || '--',
-    ambiente:    amb || conf.ambiente || '--',
+    obra:        o ? o.nome : '—',
+    funcionario: p ? p.apelido : '—',
+    apartamento: apto || conf.apartamento || '—',
+    ambiente:    amb || conf.ambiente || '—',
     area_m2:     lanc ? (lanc.area_m2||0) : 0,
     meta_m2:     o ? (o.meta_m2||0) : 0,
     rate_m2:     p ? (p.rate_m2||35) : 35,
@@ -1824,7 +1808,7 @@ function renderDash(){
     +'<div class="stat"><div class="sv">'+totalM2.toFixed(0)+'m²</div><div class="sl">Produção</div></div>'
     +'<div class="stat"><div class="sv">'+obras.filter(function(o){return o.status==='ativa';}).length+'</div><div class="sl">Obras ativas</div></div></div>'
     +'<div class="stat2"><div class="stat"><div class="sv">'+fmtK(totalDesp)+'</div><div class="sl">Despesas</div></div>'
-    +'<div class="stat"><div class="sv">'+(lancs.length?fmtK(totalFat/lancs.length):'--')+'</div><div class="sl">Ticket médio</div></div></div>'
+    +'<div class="stat"><div class="sv">'+(lancs.length?fmtK(totalFat/lancs.length):'—')+'</div><div class="sl">Ticket médio</div></div></div>'
     +'<div class="card"><div class="card-t">💰 Faturamento por obra</div><div class="bar-wrap">'+(obrasBars||'<p style="font-size:12px;color:var(--sub)">Nenhum dado.</p>')+'</div></div>'
     +'<div class="card"><div class="card-t">👷 Produção por funcionário</div><div class="bar-wrap">'+(userBars||'<p style="font-size:12px;color:var(--sub)">Nenhum dado.</p>')+'</div></div>'
     +'</div>';
@@ -2087,7 +2071,7 @@ function renderObrasCfg(){
     return '<div class="o-card">'
       +'<div style="display:flex;justify-content:space-between;margin-bottom:6px">'
       +'<div><div style="font-size:14px;font-weight:700">'+o.nome+'</div>'
-      +'<div style="font-size:11px;color:var(--sub)">'+(o.cliente||'--')+' · '+(o.cidade||'--')+'</div>'
+      +'<div style="font-size:11px;color:var(--sub)">'+(o.cliente||'—')+' · '+(o.cidade||'—')+'</div>'
       +(o.endereco?'<div style="font-size:10px;color:var(--sub)">📍 '+o.endereco+'</div>':'')
       +(o.tipo?'<span class="chip chip-g" style="margin-top:4px">📋 '+o.tipo+'</span>':'')+'</div>'
       +'<span class="chip '+(o.status==='ativa'?'chip-ap':'chip-g')+'">'+(o.status==='ativa'?'Ativa':'Concluída')+'</span></div>'
@@ -2102,9 +2086,8 @@ function renderObrasCfg(){
   }).join('')||'<div class="empty"><p>Nenhuma obra.</p></div>';
 }
 
-// ── OBRA: andares/aptos/ambientes ──
-var _obraAndares = {}; // { obra_id: { andares:[{num, aptos:[{nome, ambientes:[{nome,m2}]}]}] } }
-var _editAptoRef = null; // { obra_id, andar_idx, apto_idx }
+var _obraAndares = {};
+var _editAptoRef = null;
 
 function showModalObra(id){
   editObraId=id;
@@ -2121,61 +2104,36 @@ function showModalObra(id){
     getEl('mo-contrato').value=o.contrato||'';
     getEl('mo-inicio').value=o.inicio||''; getEl('mo-entrega').value=o.entrega||'';
     getEl('mo-status').value=o.status||'ativa';
-    // Carregar estrutura salva
-    try { _obraAndares[id] = JSON.parse(o.estrutura||'null') || _obraAndares[id] || null; } catch(e){}
+    try{_obraAndares[id]=JSON.parse(o.estrutura||'null')||_obraAndares[id]||null;}catch(e){}
     gerarAndaresPreview();
   } else {
     getEl('mo-t').textContent='Nova obra';
     ['mo-nome','mo-tipo','mo-cliente','mo-cidade','mo-endereco','mo-andares','mo-aptos-andar','mo-num-inicio','mo-contrato','mo-inicio','mo-entrega'].forEach(function(f){var e=getEl(f);if(e)e.value='';});
     getEl('mo-status').value='ativa';
     getEl('andares-preview').innerHTML='';
-    if(editObraId) delete _obraAndares[editObraId];
   }
   getEl('modal-obra').classList.add('show');
 }
 
 function gerarAndaresPreview(){
-  var nAndares=parseInt(getEl('mo-andares').value)||0;
-  var nAptos=parseInt(getEl('mo-aptos-andar').value)||0;
-  var numIni=parseInt(getEl('mo-num-inicio').value)||101;
+  var nA=parseInt(getEl('mo-andares').value)||0;
+  var nP=parseInt(getEl('mo-aptos-andar').value)||0;
+  var nI=parseInt(getEl('mo-num-inicio').value)||101;
   var el=getEl('andares-preview'); if(!el) return;
-  if(!nAndares||!nAptos){el.innerHTML='';return;}
+  if(!nA||!nP){el.innerHTML='';return;}
   var oId=editObraId||'__novo__';
-  // Inicializar estrutura se não existir
-  if(!_obraAndares[oId]){
-    _obraAndares[oId]={andares:[]};
-  }
+  if(!_obraAndares[oId]) _obraAndares[oId]={andares:[]};
   var est=_obraAndares[oId];
-  // Expandir/contrair andares conforme qtd
-  while(est.andares.length<nAndares){
-    var andarNum=est.andares.length+1;
+  while(est.andares.length<nA){
+    var ai=est.andares.length;
     var aptos=[];
-    for(var a=0;a<nAptos;a++){
-      var nomeApto=String(numIni + est.andares.length*nAptos + a);
-      // Verificar se já existe
-      var jaExiste=false;
-      for(var x=0;x<est.andares.length;x++){
-        for(var y=0;y<(est.andares[x].aptos||[]).length;y++){
-          if(est.andares[x].aptos[y].nome===nomeApto){jaExiste=true;break;}
-        }
-        if(jaExiste) break;
-      }
-      aptos.push({nome:nomeApto, ambientes:[]});
-    }
-    est.andares.push({num:andarNum, aptos:aptos});
+    for(var p=0;p<nP;p++) aptos.push({nome:String(nI+ai*nP+p),ambientes:[]});
+    est.andares.push({num:ai+1,aptos:aptos});
   }
-  est.andares=est.andares.slice(0,nAndares);
-  // Atualizar nomes dos aptos conforme numIni
-  for(var ai=0;ai<est.andares.length;ai++){
-    while(est.andares[ai].aptos.length<nAptos){
-      var nApto=String(numIni+ai*nAptos+est.andares[ai].aptos.length);
-      est.andares[ai].aptos.push({nome:nApto,ambientes:[]});
-    }
-    est.andares[ai].aptos=est.andares[ai].aptos.slice(0,nAptos);
-    for(var pi=0;pi<est.andares[ai].aptos.length;pi++){
-      if(!est.andares[ai].aptos[pi].nome)
-        est.andares[ai].aptos[pi].nome=String(numIni+ai*nAptos+pi);
-    }
+  est.andares=est.andares.slice(0,nA);
+  for(var ai2=0;ai2<est.andares.length;ai2++){
+    while(est.andares[ai2].aptos.length<nP) est.andares[ai2].aptos.push({nome:String(nI+ai2*nP+est.andares[ai2].aptos.length),ambientes:[]});
+    est.andares[ai2].aptos=est.andares[ai2].aptos.slice(0,nP);
   }
   renderAndaresPreview(oId);
 }
@@ -2184,17 +2142,15 @@ function renderAndaresPreview(oId){
   var el=getEl('andares-preview'); if(!el) return;
   var est=_obraAndares[oId]; if(!est||!est.andares) return;
   el.innerHTML=est.andares.map(function(andar,ai){
-    var aptosHtml=andar.aptos.map(function(apto,pi){
-      var nAmb=apto.ambientes?apto.ambientes.length:0;
-      return '<div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:8px;padding:7px 10px;margin-bottom:5px;">'
-        +'<div><div style="font-size:13px;font-weight:700;">Apto '+apto.nome+'</div>'
-        +'<div style="font-size:10px;color:var(--sub);">'+(nAmb>0?nAmb+' ambiente(s) configurado(s)':'Sem ambientes')+'</div></div>'
-        +'<button type="button" onclick="abrirAmbientes(''+oId+'','+ai+','+pi+')" style="padding:6px 12px;border-radius:8px;border:1.5px solid var(--gold);background:transparent;color:var(--gold);font-size:11px;font-weight:700;cursor:pointer;">⚙️ Ambientes</button>'
-        +'</div>';
-    }).join('');
-    return '<div style="margin-bottom:10px;">'
-      +'<div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">'+andar.num+'º Andar</div>'
-      +aptosHtml+'</div>';
+    return '<div style="margin-bottom:10px;"><div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:6px;">'+andar.num+'o Andar</div>'
+      +andar.aptos.map(function(apto,pi){
+        var nAmb=apto.ambientes?apto.ambientes.length:0;
+        return '<div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:8px;padding:7px 10px;margin-bottom:5px;">'
+          +'<div><div style="font-size:13px;font-weight:700;">Apto '+apto.nome+'</div>'
+          +'<div style="font-size:10px;color:#888;">'+(nAmb?nAmb+' ambiente(s)':'Sem ambientes')+'</div></div>'
+          +'<button type="button" onclick="abrirAmbientes(\''+oId+'\','+ai+','+pi+')" style="padding:6px 12px;border-radius:8px;border:1.5px solid #B8860B;background:transparent;color:#B8860B;font-size:11px;font-weight:700;cursor:pointer;">Ambientes</button>'
+          +'</div>';
+      }).join('')+'</div>';
   }).join('');
 }
 
@@ -2203,9 +2159,7 @@ function abrirAmbientes(oId,ai,pi){
   var apto=_obraAndares[oId].andares[ai].aptos[pi];
   getEl('ma-apto-nome').textContent=apto.nome;
   var lista=getEl('ambientes-lista'); lista.innerHTML='';
-  (apto.ambientes||[]).forEach(function(amb){
-    adicionarLinhaAmb(amb.nome,amb.m2);
-  });
+  (apto.ambientes||[]).forEach(function(a){adicionarLinhaAmb(a.nome,a.m2);});
   getEl('modal-ambientes').classList.add('show');
 }
 
@@ -2213,15 +2167,13 @@ function adicionarLinhaAmb(nome,m2){
   var lista=getEl('ambientes-lista');
   var d=document.createElement('div');
   d.style.cssText='display:grid;grid-template-columns:1fr 90px 32px;gap:7px;align-items:center;';
-  d.innerHTML='<input class="inp" type="text" placeholder="Ex: WC 01, Suíte 1..." value="'+(nome||'')+'" style="margin:0">'
-    +'<input class="inp" type="number" placeholder="m²" value="'+(m2||'')+'" style="margin:0">'
-    +'<button type="button" class="btn-rem" onclick="this.parentElement.remove()">✕</button>';
+  d.innerHTML='<input class="inp" type="text" placeholder="Ex: WC 01, Suite..." value="'+(nome||'')+'" style="margin:0">'
+    +'<input class="inp" type="number" placeholder="m2" value="'+(m2||'')+'" style="margin:0">'
+    +'<button type="button" class="btn-rem" onclick="this.parentElement.remove()">X</button>';
   lista.appendChild(d);
 }
 
-function addAmbienteLinha(){
-  adicionarLinhaAmb('','');
-}
+function addAmbienteLinha(){adicionarLinhaAmb('','');}
 
 function salvarAmbientesApto(){
   if(!_editAptoRef) return;
@@ -2237,37 +2189,35 @@ function salvarAmbientesApto(){
   _obraAndares[ref.oId].andares[ref.ai].aptos[ref.pi].ambientes=ambientes;
   closeModal('ambientes');
   renderAndaresPreview(ref.oId);
-  toast('✅ Ambientes salvos!');
+  toast('Ambientes salvos!');
 }
 
 function salvarObra(){
-  var nome=val('mo-nome'); if(!nome){toast('⚠️ Informe o nome.');return;}
-  var nAndares=parseInt(getEl('mo-andares').value)||0;
-  var nAptos=parseInt(getEl('mo-aptos-andar').value)||0;
-  var numIni=parseInt(getEl('mo-num-inicio').value)||101;
+  var nome=val('mo-nome'); if(!nome){toast('Informe o nome.');return;}
+  var nA=parseInt(getEl('mo-andares').value)||0;
+  var nP=parseInt(getEl('mo-aptos-andar').value)||0;
+  var nI=parseInt(getEl('mo-num-inicio').value)||101;
   var oId=editObraId||'__novo__';
   var estrutura=_obraAndares[oId]?JSON.stringify(_obraAndares[oId]):null;
   var obj={nome:nome,tipo:val('mo-tipo'),cliente:val('mo-cliente'),cidade:val('mo-cidade'),endereco:val('mo-endereco'),
-    andares:nAndares, aptos_andar:nAptos, num_inicio:numIni,
+    andares:nA,aptos_andar:nP,num_inicio:nI,
     contrato:parseFloat(getEl('mo-contrato').value)||0,
     inicio:getEl('mo-inicio').value||null,entrega:getEl('mo-entrega').value||null,
-    status:getEl('mo-status').value, estrutura:estrutura};
+    status:getEl('mo-status').value,estrutura:estrutura};
   if(editObraId){
     dbUpdate('obras',editObraId,obj).then(function(ok){
       if(ok){
         for(var i=0;i<obras.length;i++) if(obras[i].id===editObraId){Object.assign(obras[i],obj);break;}
-        // Atualizar chave na estrutura
-        if(_obraAndares['__novo__']) { _obraAndares[editObraId]=_obraAndares['__novo__']; delete _obraAndares['__novo__']; }
-        toast('🏗️ Atualizada!');closeModal('obra');renderObrasCfg();renderLancar();
+        if(_obraAndares['__novo__']){_obraAndares[editObraId]=_obraAndares['__novo__'];delete _obraAndares['__novo__'];}
+        toast('Obra atualizada!');closeModal('obra');renderObrasCfg();renderLancar();
       }
     });
   } else {
     dbInsert('obras',obj).then(function(r){
       if(r){
         obras=obras.concat([r]);
-        // Migrar estrutura do __novo__ para o id real
-        if(_obraAndares['__novo__']){ _obraAndares[r.id]=_obraAndares['__novo__']; delete _obraAndares['__novo__']; }
-        toast('🏗️ Cadastrada!');closeModal('obra');renderObrasCfg();renderLancar();
+        if(_obraAndares['__novo__']){_obraAndares[r.id]=_obraAndares['__novo__'];delete _obraAndares['__novo__'];}
+        toast('Obra cadastrada!');closeModal('obra');renderObrasCfg();renderLancar();
       }
     });
   }
@@ -2458,7 +2408,7 @@ function renderClienteObra(){
     +'<div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px;">'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
     +'<div style="background:var(--gray);border-radius:12px;padding:11px;text-align:center;"><div style="font-size:17px;font-weight:700;color:#1a3a5c;">'+m2Conf.toFixed(0)+'m²</div><div style="font-size:10px;color:var(--sub)">M² concluídos</div></div>'
-    +'<div style="background:var(--gray);border-radius:12px;padding:11px;text-align:center;"><div style="font-size:17px;font-weight:700;color:#1a3a5c;">'+(m2Total>0?m2Total+'m²':'--')+'</div><div style="font-size:10px;color:var(--sub)">M² total</div></div>'
+    +'<div style="background:var(--gray);border-radius:12px;padding:11px;text-align:center;"><div style="font-size:17px;font-weight:700;color:#1a3a5c;">'+(m2Total>0?m2Total+'m²':'—')+'</div><div style="font-size:10px;color:var(--sub)">M² total</div></div>'
     +'<div style="background:var(--gray);border-radius:12px;padding:11px;text-align:center;"><div style="font-size:17px;font-weight:700;color:var(--green);">'+oConfs.length+'</div><div style="font-size:10px;color:var(--sub)">Aprovados</div></div>'
     +'<div style="background:var(--gray);border-radius:12px;padding:11px;text-align:center;"><div style="font-size:17px;font-weight:700;color:var(--red);">'+pend+'</div><div style="font-size:10px;color:var(--sub)">Pendentes</div></div>'
     +'</div>'
@@ -2513,7 +2463,7 @@ function renderClienteConf(){
     var cor=c.status==='aprovado'?'var(--green)':c.status==='incompleto'?'#BA7517':'var(--red)';
     return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">'
       +'<span style="font-size:16px;">'+ico+'</span>'
-      +'<div style="flex:1"><div style="font-size:12px;font-weight:600">'+(u?u.apelido:'--')+' · Apto '+(c.apartamento||'--')+' · '+(c.ambiente||'--')+'</div>'
+      +'<div style="flex:1"><div style="font-size:12px;font-weight:600">'+(u?u.apelido:'—')+' · Apto '+(c.apartamento||'—')+' · '+(c.ambiente||'—')+'</div>'
       +'<div style="font-size:11px;color:var(--sub)">'+fmtD(c.data)+(l?' · '+l.area_m2+'m²':'')+'</div></div>'
       +'<span style="font-size:9px;padding:2px 7px;border-radius:20px;background:rgba(0,0,0,.05);color:'+cor+';font-weight:700;">'+c.status+'</span></div>';
   }).join('');
@@ -2536,7 +2486,7 @@ function renderClienteMat(){
     return itens.map(function(it){
       return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">'
         +'<div><div style="font-size:12px;font-weight:600">'+it.nome+'</div>'
-        +'<div style="font-size:11px;color:var(--sub)">Apto '+(m.apartamento||'--')+' · '+(u?u.apelido:'--')+' · '+fmtD(m.data)+'</div></div>'
+        +'<div style="font-size:11px;color:var(--sub)">Apto '+(m.apartamento||'—')+' · '+(u?u.apelido:'—')+' · '+fmtD(m.data)+'</div></div>'
         +'<div style="font-size:12px;font-weight:700;color:#1a3a5c;">'+it.qty+'</div></div>';
     }).join('');
   }).join('');
@@ -2623,8 +2573,8 @@ function renderMeuMat(){
     return '<div class="hi" style="flex-direction:column;align-items:flex-start;gap:6px;">'
       +'<div style="display:flex;width:100%;align-items:center;gap:8px;">'
       +'<div class="hi-ico">📦</div>'
-      +'<div style="flex:1"><div class="hi-t">Apto '+(m.apartamento||'--')+'</div>'
-      +'<div class="hi-s">'+(o?o.nome:'--')+' · '+fmtD(m.data)+(m.hora?' · '+m.hora:'')+'</div></div></div>'
+      +'<div style="flex:1"><div class="hi-t">Apto '+(m.apartamento||'—')+'</div>'
+      +'<div class="hi-s">'+(o?o.nome:'—')+' · '+fmtD(m.data)+(m.hora?' · '+m.hora:'')+'</div></div></div>'
       +'<div style="width:100%;padding-left:42px;display:flex;flex-direction:column;gap:4px;">'
       +itens.map(function(it){
         return '<div style="display:flex;justify-content:space-between;background:#fff;border-radius:8px;padding:6px 10px;">'
@@ -2696,10 +2646,10 @@ function gerarRelPonto(){
         status='Falta';cor='var(--red)';bg='rgba(192,57,43,.08)';ico='❌';
       } else if(temEntrada&&!temSaida){
         presencas++;
-        status='Entrada: '+(temEntrada.entrada_hora||'--')+' · Sem saída';cor='#BA7517';bg='rgba(184,134,11,.08)';ico='⚠️';
+        status='Entrada: '+(temEntrada.entrada_hora||'—')+' · Sem saída';cor='#BA7517';bg='rgba(184,134,11,.08)';ico='⚠️';
       } else {
         presencas++;
-        status='Entrada: '+(temEntrada.entrada_hora||'--')+' · Saída: '+(temSaida.saida_hora||'--');
+        status='Entrada: '+(temEntrada.entrada_hora||'—')+' · Saída: '+(temSaida.saida_hora||'—');
         cor='var(--green)';bg='rgba(30,132,73,.06)';ico='✅';
       }
       // Format date nicely
