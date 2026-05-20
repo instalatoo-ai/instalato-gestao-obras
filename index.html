@@ -34,8 +34,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .tb-logo{font-size:13px;font-weight:800;color:#fff;letter-spacing:1px;}
 .tb-info{font-size:10px;color:rgba(255,255,255,.75);margin-top:1px;}
 .tb-cfg{background:rgba(255,255,255,.2);border:none;color:#fff;font-size:11px;padding:5px 10px;border-radius:20px;cursor:pointer;font-weight:600;display:none;}
-.nav{display:flex;background:#fff;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:scroll;-webkit-overflow-scrolling:touch;scrollbar-width:none;ms-overflow-style:none;}
+.nav-wrap{position:relative;background:#fff;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:stretch;}
+.nav{display:flex;flex:1;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;scroll-behavior:smooth;}
 .nav::-webkit-scrollbar{display:none;}
+.nav-arr{width:28px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;color:var(--sub);background:#fff;border:none;padding:0;z-index:2;}
+.nav-arr:active{background:var(--lg);}
+.nav::-webkit-scrollbar{height:3px;}.nav::-webkit-scrollbar-track{background:var(--lg);}.nav::-webkit-scrollbar-thumb{background:var(--gold);border-radius:3px;}
 .ntab{flex-shrink:0;width:58px;padding:8px 1px 6px;text-align:center;font-size:7px;font-weight:700;color:var(--sub);cursor:pointer;border-bottom:2.5px solid transparent;display:flex;flex-direction:column;align-items:center;gap:2px;}
 .ntab .ni{font-size:16px;}
 .ntab.on{color:var(--gold);border-bottom-color:var(--gold);}
@@ -263,7 +267,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
     <button class="tb-cfg" id="btn-cfg" type="button">⚙️ Config</button>
   </div>
-  <div class="nav" id="nav"></div>
+  <div class="nav-wrap">
+    <button class="nav-arr" id="nav-left" onclick="document.getElementById('nav').scrollBy({left:-120,behavior:'smooth'})">&#8249;</button>
+    <div class="nav" id="nav"></div>
+    <button class="nav-arr" id="nav-right" onclick="document.getElementById('nav').scrollBy({left:120,behavior:'smooth'})">&#8250;</button>
+  </div>
   <div id="tabs"></div>
 </div>
 
@@ -1139,10 +1147,11 @@ function renderConf() {
     var icone=c.status==='aprovado'?'✅':c.status==='incompleto'?'⚠️':'❌';
     var cor=c.status==='aprovado'?'var(--green)':c.status==='incompleto'?'#BA7517':'var(--red)';
     return '<div class="hi" style="border-left:3px solid '+cor+'"><div class="hi-ico">'+icone+'</div>'
-      +'<div class="hi-b"><div class="hi-t">'+(p?p.apelido:'—')+' · Apto '+(c.apartamento||'—')+'</div>'
-      +'<div class="hi-s">'+(o?o.nome:'—')+' · '+(c.ambiente||'—')+'</div>'
+      +'<div class="hi-b"><div class="hi-t">'+(p?p.apelido:'--')+' · Apto '+(c.apartamento||'--')+'</div>'
+      +'<div class="hi-s">'+(o?o.nome:'--')+' · '+(c.ambiente||'--')+'</div>'
       +'<div class="hi-s" style="color:'+cor+';font-weight:600">'+c.status+'</div>'
       +(c.observacao?'<div class="hi-s" style="font-style:italic">"'+c.observacao+'"</div>':'')
+      +'<button type="button" onclick="editarConf(''+c.id+'')" style="margin-top:6px;font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;font-weight:700;">✏️ Alterar conferência</button>'
       +'</div><div class="hi-r"><div class="hi-d">'+fmtD(c.data)+'</div><div class="hi-d">'+(c.hora||'')+'</div></div></div>';
   }).join('');
   el.innerHTML='<div class="hero" style="background:var(--dark)"><p>Avaliação de serviço</p><h2>Conferência</h2></div>'
@@ -1159,6 +1168,75 @@ function renderConf() {
     +(confs.length?'<div><div class="fl">Histórico</div>'+hist+'</div>':'')
     +'</div>';
   chkState={};
+}
+
+function editarConf(confId){
+  var c=null; for(var i=0;i<confs.length;i++) if(confs[i].id===confId){c=confs[i];break;}
+  if(!c) return;
+
+  // Preencher campos com dados da conferencia existente
+  getEl('c-obra').value=c.obra_id||'';
+  getEl('c-prof').value=c.profissional_id||'';
+  getEl('c-apto').value=c.apartamento||'';
+  getEl('c-amb').value=c.ambiente||'';
+  getEl('c-lanc-id').value=c.lancamento_id||'';
+
+  // Mostrar info da conferencia sendo editada
+  var p=null; for(var i=0;i<users.length;i++) if(users[i].id===c.profissional_id){p=users[i];break;}
+  var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===c.obra_id){o=obras[i];break;}
+  var infoEl=getEl('conf-selecionado'); var txtEl=getEl('conf-info-txt');
+  if(infoEl) infoEl.style.display='block';
+  if(txtEl) txtEl.textContent='Editando: '+(p?p.apelido:'?')+' · Apto '+(c.apartamento||'?')+' · '+(c.ambiente||'?');
+
+  // Selecionar status atual
+  confSt=c.status||'aprovado';
+  ['ap','in','rp'].forEach(function(s){
+    var b=getEl('st-'+s); if(b) b.classList.remove('on');
+  });
+  var map={aprovado:'ap',incompleto:'in',reprovado:'rp'};
+  var btn=getEl('st-'+(map[confSt]||'ap')); if(btn) btn.classList.add('on');
+
+  // Restaurar checklist
+  try{ chkState=JSON.parse(c.checklist||'{}'); }catch(e){ chkState={}; }
+  checks.forEach(function(ck,i){
+    var v=chkState[i];
+    var ba=getEl('ca-'+i), br=getEl('cr-'+i);
+    if(ba) ba.classList.toggle('on',v==='ap');
+    if(br) br.classList.toggle('on',v==='rp');
+  });
+
+  // Restaurar observacao
+  var obs=getEl('c-obs'); if(obs) obs.value=c.observacao||'';
+
+  // Mudar botao para salvar alteracao
+  var btn2=getEl('btn-conf');
+  if(btn2){
+    btn2.disabled=false; btn2.style.opacity='1'; btn2.style.cursor='pointer';
+    btn2.textContent='💾 Salvar alteração';
+    btn2.onclick=function(){ salvarEdicaoConf(confId); };
+  }
+
+  // Scroll para o topo do formulario
+  var el=getEl('t-conf'); if(el) el.scrollTop=0;
+  toast('Conferência carregada para edição');
+}
+
+function salvarEdicaoConf(confId){
+  if(!confSt){toast('Selecione o resultado.');return;}
+  var obs=(getEl('c-obs')?getEl('c-obs').value:'').trim();
+  var obj={status:confSt,checklist:JSON.stringify(chkState),observacao:obs,data:hoje(),hora:horaAgora()};
+  dbUpdate('conferencias',confId,obj).then(function(ok){
+    if(ok){
+      for(var i=0;i<confs.length;i++) if(confs[i].id===confId){Object.assign(confs[i],obj);break;}
+      toast('✅ Conferência alterada!');
+      // Resetar botao
+      var btn=getEl('btn-conf');
+      if(btn){btn.disabled=true;btn.style.opacity='0.5';btn.style.cursor='not-allowed';btn.textContent='📋 Selecione um lançamento acima';btn.onclick=salvarConf;}
+      var infoEl=getEl('conf-selecionado');if(infoEl)infoEl.style.display='none';
+      confSt=''; chkState={};
+      renderConf();
+    }
+  });
 }
 
 function preencherConf(lancId,obraId,profId,apto,amb) {
