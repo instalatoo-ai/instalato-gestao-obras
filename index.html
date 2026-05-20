@@ -36,7 +36,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .tb-cfg{background:rgba(255,255,255,.2);border:none;color:#fff;font-size:11px;padding:5px 10px;border-radius:20px;cursor:pointer;font-weight:600;display:none;}
 .nav{display:flex;background:#fff;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;}
 .nav::-webkit-scrollbar{display:none;}
-.ntab{flex:1;min-width:54px;padding:8px 3px 6px;text-align:center;font-size:8px;font-weight:700;color:var(--sub);cursor:pointer;border-bottom:2.5px solid transparent;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.ntab{flex:0 0 auto;min-width:60px;max-width:72px;padding:8px 6px 6px;text-align:center;font-size:8px;font-weight:700;color:var(--sub);cursor:pointer;border-bottom:2.5px solid transparent;display:flex;flex-direction:column;align-items:center;gap:2px;}
 .ntab .ni{font-size:17px;}
 .ntab.on{color:var(--gold);border-bottom-color:var(--gold);}
 #tabs{flex:1;overflow:hidden;position:relative;}
@@ -736,9 +736,6 @@ function buildNav() {
   tc.style.cssText = 'flex:1;overflow:hidden;position:relative;';
   var T = U.tipo;
   var tabs = [];
-  if(T==='admin'||T==='lider') tabs.push({id:'lancar',i:'➕',l:'Lançar'});
-  tabs.push({id:'meu',i:'📊',l:'Meu Resultado'});
-  if(T==='admin'||T==='lider') tabs.push({id:'hist',i:'📋',l:'Histórico'});
   if(T==='admin'||T==='lider'||T==='lider_chefe') tabs.push({id:'lancar',i:'➕',l:'Lançar'});
   tabs.push({id:'meu',i:'📊',l:'Meu Resultado'});
   if(T==='admin'||T==='lider'||T==='lider_chefe') tabs.push({id:'hist',i:'📋',l:'Histórico'});
@@ -2395,13 +2392,16 @@ function renderAndaresPreview(oId){
         return '<div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:8px;padding:7px 10px;margin-bottom:5px;">'
           +'<div><div style="font-size:13px;font-weight:700;">Apto '+apto.nome+'</div>'
           +'<div style="font-size:10px;color:#888;">'+(nAmb?nAmb+' ambiente(s)':'Sem ambientes')+'</div></div>'
-          +'<button type=\"button\" onclick=\"abrirAmbientes(\\''+oId+'\\','+ai+','+pi+')\" style="padding:6px 12px;border-radius:8px;border:1.5px solid #B8860B;background:transparent;color:#B8860B;font-size:11px;font-weight:700;cursor:pointer;">Ambientes</button>'
+          +'<button type="button" onclick="abrirAmbientes(this)" data-oid="'+oId+'" data-ai="'+ai+'" data-pi="'+pi+'" style="padding:6px 12px;border-radius:8px;border:1.5px solid #B8860B;background:transparent;color:#B8860B;font-size:11px;font-weight:700;cursor:pointer;">Ambientes</button>'
           +'</div>';
       }).join('')+'</div>';
   }).join('');
 }
 
-function abrirAmbientes(oId,ai,pi){
+function abrirAmbientes(el){
+  var oId=el.getAttribute('data-oid');
+  var ai=parseInt(el.getAttribute('data-ai'));
+  var pi=parseInt(el.getAttribute('data-pi'));
   _editAptoRef={oId:oId,ai:ai,pi:pi};
   var apto=_obraAndares[oId].andares[ai].aptos[pi];
   getEl('ma-apto-nome').textContent=apto.nome;
