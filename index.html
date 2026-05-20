@@ -633,7 +633,7 @@ var VERSES = [
   var v = VERSES[Math.floor(Math.random() * VERSES.length)];
   var vt = getEl('vt'); var vr = getEl('vr');
   if(vt) vt.textContent = v.t;
-  if(vr) vr.textContent = '— ' + v.r;
+  if(vr) vr.textContent = '-- ' + v.r;
 })();
 
 // LOGIN
@@ -821,14 +821,14 @@ function renderLancar() {
     +'<div style="margin:12px 16px 0;padding:12px 14px;background:var(--lg);border-radius:12px;border-left:3px solid var(--gold);">'
     +'<div style="font-size:9px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">✨ Palavra do dia</div>'
     +'<div style="font-size:12px;color:#5a3e00;line-height:1.6;font-style:italic;">'+bv.t+'</div>'
-    +'<div style="font-size:10px;color:var(--gold);margin-top:4px;font-weight:600;">— '+bv.r+'</div></div>'
+    +'<div style="font-size:10px;color:var(--gold);margin-top:4px;font-weight:600;">-- '+bv.r+'</div></div>'
     +'<div class="pad">'
     +'<div class="meta-card"><div class="meta-top"><span class="meta-v">'+fmtK(total)+' / '+fmtK(meta)+'</span><span class="meta-p">'+pct+'%</span></div>'
     +'<div class="prog"><div class="prog-f" style="width:'+pct+'%"></div></div>'
     +'<div class="meta-msg '+mc+'">'+mt+'</div>'
     +'<div style="display:flex;gap:8px;margin-top:9px;"><input class="inp" type="number" id="l-meta" placeholder="Definir meta (R$)" style="margin:0">'
     +'<button class="btn-gold" type="button" style="width:auto;padding:11px 14px;font-size:13px;" onclick="definirMeta()">Definir</button></div></div>'
-    +'<div><div class="fl">Obra</div><select class="sel" id="l-obra" onchange="obraChanged()"><option value="">— Selecione —</option>'+oOpts+'</select>'
+    +'<div><div class="fl">Obra</div><select class="sel" id="l-obra" onchange="obraChanged()"><option value="">-- Selecione --</option>'+oOpts+'</select>'
     +'<div id="obra-inf" style="display:none;background:rgba(184,134,11,.08);border-radius:10px;padding:8px 12px;font-size:11px;color:#854F0B;margin-top:6px;"></div></div>'
     +'<div><div class="fl">Funcionário</div><select class="sel" id="l-func"><option value="">Selecione</option>'+fOpts+'</select></div>'
     +'<div><div class="fl">Apartamento</div><select class="sel" id="l-apto-sel"><option value="">Selecione a obra primeiro</option></select></div>'
@@ -912,7 +912,7 @@ function aptoChanged(oId,aptoNome){
   var am=getEl('l-amb'); if(!am) return;
   var est=_obraAndares[oId]; if(!est) return;
   var ambientes=[];
-  est.andares.forEach(function(andar){andar.aptos.forEach(function(apto){if(apto.nome===aptoNome)ambientes=apto.ambientes||[];});});
+  est.andares.forEach(function(andar){andar.aptos.forEach(function(apto){if(apto.nome===aptoNome)ambientes=apto.ambientes||[];});}););
   if(!ambientes.length){am.innerHTML='<option value="">Nenhum ambiente cadastrado</option>';return;}
   am.innerHTML='<option value="">Selecione</option>'+ambientes.map(function(a){
     return '<option value="'+a.nome+'" data-m2="'+a.m2+'">'+a.nome+(a.m2?' ('+a.m2+'m2)':'')+'</option>';
@@ -1040,8 +1040,8 @@ function renderMeu() {
   var bonMedia=meus.length?Math.round(meus.reduce(function(s,l){return s+(l.bonus_pct||0);},0)/meus.length):0;
   var hist=meus.slice(0,5).map(function(l){
     var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===l.obra_id){o=obras[i];break;}
-    return '<div class="hi"><div class="hi-ico">🪵</div><div class="hi-b"><div class="hi-t">'+(l.ambiente||'—')+' · Apto '+(l.apartamento||'—')+'</div>'
-      +'<div class="hi-s">'+(o?o.nome:'—')+' · '+l.area_m2+'m²</div></div>'
+    return '<div class="hi"><div class="hi-ico">🪵</div><div class="hi-b"><div class="hi-t">'+(l.ambiente||'--')+' · Apto '+(l.apartamento||'--')+'</div>'
+      +'<div class="hi-s">'+(o?o.nome:'--')+' · '+l.area_m2+'m²</div></div>'
       +'<div class="hi-r"><div class="hi-v">'+fmt(l.total)+'</div><div class="hi-d">'+fmtD(l.data)+'</div></div></div>';
   }).join('');
   el.innerHTML='<div class="hero" style="background:var(--gold)"><p>Visualização · somente leitura</p><h2>Meu resultado</h2></div>'
@@ -1053,7 +1053,7 @@ function renderMeu() {
     +'<div class="card"><div class="prog-lbl"><span>Meta mensal</span><span style="color:var(--gold);font-weight:700">'+pct+'%</span></div>'
     +'<div class="prog"><div class="prog-f" style="width:'+pct+'%"></div></div></div>'
     +(hist?'<div><div class="fl">Últimos lançamentos</div>'+hist+'</div>':'<div class="empty"><p>Nenhum lançamento ainda.</p></div>')
-    +'<div class="info-box">👁 Apenas visualização — lançamentos realizados pelo líder ou admin.</div></div>';
+    +'<div class="info-box">👁 Apenas visualização -- lançamentos realizados pelo líder ou admin.</div></div>';
 }
 
 // ── HISTÓRICO ──
@@ -1087,8 +1087,8 @@ function renderHistFiltro() {
     var u=null; for(var i=0;i<users.length;i++) if(users[i].id===l.usuario_id){u=users[i];break;}
     var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===l.obra_id){o=obras[i];break;}
     return '<div class="hi"><div class="hi-ico">🪵</div><div class="hi-b">'
-      +'<div class="hi-t">'+(u?u.apelido:'—')+' · '+(l.ambiente||'—')+' · Apto '+(l.apartamento||'—')+'</div>'
-      +'<div class="hi-s">'+(o?o.nome:'—')+' · '+l.area_m2+'m² · bônus '+l.bonus_pct+'%</div></div>'
+      +'<div class="hi-t">'+(u?u.apelido:'--')+' · '+(l.ambiente||'--')+' · Apto '+(l.apartamento||'--')+'</div>'
+      +'<div class="hi-s">'+(o?o.nome:'--')+' · '+l.area_m2+'m² · bônus '+l.bonus_pct+'%</div></div>'
       +'<div class="hi-r"><div class="hi-v">'+fmt(l.total)+'</div><div class="hi-d">'+fmtD(l.data)+'</div></div></div>';
   }).join('') || '<div class="empty"><p>Nenhum registro encontrado.</p></div>';
 }
@@ -1125,8 +1125,8 @@ function renderConf() {
       var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===l.obra_id){o=obras[i];break;}
       pendHtml+='<div class="pend-item" onclick="preencherConf(\''+l.id+'\',\''+l.obra_id+'\',\''+l.usuario_id+'\',\''+l.apartamento+'\',\''+l.ambiente+'\')">'
         +'<div style="display:flex;justify-content:space-between"><div>'
-        +'<div style="font-size:13px;font-weight:700">'+(u?u.apelido:'—')+' · Apto '+(l.apartamento||'—')+'</div>'
-        +'<div style="font-size:11px;color:var(--sub)">'+(o?o.nome:'—')+' · '+(l.ambiente||'—')+' · '+l.area_m2+'m²</div>'
+        +'<div style="font-size:13px;font-weight:700">'+(u?u.apelido:'--')+' · Apto '+(l.apartamento||'--')+'</div>'
+        +'<div style="font-size:11px;color:var(--sub)">'+(o?o.nome:'--')+' · '+(l.ambiente||'--')+' · '+l.area_m2+'m²</div>'
         +'<div style="font-size:10px;color:var(--sub)">'+fmtD(l.data)+(l.hora?' · '+l.hora:'')+'</div></div>'
         +'<div style="text-align:right"><div style="font-size:13px;font-weight:700;color:var(--gold)">'+fmt(l.total)+'</div>'
         +'<div style="font-size:10px;background:var(--lg);color:var(--gold);padding:2px 7px;border-radius:20px;margin-top:3px">Conferir →</div></div></div></div>';
@@ -1246,7 +1246,7 @@ function preencherConf(lancId,obraId,profId,apto,amb) {
   var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===obraId){o=obras[i];break;}
   var cs=getEl('conf-selecionado'); var ct=getEl('conf-info-txt');
   if(cs) cs.style.display='block';
-  if(ct) ct.textContent=(u?u.apelido:'—')+' · Apto '+(apto||'—')+' · '+(amb||'—')+' · '+(o?o.nome:'—');
+  if(ct) ct.textContent=(u?u.apelido:'--')+' · Apto '+(apto||'--')+' · '+(amb||'--')+' · '+(o?o.nome:'--');
   var btn=getEl('btn-conf');
   if(btn){btn.disabled=false;btn.style.opacity='1';btn.style.cursor='pointer';btn.textContent='📋 Salvar conferência';}
   for(var i=0;i<7;i++){var a=getEl('ca-'+i);var r=getEl('cr-'+i);if(a)a.classList.remove('on');if(r)r.classList.remove('on');}
@@ -1303,8 +1303,8 @@ function renderMat(){
     var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===m.obra_id){o=obras[i];break;}
     var itens=[]; try{itens=JSON.parse(m.itens||'[]');}catch(e){}
     return '<div class="hi"><div class="hi-ico">📦</div><div class="hi-b">'
-      +'<div class="hi-t">Apto '+(m.apartamento||'—')+'</div>'
-      +'<div class="hi-s">'+(u?u.apelido:'—')+' · '+(o?o.nome:'—')+' · '+itens.length+' item(s)</div>'
+      +'<div class="hi-t">Apto '+(m.apartamento||'--')+'</div>'
+      +'<div class="hi-s">'+(u?u.apelido:'--')+' · '+(o?o.nome:'--')+' · '+itens.length+' item(s)</div>'
       +itens.slice(0,2).map(function(i){return '<div class="hi-s">'+i.nome+': '+i.qty+'</div>';}).join('')
       +'</div><div class="hi-r"><div class="hi-d">'+fmtD(m.data)+'</div><div class="hi-d">'+(m.hora||'')+'</div></div></div>';
   }).join('');
@@ -1335,8 +1335,8 @@ function renderMatFiltro(){
     var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===m.obra_id){o=obras[i];break;}
     var itens=[]; try{itens=JSON.parse(m.itens||'[]');}catch(e){}
     return '<div class="hi"><div class="hi-ico">📦</div><div class="hi-b">'
-      +'<div class="hi-t">Apto '+(m.apartamento||'—')+'</div>'
-      +'<div class="hi-s">'+(u?u.apelido:'—')+' · '+(o?o.nome:'—')+'</div>'
+      +'<div class="hi-t">Apto '+(m.apartamento||'--')+'</div>'
+      +'<div class="hi-s">'+(u?u.apelido:'--')+' · '+(o?o.nome:'--')+'</div>'
       +itens.slice(0,2).map(function(i){return '<div class="hi-s">'+i.nome+': '+i.qty+'</div>';}).join('')
       +'</div><div class="hi-r"><div class="hi-d">'+fmtD(m.data)+'</div></div></div>';
   }).join('')||'<div class="empty"><p>Nenhum resultado.</p></div>';
@@ -1359,7 +1359,7 @@ function salvarMat(){
   document.querySelectorAll('#mat-wrap .mat-line').forEach(function(l){
     var ins=l.querySelectorAll('input');
     var nome=ins[0]?ins[0].value.trim():''; var qty=ins[1]?ins[1].value.trim():'';
-    if(nome) itens.push({nome:nome,qty:qty||'—'});
+    if(nome) itens.push({nome:nome,qty:qty||'--'});
   });
   if(!itens.length){toast('⚠️ Adicione pelo menos um material.');return;}
   dbInsert('materiais_lanc',{obra_id:oId||null,usuario_id:U.id,colaborador_id:cId,apartamento:apto,itens:JSON.stringify(itens),data:hoje(),hora:horaAgora()})
@@ -1379,7 +1379,7 @@ function renderOcorr(){
     var tObj=null; for(var i=0;i<tipos.length;i++) if(tipos[i].k===oc.tipo){tObj=tipos[i];break;}
     return '<div class="hi" style="border-left:3px solid var(--red)">'
       +'<div class="hi-ico">'+(tObj?tObj.i:'⚠️')+'</div>'
-      +'<div class="hi-b"><div class="hi-t">'+(u?u.apelido:'—')+' · '+(tObj?tObj.l:oc.tipo||'—')+'</div>'
+      +'<div class="hi-b"><div class="hi-t">'+(u?u.apelido:'--')+' · '+(tObj?tObj.l:oc.tipo||'--')+'</div>'
       +'<div class="hi-s">'+(o?o.nome:'Sem obra')+'</div>'
       +(oc.observacao?'<div class="hi-s" style="font-style:italic">"'+oc.observacao+'"</div>':'')+'</div>'
       +'<div class="hi-r"><div class="hi-d">'+fmtD(oc.data)+'</div><div class="hi-d">'+(oc.hora||'')+'</div>'
@@ -1413,7 +1413,7 @@ function renderOcorrFiltro(){
     var tObj=null; for(var i=0;i<tipos.length;i++) if(tipos[i].k===oc.tipo){tObj=tipos[i];break;}
     return '<div class="hi" style="border-left:3px solid var(--red)">'
       +'<div class="hi-ico">'+(tObj?tObj.i:'⚠️')+'</div>'
-      +'<div class="hi-b"><div class="hi-t">'+(u?u.apelido:'—')+' · '+(tObj?tObj.l:oc.tipo||'—')+'</div>'
+      +'<div class="hi-b"><div class="hi-t">'+(u?u.apelido:'--')+' · '+(tObj?tObj.l:oc.tipo||'--')+'</div>'
       +'<div class="hi-s">'+(o?o.nome:'Sem obra')+'</div>'
       +(oc.observacao?'<div class="hi-s" style="font-style:italic">"'+oc.observacao+'"</div>':'')+'</div>'
       +'<div class="hi-r"><div class="hi-d">'+fmtD(oc.data)+'</div></div></div>';
@@ -1460,7 +1460,7 @@ function renderPonto(){
     statusHtml='<div style="background:rgba(30,132,73,.1);border-radius:14px;padding:16px;text-align:center;border:2px solid var(--green);">'
       +'<div style="font-size:32px;margin-bottom:6px;">🟢</div>'
       +'<div style="font-size:15px;font-weight:700;color:var(--green)">Em serviço</div>'
-      +'<div style="font-size:12px;color:var(--sub);margin-top:4px">Entrada: '+(entradaAtiva.entrada_hora||'—')+(obraAtiva?' · '+obraAtiva.nome:'')+'</div>'
+      +'<div style="font-size:12px;color:var(--sub);margin-top:4px">Entrada: '+(entradaAtiva.entrada_hora||'--')+(obraAtiva?' · '+obraAtiva.nome:'')+'</div>'
       +'<div style="font-size:11px;color:var(--green);margin-top:4px;font-weight:600;">Para sair, clique em 🔴 Saída</div></div>';
   } else {
     statusHtml='<div style="background:var(--gray);border-radius:14px;padding:16px;text-align:center;">'
@@ -1480,8 +1480,8 @@ function renderPonto(){
       : '<div style="width:34px;height:34px;border-radius:50%;background:rgba(30,132,73,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px;position:relative;">👷<span style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;background:var(--green);border-radius:50%;border:2px solid #fff;"></span></div>';
     return '<div class="hi" style="border-left:3px solid '+(temSaida?'var(--red)':'var(--green)')+'">'
       +icoHtml
-      +'<div class="hi-b"><div class="hi-t">'+(u?u.apelido:U.apelido)+' · '+(o?o.nome:'—')+'</div>'
-      +'<div class="hi-s">Entrada: '+(p.entrada_hora||'—')+(temSaida?' · Saída: '+p.saida_hora:'<span style="color:var(--green);font-weight:600"> · Em serviço</span>')+'</div>'
+      +'<div class="hi-b"><div class="hi-t">'+(u?u.apelido:U.apelido)+' · '+(o?o.nome:'--')+'</div>'
+      +'<div class="hi-s">Entrada: '+(p.entrada_hora||'--')+(temSaida?' · Saída: '+p.saida_hora:'<span style="color:var(--green);font-weight:600"> · Em serviço</span>')+'</div>'
       +(p.endereco?'<div class="hi-s">📍 '+p.endereco+'</div>':'')
 
       +'</div><div class="hi-r"><div class="hi-d">'+fmtD(p.data)+'</div>'
@@ -1504,7 +1504,7 @@ function renderPonto(){
     +'<div id="pt-obra-end" style="display:none;background:rgba(26,58,92,.08);border-radius:10px;padding:8px 12px;font-size:11px;color:#1a3a5c;margin-top:6px;"></div></div>'
     +(T==='admin'||T==='lider'
       ?'<div style="margin-top:10px"><div class="fl">Funcionário</div><select class="sel" id="pt-func"><option value="">Selecione</option>'+fOpts+'</select></div>'
-      :'<div style="background:rgba(26,58,92,.08);border-radius:10px;padding:10px 12px;margin-top:4px;font-size:13px;font-weight:600;color:#1a3a5c;">👤 '+U.apelido+' — ponto registrado para você</div>')
+      :'<div style="background:rgba(26,58,92,.08);border-radius:10px;padding:10px 12px;margin-top:4px;font-size:13px;font-weight:600;color:#1a3a5c;">👤 '+U.apelido+' -- ponto registrado para você</div>')
 
     +'<div style="margin-top:10px">'
     +'<div class="fl">Localização</div>'
@@ -1607,8 +1607,8 @@ function renderPontoFiltro(){
       : '<div style="width:34px;height:34px;border-radius:50%;background:rgba(30,132,73,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px;position:relative;">👷<span style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;background:var(--green);border-radius:50%;border:2px solid #fff;"></span></div>';
     return '<div class="hi" style="border-left:3px solid '+(temSaida?'var(--red)':'var(--green)')+'">'
       +icoHtml
-      +'<div class="hi-b"><div class="hi-t">'+(u?u.apelido:'—')+' · '+(o?o.nome:'—')+'</div>'
-      +'<div class="hi-s">Entrada: '+(p.entrada_hora||'—')+(temSaida?' · Saída: '+p.saida_hora:'<span style="color:var(--green);font-weight:600"> · Em serviço</span>')+'</div>'
+      +'<div class="hi-b"><div class="hi-t">'+(u?u.apelido:'--')+' · '+(o?o.nome:'--')+'</div>'
+      +'<div class="hi-s">Entrada: '+(p.entrada_hora||'--')+(temSaida?' · Saída: '+p.saida_hora:'<span style="color:var(--green);font-weight:600"> · Em serviço</span>')+'</div>'
       +(p.endereco?'<div class="hi-s">📍 '+p.endereco+'</div>':'')
 
       +'</div><div class="hi-r"><div class="hi-d">'+fmtD(p.data)+'</div>'
@@ -1631,7 +1631,7 @@ function registrarPonto(tipo){
   }
   if(!oId){toast('⚠️ Selecione a obra.');return;}
 
-  // Verificar duplicidade — buscar pontos de hoje do funcionário
+  // Verificar duplicidade -- buscar pontos de hoje do funcionário
   var hoje_str = hoje();
   var pontosHoje = pontos.filter(function(p){
     return p.usuario_id===fId && p.data===hoje_str;
@@ -1833,10 +1833,10 @@ function enviarParaSheets(conf, obraId, profId, apto, amb, obs){
   }
 
   var payload = {
-    obra:        o ? o.nome : '—',
-    funcionario: p ? p.apelido : '—',
-    apartamento: apto || conf.apartamento || '—',
-    ambiente:    amb || conf.ambiente || '—',
+    obra:        o ? o.nome : '--',
+    funcionario: p ? p.apelido : '--',
+    apartamento: apto || conf.apartamento || '--',
+    ambiente:    amb || conf.ambiente || '--',
     area_m2:     lanc ? (lanc.area_m2||0) : 0,
     meta_m2:     o ? (o.meta_m2||0) : 0,
     rate_m2:     p ? (p.rate_m2||35) : 35,
@@ -1891,7 +1891,7 @@ function renderDash(){
     +'<div class="stat"><div class="sv">'+totalM2.toFixed(0)+'m²</div><div class="sl">Produção</div></div>'
     +'<div class="stat"><div class="sv">'+obras.filter(function(o){return o.status==='ativa';}).length+'</div><div class="sl">Obras ativas</div></div></div>'
     +'<div class="stat2"><div class="stat"><div class="sv">'+fmtK(totalDesp)+'</div><div class="sl">Despesas</div></div>'
-    +'<div class="stat"><div class="sv">'+(lancs.length?fmtK(totalFat/lancs.length):'—')+'</div><div class="sl">Ticket médio</div></div></div>'
+    +'<div class="stat"><div class="sv">'+(lancs.length?fmtK(totalFat/lancs.length):'--')+'</div><div class="sl">Ticket médio</div></div></div>'
     +'<div class="card"><div class="card-t">💰 Faturamento por obra</div><div class="bar-wrap">'+(obrasBars||'<p style="font-size:12px;color:var(--sub)">Nenhum dado.</p>')+'</div></div>'
     +'<div class="card"><div class="card-t">👷 Produção por funcionário</div><div class="bar-wrap">'+(userBars||'<p style="font-size:12px;color:var(--sub)">Nenhum dado.</p>')+'</div></div>'
     +'</div>';
@@ -2354,7 +2354,7 @@ function removerLogo(){
   // Voltar ao logo original
   var origSrc = null;
   atualizarLogoTopbar(origSrc);
-  toast('🗑 Logo removida — logo padrão restaurada.');
+  toast('🗑 Logo removida -- logo padrão restaurada.');
 }
 
 function atualizarLogoTopbar(src){
@@ -2392,7 +2392,7 @@ function renderObrasCfg(){
     return '<div class="o-card">'
       +'<div style="display:flex;justify-content:space-between;margin-bottom:6px">'
       +'<div><div style="font-size:14px;font-weight:700">'+o.nome+'</div>'
-      +'<div style="font-size:11px;color:var(--sub)">'+(o.cliente||'—')+' · '+(o.cidade||'—')+'</div>'
+      +'<div style="font-size:11px;color:var(--sub)">'+(o.cliente||'--')+' · '+(o.cidade||'--')+'</div>'
       +(o.endereco?'<div style="font-size:10px;color:var(--sub)">📍 '+o.endereco+'</div>':'')
       +(o.tipo?'<span class="chip chip-g" style="margin-top:4px">📋 '+o.tipo+'</span>':'')+'</div>'
       +'<span class="chip '+(o.status==='ativa'?'chip-ap':'chip-g')+'">'+(o.status==='ativa'?'Ativa':'Concluída')+'</span></div>'
@@ -2735,7 +2735,7 @@ function renderClienteObra(){
     +'<div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px;">'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
     +'<div style="background:var(--gray);border-radius:12px;padding:11px;text-align:center;"><div style="font-size:17px;font-weight:700;color:#1a3a5c;">'+m2Conf.toFixed(0)+'m²</div><div style="font-size:10px;color:var(--sub)">M² concluídos</div></div>'
-    +'<div style="background:var(--gray);border-radius:12px;padding:11px;text-align:center;"><div style="font-size:17px;font-weight:700;color:#1a3a5c;">'+(m2Total>0?m2Total+'m²':'—')+'</div><div style="font-size:10px;color:var(--sub)">M² total</div></div>'
+    +'<div style="background:var(--gray);border-radius:12px;padding:11px;text-align:center;"><div style="font-size:17px;font-weight:700;color:#1a3a5c;">'+(m2Total>0?m2Total+'m²':'--')+'</div><div style="font-size:10px;color:var(--sub)">M² total</div></div>'
     +'<div style="background:var(--gray);border-radius:12px;padding:11px;text-align:center;"><div style="font-size:17px;font-weight:700;color:var(--green);">'+oConfs.length+'</div><div style="font-size:10px;color:var(--sub)">Aprovados</div></div>'
     +'<div style="background:var(--gray);border-radius:12px;padding:11px;text-align:center;"><div style="font-size:17px;font-weight:700;color:var(--red);">'+pend+'</div><div style="font-size:10px;color:var(--sub)">Pendentes</div></div>'
     +'</div>'
@@ -2790,7 +2790,7 @@ function renderClienteConf(){
     var cor=c.status==='aprovado'?'var(--green)':c.status==='incompleto'?'#BA7517':'var(--red)';
     return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">'
       +'<span style="font-size:16px;">'+ico+'</span>'
-      +'<div style="flex:1"><div style="font-size:12px;font-weight:600">'+(u?u.apelido:'—')+' · Apto '+(c.apartamento||'—')+' · '+(c.ambiente||'—')+'</div>'
+      +'<div style="flex:1"><div style="font-size:12px;font-weight:600">'+(u?u.apelido:'--')+' · Apto '+(c.apartamento||'--')+' · '+(c.ambiente||'--')+'</div>'
       +'<div style="font-size:11px;color:var(--sub)">'+fmtD(c.data)+(l?' · '+l.area_m2+'m²':'')+'</div></div>'
       +'<span style="font-size:9px;padding:2px 7px;border-radius:20px;background:rgba(0,0,0,.05);color:'+cor+';font-weight:700;">'+c.status+'</span></div>';
   }).join('');
@@ -2813,7 +2813,7 @@ function renderClienteMat(){
     return itens.map(function(it){
       return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">'
         +'<div><div style="font-size:12px;font-weight:600">'+it.nome+'</div>'
-        +'<div style="font-size:11px;color:var(--sub)">Apto '+(m.apartamento||'—')+' · '+(u?u.apelido:'—')+' · '+fmtD(m.data)+'</div></div>'
+        +'<div style="font-size:11px;color:var(--sub)">Apto '+(m.apartamento||'--')+' · '+(u?u.apelido:'--')+' · '+fmtD(m.data)+'</div></div>'
         +'<div style="font-size:12px;font-weight:700;color:#1a3a5c;">'+it.qty+'</div></div>';
     }).join('');
   }).join('');
@@ -2900,8 +2900,8 @@ function renderMeuMat(){
     return '<div class="hi" style="flex-direction:column;align-items:flex-start;gap:6px;">'
       +'<div style="display:flex;width:100%;align-items:center;gap:8px;">'
       +'<div class="hi-ico">📦</div>'
-      +'<div style="flex:1"><div class="hi-t">Apto '+(m.apartamento||'—')+'</div>'
-      +'<div class="hi-s">'+(o?o.nome:'—')+' · '+fmtD(m.data)+(m.hora?' · '+m.hora:'')+'</div></div></div>'
+      +'<div style="flex:1"><div class="hi-t">Apto '+(m.apartamento||'--')+'</div>'
+      +'<div class="hi-s">'+(o?o.nome:'--')+' · '+fmtD(m.data)+(m.hora?' · '+m.hora:'')+'</div></div></div>'
       +'<div style="width:100%;padding-left:42px;display:flex;flex-direction:column;gap:4px;">'
       +itens.map(function(it){
         return '<div style="display:flex;justify-content:space-between;background:#fff;border-radius:8px;padding:6px 10px;">'
@@ -2973,10 +2973,10 @@ function gerarRelPonto(){
         status='Falta';cor='var(--red)';bg='rgba(192,57,43,.08)';ico='❌';
       } else if(temEntrada&&!temSaida){
         presencas++;
-        status='Entrada: '+(temEntrada.entrada_hora||'—')+' · Sem saída';cor='#BA7517';bg='rgba(184,134,11,.08)';ico='⚠️';
+        status='Entrada: '+(temEntrada.entrada_hora||'--')+' · Sem saída';cor='#BA7517';bg='rgba(184,134,11,.08)';ico='⚠️';
       } else {
         presencas++;
-        status='Entrada: '+(temEntrada.entrada_hora||'—')+' · Saída: '+(temSaida.saida_hora||'—');
+        status='Entrada: '+(temEntrada.entrada_hora||'--')+' · Saída: '+(temSaida.saida_hora||'--');
         cor='var(--green)';bg='rgba(30,132,73,.06)';ico='✅';
       }
       // Format date nicely
