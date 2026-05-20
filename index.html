@@ -431,8 +431,29 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="mhdr"><span class="mhdr-t">Ambientes - Apto <span id="ma-apto-nome"></span></span><button class="mhdr-x" type="button" onclick="closeModal('ambientes')">✕</button></div>
     <div style="font-size:11px;color:var(--sub);margin-bottom:12px;padding:0 4px;">Configure os ambientes e metragens deste apartamento.</div>
     <div id="ambientes-lista" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
-    <button class="btn-sec" type="button" onclick="addAmbienteLinha()" style="margin-bottom:14px;">+ Adicionar ambiente</button>
+    <button class="btn-sec" type="button" onclick="addAmbienteLinha()" style="margin-bottom:8px;">+ Adicionar ambiente</button>
+    <button class="btn-sec" type="button" onclick="abrirLoteAmb()" style="margin-bottom:14px;border-color:var(--gold);color:var(--gold);">⚡ Replicar ambiente em lote</button>
     <div class="macts"><button class="bmc" type="button" onclick="closeModal('ambientes')">Cancelar</button><button class="bmok" type="button" onclick="salvarAmbientesApto()">✓ Salvar</button></div>
+  </div>
+</div>
+
+<!-- MODAL LOTE AMBIENTES -->
+<div class="modal-bg" id="modal-lote-amb" style="align-items:flex-start;padding-top:0;">
+  <div class="modal-sheet" style="max-height:95vh;border-radius:0 0 20px 20px;padding-top:24px;">
+    <div class="mhdr"><span class="mhdr-t">Replicar em lote</span><button class="mhdr-x" type="button" onclick="closeModal('lote-amb')">✕</button></div>
+    <div class="mf">
+      <div style="font-size:12px;color:var(--sub);margin-bottom:8px;">Selecione um ambiente ja cadastrado neste apto e replique para os aptos desejados.</div>
+      <div><div class="fl">Ambiente a replicar</div><select class="sel" id="lote-amb-sel"></select></div>
+      <div><div class="fl">Aptos destino (selecione)</div>
+        <div id="lote-aptos-lista" style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto;padding:4px 0;"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="btn-sec" type="button" onclick="selecionarTodosLote(true)" style="flex:1;">Selecionar todos</button>
+        <button class="btn-sec" type="button" onclick="selecionarTodosLote(false)" style="flex:1;">Limpar</button>
+      </div>
+      <div style="font-size:11px;color:var(--sub);margin-top:4px;">Obs: aptos que ja tem este ambiente serao ignorados.</div>
+    </div>
+    <div class="macts"><button class="bmc" type="button" onclick="closeModal('lote-amb')">Cancelar</button><button class="bmok" type="button" onclick="confirmarLoteAmb()">⚡ Aplicar em lote</button></div>
   </div>
 </div>
 
@@ -543,6 +564,7 @@ var obras = [], users = [], lancs = [], confs = [], mats = [], desps = [], avs =
 var editObraId = null, editFuncId = null, editAvId = null;
 var novoTipo = 'func', confSt = '', catSel = '', ocorrTipo = '';
 var chkState = {};
+var _checks=['Qualidade tecnica do assentamento','Organizacao e limpeza do local','Nivelamento e alinhamento','Rejunte e acabamento','Protecao e isolamento de piso'];
 
 // UTILS
 function fmt(v) { return 'R$ ' + (parseFloat(v)||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
@@ -748,6 +770,11 @@ function buildNav() {
   tabs.push({id:'meu',i:'📊',l:'Meu Resultado'});
   if(T==='admin'||T==='lider'||T==='lider_chefe') tabs.push({id:'hist',i:'📋',l:'Histórico'});
   if(T==='admin') tabs.push({id:'conf',i:'✅',l:'Conferência'});
+  tabs.push({id:'ponto',i:'📍',l:'Ponto'});
+  if(T==='admin'||T==='lider'||T==='lider_chefe') tabs.push({id:'mat',i:'📦',l:'Materiais'});
+  tabs.push({id:'meumat',i:'📦',l:'Meus Mat.'});
+  if(T==='admin'||T==='lider'||T==='lider_chefe') tabs.push({id:'ocorr',i:'⚠️',l:'Ocorrências'});
+  tabs.push({id:'aviso',i:'📢',l:'Avisos'});
   if(T==='admin'||T==='lider'||T==='lider_chefe') tabs.push({id:'aptos',i:'🏁',l:'Aptos'});
   if(T==='admin') tabs.push({id:'dash',i:'📈',l:'Dashboard'});
   if(T==='admin') tabs.push({id:'desp',i:'💸',l:'Despesas'});
@@ -792,6 +819,11 @@ function atualizarBadgeAvisos(){
 function renderAll() {
   var T = U.tipo;
   if(T==='admin'||T==='lider'||T==='lider_chefe') { renderLancar(); renderHist(); }
+  renderPonto();
+  if(T==='admin'||T==='lider'||T==='lider_chefe') renderMat();
+  renderMeuMat();
+  if(T==='admin'||T==='lider'||T==='lider_chefe') renderOcorr();
+  renderAvisos();
   renderMeu();
   if(T==='admin') { renderConf(); renderDash(); renderDesp(); renderFinanceiro(); }
   if(T==='admin'||T==='lider'||T==='lider_chefe') renderAptos();
@@ -799,7 +831,7 @@ function renderAll() {
 }
 
 function renderTab(id) {
-  var map = {lancar:renderLancar,meu:renderMeu,hist:renderHist,conf:renderConf,aptos:renderAptos,dash:renderDash,desp:renderDesp,fin:renderFinanceiro,conta:renderConta};
+  var map = {lancar:renderLancar,meu:renderMeu,hist:renderHist,conf:renderConf,aptos:renderAptos,ponto:renderPonto,mat:renderMat,meumat:renderMeuMat,ocorr:renderOcorr,aviso:renderAvisos,dash:renderDash,desp:renderDesp,fin:renderFinanceiro,conta:renderConta};
   if(map[id]) map[id]();
 }
 
@@ -912,7 +944,7 @@ function aptoChanged(oId,aptoNome){
   var am=getEl('l-amb'); if(!am) return;
   var est=_obraAndares[oId]; if(!est) return;
   var ambientes=[];
-  est.andares.forEach(function(andar){andar.aptos.forEach(function(apto){if(apto.nome===aptoNome)ambientes=apto.ambientes||[];});}););
+  est.andares.forEach(function(andar){andar.aptos.forEach(function(apto){if(apto.nome===aptoNome)ambientes=apto.ambientes||[];});});
   if(!ambientes.length){am.innerHTML='<option value="">Nenhum ambiente cadastrado</option>';return;}
   am.innerHTML='<option value="">Selecione</option>'+ambientes.map(function(a){
     return '<option value="'+a.nome+'" data-m2="'+a.m2+'">'+a.nome+(a.m2?' ('+a.m2+'m2)':'')+'</option>';
@@ -975,41 +1007,27 @@ function salvarLanc() {
   if(!amb){toast('⚠️ Selecione o ambiente.');return;}
   if(!area){toast('⚠️ Informe a área.');return;}
 
-  // Verificar se apto+ambiente já foi lançado e conferido nessa obra
-  var jaConferido = false;
-  for(var ci=0;ci<confs.length;ci++){
-    var c=confs[ci];
-    if(c.obra_id===oId &&
-       c.apartamento===apto &&
-       c.ambiente===amb &&
-       c.status==='aprovado'){
-      jaConferido=true;break;
-    }
-  }
-  if(jaConferido){
-    toast('🚫 Apto '+apto+' / '+amb+' já foi lançado e conferido nesta obra!');
-    return;
-  }
-
-  // Verificar se já tem lançamento pendente do mesmo apto+ambiente nessa obra
-  var jaPendente = false;
+  // Regra: nao permitir lancamento duplicado de apto+ambiente na mesma obra
+  var jaExiste=false; var jaAprovado=false;
   for(var li=0;li<lancs.length;li++){
-    var l=lancs[li];
-    if(l.obra_id===oId &&
-       l.apartamento===apto &&
-       l.ambiente===amb){
-      // Verificar se ainda não foi conferido
-      var confOk=false;
-      for(var ci2=0;ci2<confs.length;ci2++){
-        if(confs[ci2].lancamento_id===l.id && confs[ci2].status==='aprovado'){
-          confOk=true;break;
+    var lx=lancs[li];
+    if(lx.obra_id===oId && lx.apartamento===apto && lx.ambiente===amb){
+      jaExiste=true;
+      // Verificar se foi aprovado na conferencia
+      for(var ci=0;ci<confs.length;ci++){
+        if(confs[ci].obra_id===oId && confs[ci].apartamento===apto && confs[ci].ambiente===amb && confs[ci].status==='aprovado'){
+          jaAprovado=true; break;
         }
       }
-      if(!confOk){jaPendente=true;break;}
+      break;
     }
   }
-  if(jaPendente){
-    toast('⚠️ Apto '+apto+' / '+amb+' já tem lançamento pendente de conferência nesta obra!');
+  if(jaAprovado){
+    toast('Apto '+apto+' / '+amb+' ja foi conferido e aprovado nesta obra!');
+    return;
+  }
+  if(jaExiste){
+    toast('Apto '+apto+' / '+amb+' ja tem lancamento nesta obra! Exclua ou edite o existente.');
     return;
   }
   var rate=getRate(oId), base=area*rate, extras=[];
@@ -1057,6 +1075,69 @@ function renderMeu() {
 }
 
 // ── HISTÓRICO ──
+function closeModalEditLanc(){var m=document.getElementById('modal-edit-lanc');if(m)m.remove();}
+
+function excluirLanc(id){
+  if(!confirm('Excluir este lancamento? As conferencias vinculadas tambem serao removidas.')) return;
+  // Primeiro excluir conferencias vinculadas
+  var confsVinc=confs.filter(function(c){return c.lancamento_id===id;});
+  var proms=confsVinc.map(function(c){return dbDelete('conferencias',c.id);});
+  Promise.all(proms).then(function(){
+    return dbDelete('lancamentos',id);
+  }).then(function(ok){
+    if(ok){
+      confs=confs.filter(function(c){return c.lancamento_id!==id;});
+      lancs=lancs.filter(function(l){return l.id!==id;});
+      toast('Lancamento excluido!');
+      renderHistFiltro();
+      renderMeu();
+    }
+  });
+}
+
+function editarLanc(id){
+  var l=null; for(var i=0;i<lancs.length;i++) if(lancs[i].id===id){l=lancs[i];break;}
+  if(!l) return;
+
+  // Preencher modal de edicao
+  var html='<div class="modal-bg show" id="modal-edit-lanc" style="z-index:9999;">'
+    +'<div class="modal-sheet">'
+    +'<div class="mhdr"><span class="mhdr-t">Editar lancamento</span>'
+    +'<button class="mhdr-x" type="button" onclick="closeModalEditLanc()">X</button></div>'
+    +'<div class="mf">'
+    +'<div><div class="fl">Area m2</div><input class="inp" id="el-area" type="number" value="'+(l.area_m2||0)+'"></div>'
+    +'<div><div class="fl">Bonus %</div><input class="inp" id="el-bonus" type="number" value="'+(l.bonus_pct||0)+'"></div>'
+    +'<div><div class="fl">Observacao</div><textarea class="inp" id="el-obs" rows="3" style="resize:none">'+(l.observacao||'')+'</textarea></div>'
+    +'</div>'
+    +'<div class="macts">'
+    +'<button class="bmc" type="button" onclick="closeModalEditLanc()">Cancelar</button>'
+    +'<button class="bmok" type="button" data-lid="'+id+'" onclick="salvarEdicaoLanc(this.dataset.lid)">Salvar</button>'
+    +'</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function salvarEdicaoLanc(id){
+  var area=parseFloat(document.getElementById('el-area').value)||0;
+  var bonus=parseFloat(document.getElementById('el-bonus').value)||0;
+  var obs=(document.getElementById('el-obs').value||'').trim();
+  var l=null; for(var i=0;i<lancs.length;i++) if(lancs[i].id===id){l=lancs[i];break;}
+  if(!l) return;
+  var rate=parseFloat(l.rate_m2)||0;
+  var base=area*rate;
+  var bval=base*(bonus/100);
+  var total=base+bval+(parseFloat(l.extras_total)||0);
+  var obj={area_m2:area,bonus_pct:bonus,bonus_valor:bval,total:total,observacao:obs};
+  dbUpdate('lancamentos',id,obj).then(function(ok){
+    if(ok){
+      for(var i=0;i<lancs.length;i++) if(lancs[i].id===id){Object.assign(lancs[i],obj);break;}
+      var modal=document.getElementById('modal-edit-lanc'); if(modal) modal.remove();
+      toast('Lancamento atualizado!');
+      renderHistFiltro();
+      renderMeu();
+    }
+  });
+}
+
 function renderHist() {
   var el=getEl('t-hist'); if(!el) return;
   var oOpts=obras.map(function(o){return '<option value="'+o.id+'">'+o.nome+'</option>';}).join('');
@@ -1086,9 +1167,16 @@ function renderHistFiltro() {
   el.innerHTML=lista.map(function(l){
     var u=null; for(var i=0;i<users.length;i++) if(users[i].id===l.usuario_id){u=users[i];break;}
     var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===l.obra_id){o=obras[i];break;}
+    var podeEditar=(U&&(U.tipo==='admin'||U.tipo==='lider_chefe'));
+    var btns=podeEditar
+      ?'<div style="display:flex;gap:6px;margin-top:6px;">'
+        +'<button type="button" data-lid="'+l.id+'" onclick="editarLanc(this.dataset.lid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;font-weight:700;">Editar</button>'
+        +'<button type="button" data-lid="'+l.id+'" onclick="excluirLanc(this.dataset.lid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;font-weight:700;">Excluir</button>'
+        +'</div>':'' ;
     return '<div class="hi"><div class="hi-ico">🪵</div><div class="hi-b">'
-      +'<div class="hi-t">'+(u?u.apelido:'--')+' · '+(l.ambiente||'--')+' · Apto '+(l.apartamento||'--')+'</div>'
-      +'<div class="hi-s">'+(o?o.nome:'--')+' · '+l.area_m2+'m² · bônus '+l.bonus_pct+'%</div></div>'
+      +'<div class="hi-t">'+(u?u.apelido:'--')+' - '+(l.ambiente||'--')+' - Apto '+(l.apartamento||'--')+'</div>'
+      +'<div class="hi-s">'+(o?o.nome:'--')+' - '+l.area_m2+'m2 - bonus '+l.bonus_pct+'%</div>'
+      +btns+'</div>'
       +'<div class="hi-r"><div class="hi-v">'+fmt(l.total)+'</div><div class="hi-d">'+fmtD(l.data)+'</div></div></div>';
   }).join('') || '<div class="empty"><p>Nenhum registro encontrado.</p></div>';
 }
@@ -1116,7 +1204,7 @@ function renderConf() {
   var confLancIds={};
   confs.forEach(function(c){if(c.lancamento_id) confLancIds[c.lancamento_id]=true;});
   var pendentes=lancs.filter(function(l){return !confLancIds[l.id];}).slice(0,20);
-  var checks=['Qualidade técnica do assentamento','Organização e limpeza do local','Nivelamento e alinhamento','Rejunte e acabamento','Proteção e isolamento de piso'];
+  var checks=window._checks||_checks;
   var pendHtml='';
   if(pendentes.length){
     pendHtml='<div class="pend-card"><div style="font-size:11px;font-weight:700;color:#854F0B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">⏳ Aguardando conferência ('+pendentes.length+')</div>';
@@ -1151,7 +1239,7 @@ function renderConf() {
       +'<div class="hi-s">'+(o?o.nome:'--')+' · '+(c.ambiente||'--')+'</div>'
       +'<div class="hi-s" style="color:'+cor+';font-weight:600">'+c.status+'</div>'
       +(c.observacao?'<div class="hi-s" style="font-style:italic">"'+c.observacao+'"</div>':'')
-      +'<button type="button" onclick="editarConf(''+c.id+'')" style="margin-top:6px;font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;font-weight:700;">✏️ Alterar conferência</button>'
+      +'<button type="button" data-cid="'+c.id+'" onclick="editarConf(this.dataset.cid)" style="margin-top:6px;font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;font-weight:700;">Alterar conferencia</button>'
       +'</div><div class="hi-r"><div class="hi-d">'+fmtD(c.data)+'</div><div class="hi-d">'+(c.hora||'')+'</div></div></div>';
   }).join('');
   el.innerHTML='<div class="hero" style="background:var(--dark)"><p>Avaliação de serviço</p><h2>Conferência</h2></div>'
@@ -1216,9 +1304,21 @@ function editarConf(confId){
     btn2.onclick=function(){ salvarEdicaoConf(confId); };
   }
 
-  // Scroll para o topo do formulario
-  var el=getEl('t-conf'); if(el) el.scrollTop=0;
-  toast('Conferência carregada para edição');
+  // Mostrar botao salvar fixo
+  var existingBtn=document.getElementById('btn-salvar-edicao-conf');
+  if(existingBtn) existingBtn.remove();
+  var fixBtn=document.createElement('div');
+  fixBtn.id='btn-salvar-edicao-conf';
+  fixBtn.style.cssText='position:sticky;bottom:0;left:0;right:0;padding:12px 16px;background:#fff;border-top:1px solid var(--border);z-index:100;';
+  fixBtn.innerHTML='<button type="button" onclick="salvarEdicaoConfAtual()" style="width:100%;padding:14px;background:var(--green);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">Salvar alteracao</button>';
+  var tConf=getEl('t-conf'); if(tConf) tConf.appendChild(fixBtn);
+
+  window._editConfId=confId;
+  toast('Conferencia carregada para edicao');
+}
+
+function salvarEdicaoConfAtual(){
+  if(window._editConfId) salvarEdicaoConf(window._editConfId);
 }
 
 function salvarEdicaoConf(confId){
@@ -1231,8 +1331,10 @@ function salvarEdicaoConf(confId){
       toast('✅ Conferência alterada!');
       // Resetar botao
       var btn=getEl('btn-conf');
-      if(btn){btn.disabled=true;btn.style.opacity='0.5';btn.style.cursor='not-allowed';btn.textContent='📋 Selecione um lançamento acima';btn.onclick=salvarConf;}
+      if(btn){btn.disabled=true;btn.style.opacity='0.5';btn.style.cursor='not-allowed';btn.textContent='Selecione um lancamento acima';btn.onclick=salvarConf;}
       var infoEl=getEl('conf-selecionado');if(infoEl)infoEl.style.display='none';
+      var fixBtn=document.getElementById('btn-salvar-edicao-conf');if(fixBtn)fixBtn.remove();
+      window._editConfId=null;
       confSt=''; chkState={};
       renderConf();
     }
@@ -1714,6 +1816,10 @@ function registrarPonto(tipo){
       pontos=[r].concat(pontos);
       geoData=null;
       renderPonto();
+  if(T==='admin'||T==='lider'||T==='lider_chefe') renderMat();
+  renderMeuMat();
+  if(T==='admin'||T==='lider'||T==='lider_chefe') renderOcorr();
+  renderAvisos();
     }
   });
 }
@@ -1762,6 +1868,10 @@ function salvarEditPonto(){
       closeModal('ponto');
       editPontoId=null;
       renderPonto();
+  if(T==='admin'||T==='lider'||T==='lider_chefe') renderMat();
+  renderMeuMat();
+  if(T==='admin'||T==='lider'||T==='lider_chefe') renderOcorr();
+  renderAvisos();
     }
   });
 }
@@ -1773,6 +1883,10 @@ function excluirPonto(id){
       pontos=pontos.filter(function(p){return p.id!==id;});
       toast('🗑 Registro excluído.');
       renderPonto();
+  if(T==='admin'||T==='lider'||T==='lider_chefe') renderMat();
+  renderMeuMat();
+  if(T==='admin'||T==='lider'||T==='lider_chefe') renderOcorr();
+  renderAvisos();
     }
   });
 }
@@ -1815,6 +1929,10 @@ function registrarPontoManual(){
       var ei=getEl('pt-hora-entrada'); var es=getEl('pt-hora-saida');
       if(ei) ei.value=''; if(es) es.value='';
       renderPonto();
+  if(T==='admin'||T==='lider'||T==='lider_chefe') renderMat();
+  renderMeuMat();
+  if(T==='admin'||T==='lider'||T==='lider_chefe') renderOcorr();
+  renderAvisos();
     }
   });
 }
@@ -2499,6 +2617,80 @@ function adicionarLinhaAmb(nome,m2){
 }
 
 function addAmbienteLinha(){adicionarLinhaAmb('','');}
+
+function abrirLoteAmb(){
+  if(!_editAptoRef) return;
+  var ref=_editAptoRef;
+  var est=_obraAndares[ref.oId];
+  if(!est) return;
+  var aptoAtual=est.andares[ref.ai].aptos[ref.pi];
+  var ambientes=aptoAtual.ambientes||[];
+  if(!ambientes.length){toast('Cadastre ambientes primeiro.');return;}
+
+  // Preencher select de ambientes
+  var sel=getEl('lote-amb-sel');
+  sel.innerHTML=ambientes.map(function(a){
+    return '<option value="'+a.nome+'" data-m2="'+a.m2+'">'+a.nome+' ('+a.m2+'m2)</option>';
+  }).join('');
+
+  // Preencher lista de aptos (todos menos o atual)
+  var lista=getEl('lote-aptos-lista');
+  lista.innerHTML='';
+  est.andares.forEach(function(andar){
+    andar.aptos.forEach(function(apto,pi){
+      if(andar.num===est.andares[ref.ai].num && pi===ref.pi) return; // pular o atual
+      var div=document.createElement('div');
+      div.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--gray);border-radius:8px;';
+      div.innerHTML='<input type="checkbox" id="lote-apto-'+andar.num+'-'+pi+'" data-andar="'+andar.num+'" data-pi="'+pi+'" style="width:16px;height:16px;cursor:pointer;">'
+        +'<label for="lote-apto-'+andar.num+'-'+pi+'" style="font-size:13px;font-weight:700;cursor:pointer;">Apto '+apto.nome+' <span style="font-size:10px;color:var(--sub);font-weight:400">'+andar.num+'o Andar</span></label>';
+      lista.appendChild(div);
+    });
+  });
+
+  getEl('modal-lote-amb').classList.add('show');
+}
+
+function selecionarTodosLote(sel){
+  document.querySelectorAll('#lote-aptos-lista input[type=checkbox]').forEach(function(cb){cb.checked=sel;});
+}
+
+function confirmarLoteAmb(){
+  var ref=_editAptoRef;
+  var est=_obraAndares[ref.oId];
+  var aptoAtual=est.andares[ref.ai].aptos[ref.pi];
+  var selAmb=getEl('lote-amb-sel');
+  var ambNome=selAmb.value;
+  var ambM2=parseFloat(selAmb.options[selAmb.selectedIndex].getAttribute('data-m2'))||0;
+  if(!ambNome){toast('Selecione um ambiente.');return;}
+
+  var checkboxes=document.querySelectorAll('#lote-aptos-lista input[type=checkbox]:checked');
+  if(!checkboxes.length){toast('Selecione pelo menos um apto.');return;}
+
+  var count=0;
+  checkboxes.forEach(function(cb){
+    var andarNum=parseInt(cb.getAttribute('data-andar'));
+    var pi=parseInt(cb.getAttribute('data-pi'));
+    // Encontrar o andar
+    for(var ai=0;ai<est.andares.length;ai++){
+      if(est.andares[ai].num===andarNum){
+        var apto=est.andares[ai].aptos[pi];
+        if(!apto) return;
+        // Verificar se ja tem esse ambiente
+        var jatem=(apto.ambientes||[]).some(function(a){return a.nome===ambNome;});
+        if(!jatem){
+          if(!apto.ambientes) apto.ambientes=[];
+          apto.ambientes.push({nome:ambNome,m2:ambM2});
+          count++;
+        }
+        break;
+      }
+    }
+  });
+
+  closeModal('lote-amb');
+  toast('Ambiente replicado em '+count+' apto(s)!');
+  renderAndaresPreview(ref.oId);
+}
 
 function salvarAmbientesApto(){
   if(!_editAptoRef) return;
