@@ -442,16 +442,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="modal-sheet" style="max-height:95vh;border-radius:0 0 20px 20px;padding-top:24px;">
     <div class="mhdr"><span class="mhdr-t">Replicar em lote</span><button class="mhdr-x" type="button" onclick="closeModal('lote-amb')">✕</button></div>
     <div class="mf">
-      <div style="font-size:12px;color:var(--sub);margin-bottom:8px;">Selecione um ambiente ja cadastrado neste apto e replique para os aptos desejados.</div>
-      <div><div class="fl">Ambiente a replicar</div><select class="sel" id="lote-amb-sel"></select></div>
-      <div><div class="fl">Aptos destino (selecione)</div>
-        <div id="lote-aptos-lista" style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto;padding:4px 0;"></div>
+      <div style="font-size:12px;color:var(--sub);margin-bottom:10px;">Selecione os ambientes e os aptos destino. Duplicatas serao ignoradas automaticamente.</div>
+      <div>
+        <div class="fl">Ambientes a replicar (selecione um ou mais)</div>
+        <div id="lote-amb-lista" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;padding:4px 0;"></div>
+        <div style="display:flex;gap:8px;margin-top:4px;">
+          <button class="btn-sec" type="button" onclick="selLoteAmbs(true)" style="flex:1;font-size:11px;">Todos ambientes</button>
+          <button class="btn-sec" type="button" onclick="selLoteAmbs(false)" style="flex:1;font-size:11px;">Limpar</button>
+        </div>
       </div>
-      <div style="display:flex;gap:8px;margin-top:4px;">
-        <button class="btn-sec" type="button" onclick="selecionarTodosLote(true)" style="flex:1;">Selecionar todos</button>
-        <button class="btn-sec" type="button" onclick="selecionarTodosLote(false)" style="flex:1;">Limpar</button>
+      <div style="margin-top:8px;">
+        <div class="fl">Aptos destino (selecione)</div>
+        <div id="lote-aptos-lista" style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;padding:4px 0;"></div>
+        <div style="display:flex;gap:8px;margin-top:4px;">
+          <button class="btn-sec" type="button" onclick="selecionarTodosLote(true)" style="flex:1;font-size:11px;">Todos aptos</button>
+          <button class="btn-sec" type="button" onclick="selecionarTodosLote(false)" style="flex:1;font-size:11px;">Limpar</button>
+        </div>
       </div>
-      <div style="font-size:11px;color:var(--sub);margin-top:4px;">Obs: aptos que ja tem este ambiente serao ignorados.</div>
+      <div style="font-size:11px;color:var(--sub);margin-top:6px;">Ambientes ja existentes no apto serao ignorados automaticamente.</div>
     </div>
     <div class="macts"><button class="bmc" type="button" onclick="closeModal('lote-amb')">Cancelar</button><button class="bmok" type="button" onclick="confirmarLoteAmb()">⚡ Aplicar em lote</button></div>
   </div>
@@ -2135,7 +2143,9 @@ function doLogout(){ if(confirm('Sair do sistema?')) location.reload(); }
 
 function renderAptos(){
   var el=getEl('t-aptos'); if(!el) return;
-  var lista=[];
+
+  // Montar lista completa de todos os aptos com status
+  var todosAptos=[];
   obras.forEach(function(o){
     if(!o.estrutura) return;
     var est=null; try{est=JSON.parse(o.estrutura);}catch(e){return;}
@@ -2145,42 +2155,80 @@ function renderAptos(){
         var ambientes=apto.ambientes||[];
         if(!ambientes.length) return;
         var dataConclusao=null;
-        var todosOk=ambientes.every(function(amb){
+        var ambConc=0;
+        ambientes.forEach(function(amb){
           var confOk=confs.find(function(c){return c.obra_id===o.id&&c.apartamento===apto.nome&&c.ambiente===amb.nome&&c.status==='aprovado';});
-          if(confOk&&(!dataConclusao||confOk.data>dataConclusao)) dataConclusao=confOk.data;
-          return !!confOk;
+          if(confOk){ambConc++;if(!dataConclusao||confOk.data>dataConclusao)dataConclusao=confOk.data;}
         });
-        if(todosOk) lista.push({obraId:o.id,obra:o.nome,apto:apto.nome,ambientes:ambientes.length,data:dataConclusao,andar:andar.num});
+        var ok=(ambConc===ambientes.length);
+        todosAptos.push({obraId:o.id,obra:o.nome,apto:apto.nome,andarNum:andar.num,andar:andar.num,total:ambientes.length,concluidos:ambConc,data:dataConclusao,ok:ok});
       });
     });
   });
-  lista.sort(function(a,b){return (b.data||'')>(a.data||'')?1:-1;});
-  var obrasOpts={};
-  lista.forEach(function(item){obrasOpts[item.obraId]=item.obra;});
+
+  // Filtro de obra
+  var obrasMap={};
+  todosAptos.forEach(function(a){obrasMap[a.obraId]=a.obra;});
   var obraOpts='<option value="">Todas as obras</option>';
-  Object.keys(obrasOpts).forEach(function(oId){obraOpts+='<option value="'+oId+'">'+obrasOpts[oId]+'</option>';});
+  Object.keys(obrasMap).forEach(function(oId){obraOpts+='<option value="'+oId+'">'+obrasMap[oId]+'</option>';});
   var filtroEl=getEl('aptos-filtro-obra');
   var filtroId=filtroEl?filtroEl.value:'';
-  var listaF=filtroId?lista.filter(function(i){return i.obraId===filtroId;}):lista;
+  var listaF=filtroId?todosAptos.filter(function(a){return a.obraId===filtroId;}):todosAptos;
+
+  // Totais
+  var totalAptos=listaF.length;
+  var aptosOk=listaF.filter(function(a){return a.ok;}).length;
+  var pct=totalAptos>0?Math.round((aptosOk/totalAptos)*100):0;
+
   var html='<div class="hero" style="background:var(--green)"><p>Acompanhamento</p><h2>Aptos Concluidos</h2></div>'
-    +'<div class="pad"><div><select class="sel" id="aptos-filtro-obra" onchange="renderAptos()">'+obraOpts+'</select></div>';
+    +'<div class="pad">'
+    +'<div><select class="sel" id="aptos-filtro-obra" onchange="renderAptos()">'+obraOpts+'</select></div>';
+
+  // Barra de progresso geral
+  if(totalAptos>0){
+    html+='<div style="background:#fff;border-radius:14px;padding:14px;border:1px solid var(--border);">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+      +'<span style="font-size:13px;font-weight:700;">Progresso geral</span>'
+      +'<span style="font-size:14px;font-weight:700;color:var(--green);">'+aptosOk+' / '+totalAptos+' aptos</span></div>'
+      +'<div style="height:12px;background:#eee;border-radius:6px;overflow:hidden;">'
+      +'<div style="height:100%;width:'+pct+'%;background:var(--green);border-radius:6px;transition:width .4s;"></div></div>'
+      +'<div style="font-size:11px;color:var(--sub);margin-top:5px;text-align:right;">'+pct+'% concluido</div>'
+      +'</div>';
+  }
+
+  // Lista de aptos por obra
   if(!listaF.length){
-    html+='<div class="empty"><div class="ei">X</div><p>Nenhum apartamento concluido ainda.</p></div>';
+    html+='<div class="empty"><div class="ei">🏁</div><p>Nenhum apartamento cadastrado.</p></div>';
   } else {
     var porObra={};
-    listaF.forEach(function(item){if(!porObra[item.obra])porObra[item.obra]=[];porObra[item.obra].push(item);});
+    listaF.sort(function(a,b){return a.andar!==b.andar?a.andar-b.andar:parseInt(a.apto)-parseInt(b.apto);});listaF.forEach(function(a){if(!porObra[a.obra])porObra[a.obra]=[];porObra[a.obra].push(a);});
     Object.keys(porObra).forEach(function(oNome){
-      if(!filtroId) html+='<div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:6px;margin-top:4px;">'+oNome+'</div>';
-      porObra[oNome].forEach(function(item){
-        html+='<div style="display:flex;align-items:center;justify-content:space-between;background:var(--gray);border-radius:12px;padding:12px 14px;margin-bottom:8px;border-left:3px solid var(--green);">'
+      var items=porObra[oNome];
+      var okN=items.filter(function(a){return a.ok;}).length;
+      if(!filtroId){
+        html+='<div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;margin-top:4px;">'
+          +oNome+' <span style="color:var(--green);">'+okN+'/'+items.length+'</span></div>';
+      }
+      items.forEach(function(item){
+        var cor=item.ok?'var(--green)':item.concluidos>0?'#B8860B':'#ccc';
+        var bg=item.ok?'rgba(30,132,73,.06)':item.concluidos>0?'rgba(184,134,11,.06)':'var(--gray)';
+        var pctA=item.total>0?Math.round((item.concluidos/item.total)*100):0;
+        var status=item.ok?'Concluido':item.concluidos>0?'Em andamento':'Aguardando';
+        html+='<div style="background:'+bg+';border-radius:12px;padding:12px 14px;margin-bottom:8px;border-left:3px solid '+cor+';">'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
           +'<div><div style="font-size:14px;font-weight:700;">Apto '+item.apto+'</div>'
-          +'<div style="font-size:11px;color:var(--sub);margin-top:2px;">'+item.andar+'o Andar - '+item.ambientes+' amb.</div></div>'
-          +'<div style="text-align:right;"><div style="font-size:11px;font-weight:700;color:var(--green);">Concluido</div>'
-          +'<div style="font-size:11px;color:var(--sub);margin-top:2px;">'+fmtD(item.data)+'</div></div></div>';
+          +'<div style="font-size:10px;color:var(--sub);">'+item.andar+'° Andar</div></div>'
+          +'<div style="text-align:right;">'
+          +'<div style="font-size:11px;font-weight:700;color:'+cor+';">'+status+'</div>'
+          +'<div style="font-size:11px;color:var(--sub);">'+item.concluidos+'/'+item.total+' amb.'+(item.ok?' · '+fmtD(item.data):'')+'</div>'
+          +'</div></div>'
+          +'<div style="display:flex;align-items:center;gap:8px;">'
+          +'<div style="flex:1;height:6px;background:#ddd;border-radius:3px;overflow:hidden;">'
+          +'<div style="height:100%;width:'+pctA+'%;background:'+cor+';border-radius:3px;"></div></div>'
+          +'<span style="font-size:10px;color:var(--sub);white-space:nowrap;font-weight:700;">'+pctA+'%</span>'
+          +'</div></div>';
       });
     });
-    html+='<div style="background:rgba(30,132,73,.08);border-radius:12px;padding:11px 14px;text-align:center;">'
-      +'<div style="font-size:13px;font-weight:700;color:var(--green);">'+listaF.length+' apto(s) concluido(s)</div></div>';
   }
   html+='</div>';
   el.innerHTML=html;
@@ -2627,27 +2675,67 @@ function abrirLoteAmb(){
   var ambientes=aptoAtual.ambientes||[];
   if(!ambientes.length){toast('Cadastre ambientes primeiro.');return;}
 
-  // Preencher select de ambientes
-  var sel=getEl('lote-amb-sel');
-  sel.innerHTML=ambientes.map(function(a){
-    return '<option value="'+a.nome+'" data-m2="'+a.m2+'">'+a.nome+' ('+a.m2+'m2)</option>';
-  }).join('');
+  // Lista de ambientes com checkboxes — usando toggle manual para evitar bugs
+  var listaAmb=getEl('lote-amb-lista');
+  listaAmb.innerHTML='';
+  ambientes.forEach(function(a,idx){
+    var div=document.createElement('div');
+    div.setAttribute('data-nome',a.nome);
+    div.setAttribute('data-m2',String(a.m2));
+    div.setAttribute('data-sel','1');
+    div.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--green);border-radius:8px;cursor:pointer;border:2px solid var(--green);transition:all .15s;';
+    div.innerHTML='<div style="width:20px;height:20px;border-radius:4px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">✓</div>'
+      +'<div><div style="font-size:13px;font-weight:700;color:#fff;">'+a.nome+'</div>'
+      +'<div style="font-size:10px;color:rgba(255,255,255,.8);">'+a.m2+'m2</div></div>';
+    div.onclick=function(){
+      var sel=this.getAttribute('data-sel')==='1';
+      this.setAttribute('data-sel',sel?'0':'1');
+      if(sel){
+        this.style.background='var(--gray)';this.style.borderColor='var(--border)';
+        this.querySelector('div').style.background='var(--gray)';this.querySelector('div').style.border='2px solid var(--border)';
+        this.querySelector('div').textContent='';
+        this.querySelectorAll('div')[1].querySelectorAll('div').forEach(function(d){d.style.color='var(--sub)';});
+      } else {
+        this.style.background='var(--green)';this.style.borderColor='var(--green)';
+        this.querySelector('div').style.background='#fff';this.querySelector('div').style.border='none';
+        this.querySelector('div').textContent='✓';
+        this.querySelectorAll('div')[1].querySelectorAll('div').forEach(function(d){d.style.color='#fff';});
+      }
+    };
+    listaAmb.appendChild(div);
+  });
 
-  // Preencher lista de aptos (todos menos o atual)
-  var lista=getEl('lote-aptos-lista');
-  lista.innerHTML='';
+  // Lista de aptos destino
+  var listaAptos=getEl('lote-aptos-lista');
+  listaAptos.innerHTML='';
   est.andares.forEach(function(andar){
     andar.aptos.forEach(function(apto,pi){
-      if(andar.num===est.andares[ref.ai].num && pi===ref.pi) return; // pular o atual
+      if(andar.num===est.andares[ref.ai].num && pi===ref.pi) return;
       var div=document.createElement('div');
       div.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--gray);border-radius:8px;';
       div.innerHTML='<input type="checkbox" id="lote-apto-'+andar.num+'-'+pi+'" data-andar="'+andar.num+'" data-pi="'+pi+'" style="width:16px;height:16px;cursor:pointer;">'
-        +'<label for="lote-apto-'+andar.num+'-'+pi+'" style="font-size:13px;font-weight:700;cursor:pointer;">Apto '+apto.nome+' <span style="font-size:10px;color:var(--sub);font-weight:400">'+andar.num+'o Andar</span></label>';
-      lista.appendChild(div);
+        +'<label for="lote-apto-'+andar.num+'-'+pi+'" style="font-size:13px;font-weight:700;cursor:pointer;">Apto '+apto.nome
+        +' <span style="font-size:10px;color:var(--sub);font-weight:400;">'+andar.num+'° Andar</span></label>';
+      listaAptos.appendChild(div);
     });
   });
 
   getEl('modal-lote-amb').classList.add('show');
+}
+
+function selLoteAmbs(sel){
+  document.querySelectorAll('#lote-amb-lista div[data-nome]').forEach(function(div){
+    div.setAttribute('data-sel',sel?'1':'0');
+    if(sel){
+      div.style.background='var(--green)';div.style.borderColor='var(--green)';
+      div.querySelector('div').style.background='#fff';div.querySelector('div').style.border='none';
+      div.querySelector('div').textContent='✓';
+    } else {
+      div.style.background='var(--gray)';div.style.borderColor='var(--border)';
+      div.querySelector('div').style.background='var(--gray)';div.querySelector('div').style.border='2px solid var(--border)';
+      div.querySelector('div').textContent='';
+    }
+  });
 }
 
 function selecionarTodosLote(sel){
@@ -2657,38 +2745,50 @@ function selecionarTodosLote(sel){
 function confirmarLoteAmb(){
   var ref=_editAptoRef;
   var est=_obraAndares[ref.oId];
-  var aptoAtual=est.andares[ref.ai].aptos[ref.pi];
-  var selAmb=getEl('lote-amb-sel');
-  var ambNome=selAmb.value;
-  var ambM2=parseFloat(selAmb.options[selAmb.selectedIndex].getAttribute('data-m2'))||0;
-  if(!ambNome){toast('Selecione um ambiente.');return;}
 
-  var checkboxes=document.querySelectorAll('#lote-aptos-lista input[type=checkbox]:checked');
-  if(!checkboxes.length){toast('Selecione pelo menos um apto.');return;}
+  // Ambientes selecionados
+  var ambsSel=[];
+  document.querySelectorAll('#lote-amb-lista div[data-nome]').forEach(function(div){
+    if(div.getAttribute('data-sel')==='1'){
+      ambsSel.push({nome:div.getAttribute('data-nome'),m2:parseFloat(div.getAttribute('data-m2'))||0});
+    }
+  });
+  if(!ambsSel.length){toast('Selecione pelo menos um ambiente.');return;}
 
-  var count=0;
-  checkboxes.forEach(function(cb){
+  // Aptos selecionados
+  var aptosCbs=document.querySelectorAll('#lote-aptos-lista input[type=checkbox]:checked');
+  if(!aptosCbs.length){toast('Selecione pelo menos um apto.');return;}
+
+  var countAptos=0; var countAmbs=0; var ignorados=0;
+  aptosCbs.forEach(function(cb){
     var andarNum=parseInt(cb.getAttribute('data-andar'));
     var pi=parseInt(cb.getAttribute('data-pi'));
-    // Encontrar o andar
     for(var ai=0;ai<est.andares.length;ai++){
       if(est.andares[ai].num===andarNum){
         var apto=est.andares[ai].aptos[pi];
-        if(!apto) return;
-        // Verificar se ja tem esse ambiente
-        var jatem=(apto.ambientes||[]).some(function(a){return a.nome===ambNome;});
-        if(!jatem){
-          if(!apto.ambientes) apto.ambientes=[];
-          apto.ambientes.push({nome:ambNome,m2:ambM2});
-          count++;
-        }
+        if(!apto) break;
+        if(!apto.ambientes) apto.ambientes=[];
+        var addedInApto=0;
+        ambsSel.forEach(function(amb){
+          // Verificar se ja existe neste apto
+          var jatem=apto.ambientes.some(function(a){return a.nome===amb.nome;});
+          if(!jatem){
+            apto.ambientes.push({nome:amb.nome,m2:amb.m2});
+            countAmbs++; addedInApto++;
+          } else {
+            ignorados++;
+          }
+        });
+        if(addedInApto>0) countAptos++;
         break;
       }
     }
   });
 
   closeModal('lote-amb');
-  toast('Ambiente replicado em '+count+' apto(s)!');
+  var msg='Replicado em '+countAptos+' apto(s) — '+countAmbs+' ambiente(s) adicionado(s).';
+  if(ignorados>0) msg+=' ('+ignorados+' ja existiam e foram ignorados)';
+  toast(msg);
   renderAndaresPreview(ref.oId);
 }
 
@@ -2874,7 +2974,7 @@ function startPortalCliente(cli){
   window.CLIENTE_ATUAL=cli;window.OBRA_CLIENTE=o;
   var nav=getEl('cl-nav');var tabs=getEl('cl-tabs');
   nav.innerHTML='';tabs.innerHTML='';tabs.style.cssText='flex:1;overflow:hidden;position:relative;';
-  var clTabs=[{id:'obra',i:'🏗️',l:'Obra'},{id:'equipe',i:'👥',l:'Equipe'},{id:'conf',i:'✅',l:'Conferência'},{id:'mat',i:'📦',l:'Materiais'}];
+  var clTabs=[{id:'obra',i:'🏗️',l:'Obra'},{id:'aptos',i:'🏁',l:'Aptos'},{id:'equipe',i:'👥',l:'Equipe'},{id:'conf',i:'✅',l:'Conferência'},{id:'mat',i:'📦',l:'Materiais'}];
   clTabs.forEach(function(t,idx){
     var n=document.createElement('div');
     n.style.cssText='flex:1;padding:8px 3px 6px;text-align:center;font-size:8px;font-weight:700;color:var(--sub);cursor:pointer;border-bottom:2.5px solid transparent;display:flex;flex-direction:column;align-items:center;gap:2px;';
@@ -2898,11 +2998,11 @@ function startPortalCliente(cli){
     var o=null;for(var i=0;i<obras.length;i++)if(obras[i].id===cli.obra_id){o=obras[i];break;}
     window.OBRA_CLIENTE=o;
     getEl('cl-info-bar').textContent=(o?o.nome:cli.nome)+' · Cliente';
-    renderClienteObra();renderClienteEquipe();renderClienteConf();renderClienteMat();
+    renderClienteObra();renderClienteAptos();renderClienteEquipe();renderClienteConf();renderClienteMat();
   });
 }
 function goClienteTab(id){
-  ['obra','equipe','conf','mat'].forEach(function(t){
+  ['obra','aptos','equipe','conf','mat'].forEach(function(t){
     var n=getEl('cl-n-'+t);var tab=getEl('cl-t-'+t);
     if(n){n.style.color='var(--sub)';n.style.borderBottomColor='transparent';}
     if(tab)tab.style.display='none';
@@ -2940,6 +3040,85 @@ function renderClienteObra(){
     +'<div style="background:rgba(184,134,11,.08);border-radius:10px;padding:10px 12px;font-size:11px;color:#854F0B;border-left:3px solid var(--gold);">👁 Somente leitura.</div>'
     +'</div>';
 }
+function renderClienteAptos(){
+  var el=getEl('cl-t-aptos'); if(!el) return;
+  var o=window.OBRA_CLIENTE;
+  if(!o){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--sub)">Nenhuma obra vinculada.</div>';return;}
+
+  var est=null;
+  try{est=JSON.parse(o.estrutura||'null');}catch(e){}
+
+  var lista=[];
+  if(est&&est.andares){
+    est.andares.forEach(function(andar){
+      andar.aptos.forEach(function(apto){
+        var ambientes=apto.ambientes||[];
+        if(!ambientes.length) return;
+        var dataConclusao=null;
+        var ambConc=0;
+        ambientes.forEach(function(amb){
+          var confOk=confs.find(function(c){
+            return c.obra_id===o.id&&c.apartamento===apto.nome&&c.ambiente===amb.nome&&c.status==='aprovado';
+          });
+          if(confOk){
+            ambConc++;
+            if(!dataConclusao||confOk.data>dataConclusao) dataConclusao=confOk.data;
+          }
+        });
+        var todosOk=(ambConc===ambientes.length);
+        lista.push({apto:apto.nome,andar:andar.num,total:ambientes.length,concluidos:ambConc,data:dataConclusao,ok:todosOk});
+      });
+    });
+  }
+
+  lista.sort(function(a,b){return a.andar!==b.andar?a.andar-b.andar:parseInt(a.apto)-parseInt(b.apto);});
+
+  var totalAptos=lista.length;
+  var aptosOk=lista.filter(function(i){return i.ok;}).length;
+  var pct=totalAptos>0?Math.round((aptosOk/totalAptos)*100):0;
+  var corBarra=pct===100?'var(--green)':'#1a3a5c';
+
+  var html='<div style="background:#1a3a5c;padding:14px 16px;color:#fff;">'
+    +'<div style="font-size:11px;opacity:.75;margin-bottom:2px;">'+o.nome+'</div>'
+    +'<div style="font-size:18px;font-weight:700;">Aptos Concluidos</div></div>'
+    +'<div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;">'
+    // Barra de progresso geral
+    +'<div style="background:#f5f5f5;border-radius:12px;padding:13px;">'
+    +'<div style="display:flex;justify-content:space-between;margin-bottom:6px;">'
+    +'<span style="font-size:12px;color:#888;">Progresso geral</span>'
+    +'<span style="font-size:13px;font-weight:700;color:#1a3a5c;">'+aptosOk+' / '+totalAptos+' aptos</span></div>'
+    +'<div style="height:10px;background:#ddd;border-radius:5px;overflow:hidden;">'
+    +'<div style="height:100%;width:'+pct+'%;background:'+corBarra+';border-radius:5px;transition:width .4s;"></div></div>'
+    +'<div style="font-size:11px;color:#888;margin-top:5px;text-align:right;">'+pct+'% concluido</div></div>';
+
+  if(!lista.length){
+    html+='<div style="text-align:center;padding:30px;color:#888;">Nenhum apartamento cadastrado nesta obra.</div>';
+  } else {
+    lista.forEach(function(item){
+      var cor=item.ok?'var(--green)':item.concluidos>0?'#B8860B':'#ccc';
+      var bg=item.ok?'rgba(30,132,73,.06)':item.concluidos>0?'rgba(184,134,11,.06)':'#f9f9f9';
+      var status=item.ok?'Concluido':item.concluidos>0?'Em andamento':'Aguardando';
+      var pctApto=item.total>0?Math.round((item.concluidos/item.total)*100):0;
+      html+='<div style="background:'+bg+';border-radius:12px;padding:12px 14px;border-left:3px solid '+cor+';">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+        +'<div><div style="font-size:14px;font-weight:700;">Apto '+item.apto+'</div>'
+        +'<div style="font-size:11px;color:#888;margin-top:1px;">'+item.andar+'° Andar</div></div>'
+        +'<div style="text-align:right;">'
+        +'<div style="font-size:11px;font-weight:700;color:'+cor+';">'+status+'</div>'
+        +(item.ok&&item.data?'<div style="font-size:10px;color:#888;">'+fmtD(item.data)+'</div>':'')
+        +'</div></div>'
+        // Mini barra por apto
+        +'<div style="display:flex;align-items:center;gap:8px;">'
+        +'<div style="flex:1;height:6px;background:#ddd;border-radius:3px;overflow:hidden;">'
+        +'<div style="height:100%;width:'+pctApto+'%;background:'+cor+';border-radius:3px;"></div></div>'
+        +'<span style="font-size:10px;color:#888;white-space:nowrap;">'+item.concluidos+'/'+item.total+' amb.</span>'
+        +'</div></div>';
+    });
+  }
+  html+='</div>';
+  el.innerHTML=html;
+}
+
 function renderClienteEquipe(){
   var el=getEl('cl-t-equipe');if(!el)return;
   var o=window.OBRA_CLIENTE;if(!o)return;
