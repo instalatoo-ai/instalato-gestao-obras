@@ -2675,71 +2675,79 @@ function abrirLoteAmb(){
   var ambientes=aptoAtual.ambientes||[];
   if(!ambientes.length){toast('Cadastre ambientes primeiro.');return;}
 
-  // Lista de ambientes com checkboxes — usando toggle manual para evitar bugs
+  // Lista de ambientes — pills clicaveis
   var listaAmb=getEl('lote-amb-lista');
   listaAmb.innerHTML='';
-  ambientes.forEach(function(a,idx){
-    var div=document.createElement('div');
-    div.setAttribute('data-nome',a.nome);
-    div.setAttribute('data-m2',String(a.m2));
-    div.setAttribute('data-sel','1');
-    div.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--green);border-radius:8px;cursor:pointer;border:2px solid var(--green);transition:all .15s;';
-    div.innerHTML='<div style="width:20px;height:20px;border-radius:4px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">✓</div>'
-      +'<div><div style="font-size:13px;font-weight:700;color:#fff;">'+a.nome+'</div>'
-      +'<div style="font-size:10px;color:rgba(255,255,255,.8);">'+a.m2+'m2</div></div>';
-    div.onclick=function(){
+  var rowAmb=document.createElement('div');
+  rowAmb.style.cssText='display:flex;flex-wrap:wrap;gap:8px;padding:4px 0;';
+  ambientes.forEach(function(a){
+    var btn=document.createElement('div');
+    btn.setAttribute('data-nome',a.nome);
+    btn.setAttribute('data-m2',String(a.m2));
+    btn.setAttribute('data-sel','1');
+    btn.style.cssText='padding:8px 14px;border-radius:20px;border:2px solid var(--green);background:var(--green);color:#fff;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;';
+    btn.innerHTML=a.nome+'<span style="font-size:10px;opacity:.8;margin-left:4px;">'+a.m2+'m2</span>';
+    btn.onclick=function(){
       var sel=this.getAttribute('data-sel')==='1';
       this.setAttribute('data-sel',sel?'0':'1');
-      if(sel){
-        this.style.background='var(--gray)';this.style.borderColor='var(--border)';
-        this.querySelector('div').style.background='var(--gray)';this.querySelector('div').style.border='2px solid var(--border)';
-        this.querySelector('div').textContent='';
-        this.querySelectorAll('div')[1].querySelectorAll('div').forEach(function(d){d.style.color='var(--sub)';});
-      } else {
-        this.style.background='var(--green)';this.style.borderColor='var(--green)';
-        this.querySelector('div').style.background='#fff';this.querySelector('div').style.border='none';
-        this.querySelector('div').textContent='✓';
-        this.querySelectorAll('div')[1].querySelectorAll('div').forEach(function(d){d.style.color='#fff';});
-      }
+      this.style.background=sel?'#fff':'var(--green)';
+      this.style.color=sel?'var(--sub)':'#fff';
+      this.style.borderColor=sel?'var(--border)':'var(--green)';
     };
-    listaAmb.appendChild(div);
+    rowAmb.appendChild(btn);
   });
+  listaAmb.appendChild(rowAmb);
 
-  // Lista de aptos destino
+  // Lista de aptos destino — cards clicaveis
   var listaAptos=getEl('lote-aptos-lista');
   listaAptos.innerHTML='';
   est.andares.forEach(function(andar){
+    // Label do andar
+    var lbl=document.createElement('div');
+    lbl.style.cssText='font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;padding:4px 2px 2px;letter-spacing:.5px;';
+    lbl.textContent=andar.num+'° Andar';
+    listaAptos.appendChild(lbl);
+    var row=document.createElement('div');
+    row.style.cssText='display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px;';
     andar.aptos.forEach(function(apto,pi){
       if(andar.num===est.andares[ref.ai].num && pi===ref.pi) return;
-      var div=document.createElement('div');
-      div.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--gray);border-radius:8px;';
-      div.innerHTML='<input type="checkbox" id="lote-apto-'+andar.num+'-'+pi+'" data-andar="'+andar.num+'" data-pi="'+pi+'" style="width:16px;height:16px;cursor:pointer;">'
-        +'<label for="lote-apto-'+andar.num+'-'+pi+'" style="font-size:13px;font-weight:700;cursor:pointer;">Apto '+apto.nome
-        +' <span style="font-size:10px;color:var(--sub);font-weight:400;">'+andar.num+'° Andar</span></label>';
-      listaAptos.appendChild(div);
+      var btn=document.createElement('div');
+      btn.setAttribute('data-andar',String(andar.num));
+      btn.setAttribute('data-pi',String(pi));
+      btn.setAttribute('data-sel','0');
+      btn.style.cssText='padding:7px 14px;border-radius:20px;border:2px solid var(--border);background:#fff;font-size:12px;font-weight:700;color:var(--sub);cursor:pointer;transition:all .15s;';
+      btn.textContent='Apto '+apto.nome;
+      btn.onclick=function(){
+        var sel=this.getAttribute('data-sel')==='1';
+        this.setAttribute('data-sel',sel?'0':'1');
+        this.style.background=sel?'#fff':'#1a3a5c';
+        this.style.color=sel?'var(--sub)':'#fff';
+        this.style.borderColor=sel?'var(--border)':'#1a3a5c';
+      };
+      row.appendChild(btn);
     });
+    listaAptos.appendChild(row);
   });
 
   getEl('modal-lote-amb').classList.add('show');
 }
 
 function selLoteAmbs(sel){
-  document.querySelectorAll('#lote-amb-lista div[data-nome]').forEach(function(div){
-    div.setAttribute('data-sel',sel?'1':'0');
-    if(sel){
-      div.style.background='var(--green)';div.style.borderColor='var(--green)';
-      div.querySelector('div').style.background='#fff';div.querySelector('div').style.border='none';
-      div.querySelector('div').textContent='✓';
-    } else {
-      div.style.background='var(--gray)';div.style.borderColor='var(--border)';
-      div.querySelector('div').style.background='var(--gray)';div.querySelector('div').style.border='2px solid var(--border)';
-      div.querySelector('div').textContent='';
-    }
+  document.querySelectorAll('#lote-amb-lista div[data-nome]').forEach(function(btn){
+    btn.setAttribute('data-sel',sel?'1':'0');
+    btn.style.background=sel?'var(--green)':'#fff';
+    btn.style.color=sel?'#fff':'var(--sub)';
+    btn.style.borderColor=sel?'var(--green)':'var(--border)';
   });
 }
 
 function selecionarTodosLote(sel){
-  document.querySelectorAll('#lote-aptos-lista input[type=checkbox]').forEach(function(cb){cb.checked=sel;});
+  document.querySelectorAll('#lote-aptos-lista div[data-andar]').forEach(function(btn){
+    btn.setAttribute('data-sel',sel?'1':'0');
+    btn.style.background=sel?'#1a3a5c':'#fff';
+    btn.style.color=sel?'#fff':'var(--sub)';
+    btn.style.borderColor=sel?'#1a3a5c':'var(--border)';
+  });
 }
 
 function confirmarLoteAmb(){
@@ -2756,7 +2764,7 @@ function confirmarLoteAmb(){
   if(!ambsSel.length){toast('Selecione pelo menos um ambiente.');return;}
 
   // Aptos selecionados
-  var aptosCbs=document.querySelectorAll('#lote-aptos-lista input[type=checkbox]:checked');
+  var aptosCbs=document.querySelectorAll('#lote-aptos-lista div[data-andar][data-sel="1"]');
   if(!aptosCbs.length){toast('Selecione pelo menos um apto.');return;}
 
   var countAptos=0; var countAmbs=0; var ignorados=0;
