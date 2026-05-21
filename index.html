@@ -890,18 +890,17 @@ function renderLancar() {
 
 function renderBonusList() {
   var items = [
-    {k:'qualidade',n:'Qualidade técnica',d:'Assentamento nivelado e com padrão'},
-    {k:'limpeza',n:'Organização e limpeza',d:'Local limpo ao fim do dia'},
-    {k:'horario',n:'Horário de entrada/saída',d:'Pontualidade no início e término'},
-    {k:'epi',n:'Uso de EPIs',d:'Equipamentos utilizados corretamente'},
-    {k:'retrabalho',n:'Sem retrabalho',d:'Nenhuma correção necessária'}
+    {k:'qualidade',n:'Qualidade técnica',d:'Assentamento nivelado e com padrão',pct:2},
+    {k:'limpeza',n:'Organização e limpeza',d:'Local limpo ao fim do dia',pct:4},
+    {k:'horario',n:'Horário de entrada/saída',d:'Pontualidade no início e término',pct:2},
+    {k:'retrabalho',n:'Sem retrabalho',d:'Nenhuma correção necessária',pct:2}
   ];
   var el = getEl('bonus-list'); if(!el) return;
   el.innerHTML = items.map(function(it) {
     return '<div class="bonus-item" id="b-'+it.k+'" onclick="toggleBonus(\''+it.k+'\')">'
       +'<div class="bchk" id="bc-'+it.k+'"></div>'
       +'<div class="bname">'+it.n+'<br><span style="font-size:10px;color:var(--sub);font-weight:400">'+it.d+'</span></div>'
-      +'<div class="bpct">+2%</div></div>';
+      +'<div class="bpct">+'+it.pct+'%</div></div>';
   }).join('');
 }
 
@@ -1079,6 +1078,25 @@ function renderMeu() {
     +'<div class="card"><div class="prog-lbl"><span>Meta mensal</span><span style="color:var(--gold);font-weight:700">'+pct+'%</span></div>'
     +'<div class="prog"><div class="prog-f" style="width:'+pct+'%"></div></div></div>'
     +(hist?'<div><div class="fl">Últimos lançamentos</div>'+hist+'</div>':'<div class="empty"><p>Nenhum lançamento ainda.</p></div>')
+    +'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
+    +'<div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;">Bonus de desempenho</div>'
+    +'<div style="padding:10px 14px;display:flex;flex-direction:column;gap:8px;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">'
+    +'<div><div style="font-size:13px;font-weight:700;">Qualidade tecnica</div><div style="font-size:11px;color:var(--sub);">Assentamento nivelado e com padrao</div></div>'
+    +'<div style="font-size:14px;font-weight:700;color:var(--gold);">+2%</div></div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">'
+    +'<div><div style="font-size:13px;font-weight:700;">Organizacao e limpeza</div><div style="font-size:11px;color:var(--sub);">Local limpo ao fim do dia</div></div>'
+    +'<div style="font-size:14px;font-weight:700;color:var(--gold);">+4%</div></div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">'
+    +'<div><div style="font-size:13px;font-weight:700;">Horario de entrada/saida</div><div style="font-size:11px;color:var(--sub);">Pontualidade no inicio e termino</div></div>'
+    +'<div style="font-size:14px;font-weight:700;color:var(--gold);">+2%</div></div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;">'
+    +'<div><div style="font-size:13px;font-weight:700;">Sem retrabalho</div><div style="font-size:11px;color:var(--sub);">Nenhuma correcao necessaria</div></div>'
+    +'<div style="font-size:14px;font-weight:700;color:var(--gold);">+2%</div></div>'
+    +'</div>'
+    +'<div style="padding:10px 14px;background:var(--gray);display:flex;justify-content:space-between;align-items:center;">'
+    +'<span style="font-size:12px;color:var(--sub);">Bonus maximo possivel</span>'
+    +'<span style="font-size:14px;font-weight:700;color:var(--gold);">+10%</span></div></div>'
     +'<div class="info-box">👁 Apenas visualização -- lançamentos realizados pelo líder ou admin.</div></div>';
 }
 
