@@ -579,6 +579,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <script>
 // CONFIG
 var SURL = 'https://qfqbbfcqkzzezzmopssv.supabase.co';
+var WHATSAPP_MARMITA = '5547984511220'; // Numero do fornecedor (com DDI+DDD, sem espacos)
 var SKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmcWJiZmNxa3p6ZXp6bW9wc3N2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2NDMwMDUsImV4cCI6MjA5NDIxOTAwNX0.EiSpKp_ywz4JTxMC18EK_Dv0MWFNpx9Db5jFVQwSdJA';
 var GSCRIPT = window.location.origin + '/gscript';
 var H = {'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation'};
@@ -843,6 +844,36 @@ function atualizarBadgeAvisos(){
   }
 }
 
+function atualizarBadgeMarmita(){
+  var navEl=getEl('n-marmita'); if(!navEl) return;
+  var T=U?U.tipo:'';
+  if(T!=='admin') return;
+  try{
+    var lidas=JSON.parse(localStorage.getItem('instalato_marm_lidas_'+(U?U.id:''))||'{}');
+    var hojeStr=hoje();
+    var novas=marmitas.filter(function(m){return m.data===hojeStr && !lidas[m.id];}).length;
+    if(novas>0){
+      navEl.innerHTML='<span class="ni" style="position:relative;display:inline-block;">🍱'
+        +'<span style="position:absolute;top:-4px;right:-6px;background:var(--red);color:#fff;font-size:8px;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;padding:0 3px;font-weight:700;">'+novas+'</span>'
+        +'</span>Marmita';
+      navEl.style.color='var(--red)';
+    } else {
+      navEl.innerHTML='<span class="ni">🍱</span>Marmita';
+      navEl.style.color='';
+    }
+  }catch(e){}
+}
+
+function marcarMarmitasLidas(){
+  try{
+    var lidas={};
+    var hojeStr=hoje();
+    marmitas.filter(function(m){return m.data===hojeStr;}).forEach(function(m){lidas[m.id]=true;});
+    localStorage.setItem('instalato_marm_lidas_'+(U?U.id:''),JSON.stringify(lidas));
+    atualizarBadgeMarmita();
+  }catch(e){}
+}
+
 function atualizarBadgeOcorr(){
   var navEl=getEl('n-ocorr'); if(!navEl) return;
   var T=U?U.tipo:'';
@@ -888,7 +919,7 @@ function renderAll() {
 }
 
 function renderTab(id) {
-  var map = {lancar:renderLancar,meu:renderMeu,hist:renderHist,conf:renderConf,aptos:renderAptos,ponto:renderPonto,mat:renderMat,meumat:renderMeuMat,ocorr:function(){renderOcorr();if(U&&U.tipo!=='func')marcarOcorrsLidas();},aviso:renderAvisos,marmita:renderMarmita,dash:renderDash,desp:renderDesp,fin:renderFinanceiro,conta:renderConta};
+  var map = {lancar:renderLancar,meu:renderMeu,hist:renderHist,conf:renderConf,aptos:renderAptos,ponto:renderPonto,mat:renderMat,meumat:renderMeuMat,ocorr:function(){renderOcorr();if(U&&U.tipo!=='func')marcarOcorrsLidas();},aviso:renderAvisos,marmita:function(){renderMarmita();if(U&&U.tipo==='admin'){marcarMarmitasLidas();verificarBannerMarmita();}},dash:renderDash,desp:renderDesp,fin:renderFinanceiro,conta:renderConta};
   if(map[id]) map[id]();
 }
 
@@ -1926,8 +1957,10 @@ function renderMarmita(){
     listaAdminHtml='<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
       +'<div style="padding:10px 14px;background:#1a3a5c;display:flex;justify-content:space-between;align-items:center;">'
       +'<span style="font-size:13px;font-weight:700;color:#fff;">Lista de hoje</span>'
+      +'<div style="display:flex;gap:6px;align-items:center;">'
       +'<span style="font-size:12px;background:rgba(255,255,255,.2);color:#fff;padding:2px 10px;border-radius:20px;font-weight:700;">'+pedidosHoje.length+' pedido(s)</span>'
-      +'</div>'
+      +'<button onclick="copiarListaMarmitas()" style="padding:4px 10px;border-radius:20px;border:none;background:#B8860B;color:#fff;font-size:10px;font-weight:700;cursor:pointer;">Copiar</button>'+'<button onclick="enviarListaWhatsAppMarmita()" style="padding:4px 10px;border-radius:20px;border:none;background:#25D366;color:#fff;font-size:10px;font-weight:700;cursor:pointer;">WhatsApp</button>'
+      +'</div></div>'
       +pedidosHoje.map(function(m,i){
         var u=null; for(var j=0;j<users.length;j++) if(users[j].id===m.usuario_id){u=users[j];break;}
         return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);">'
@@ -1987,6 +2020,90 @@ function renderMarmita(){
     +'</div>';
 }
 
+function enviarListaWhatsAppMarmita(){
+  var hojeStr=hoje();
+  var pedidosHoje=marmitas.filter(function(m){return m.data===hojeStr;});
+  var dataFmt=fmtD(hojeStr);
+  var texto='PEDIDO MARMITAS - '+dataFmt+'\n';
+  if(!pedidosHoje.length){
+    texto+='Nenhum pedido hoje.';
+  } else {
+    pedidosHoje.forEach(function(m,i){
+      var u=null; for(var j=0;j<users.length;j++) if(users[j].id===m.usuario_id){u=users[j];break;}
+      texto+=(i+1)+'. '+(u?u.apelido:'--')+(m.obs?' ('+m.obs+')':'')+'\n';
+    });
+    texto+='\nTotal: '+pedidosHoje.length+' marmita(s)';
+  }
+  var url='https://wa.me/'+WHATSAPP_MARMITA+'?text='+encodeURIComponent(texto);
+  window.open(url,'_blank');
+  // Marcar como enviado hoje
+  try{localStorage.setItem('instalato_marm_enviado_'+hojeStr,'1');}catch(e){}
+  var banner=document.getElementById('banner-marmita'); if(banner) banner.remove();
+}
+
+function ignorarBannerMarmita(){
+  var hojeStr=hoje();
+  try{localStorage.setItem('instalato_marm_enviado_'+hojeStr,'1');}catch(e){}
+  var b=document.getElementById('banner-marmita'); if(b) b.remove();
+}
+
+function verificarBannerMarmita(){
+  if(!U||U.tipo!=='admin') return;
+  var agora=new Date();
+  var horaAtual=agora.getHours()*60+agora.getMinutes();
+  if(horaAtual<9*60) return; // antes das 9h nao mostrar
+  var hojeStr=hoje();
+  try{
+    var jaEnviou=localStorage.getItem('instalato_marm_enviado_'+hojeStr);
+    if(jaEnviou) return;
+  }catch(e){}
+  var pedidosHoje=marmitas.filter(function(m){return m.data===hojeStr;});
+  if(!pedidosHoje.length) return;
+  // Mostrar banner
+  var existing=document.getElementById('banner-marmita');
+  if(existing) return;
+  var banner=document.createElement('div');
+  banner.id='banner-marmita';
+  banner.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:400px;background:#1a3a5c;border-radius:14px;padding:14px 16px;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,.3);display:flex;align-items:center;gap:12px;';
+  banner.innerHTML='<div style="font-size:28px;flex-shrink:0;">🍱</div>'
+    +'<div style="flex:1;">'
+    +'<div style="font-size:13px;font-weight:700;color:#fff;">Pedidos encerrados!</div>'
+    +'<div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:2px;">'+pedidosHoje.length+' pedido(s) hoje. Enviar lista ao fornecedor?</div>'
+    +'</div>'
+    +'<div style="display:flex;flex-direction:column;gap:6px;">'
+    +'<button onclick="enviarListaWhatsAppMarmita()" style="padding:7px 14px;border-radius:20px;border:none;background:#25D366;color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Enviar WhatsApp</button>'
+    +'<button onclick="ignorarBannerMarmita()" style="padding:5px 14px;border-radius:20px;border:1px solid rgba(255,255,255,.3);background:transparent;color:rgba(255,255,255,.7);font-size:10px;cursor:pointer;">Ignorar</button>'
+    +'</div>';
+  document.body.appendChild(banner);
+}
+
+function copiarListaMarmitas(){
+  var hojeStr=hoje();
+  var pedidosHoje=marmitas.filter(function(m){return m.data===hojeStr;});
+  if(!pedidosHoje.length){toast('Nenhum pedido hoje.');return;}
+  var dataFmt=fmtD(hojeStr);
+  var linhas=pedidosHoje.map(function(m,i){
+    var u=null; for(var j=0;j<users.length;j++) if(users[j].id===m.usuario_id){u=users[j];break;}
+    return (i+1)+'. '+(u?u.apelido:'--')+(m.obs?' ('+m.obs+')':'');
+  });
+  var texto='PEDIDO MARMITAS - '+dataFmt+'\n'+linhas.join('\n')+'\n\nTotal: '+pedidosHoje.length+' marmita(s)';
+  try{
+    navigator.clipboard.writeText(texto).then(function(){
+      toast('Lista copiada! Cole no WhatsApp.');
+    });
+  }catch(e){
+    // Fallback para navegadores sem clipboard API
+    var ta=document.createElement('textarea');
+    ta.value=texto;
+    ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast('Lista copiada! Cole no WhatsApp.');
+  }
+}
+
 function pedirMarmita(){
   var obs=(getEl('marm-obs')?getEl('marm-obs').value.trim():'');
   var hojeStr=hoje();
@@ -1998,6 +2115,7 @@ function pedirMarmita(){
     if(r){
       marmitas=[r].concat(marmitas);
       toast('🍱 Marmita pedida! Sera descontada no pagamento.');
+      atualizarBadgeMarmita();
       renderMarmita();
       // Inserir no financeiro como desconto pendente
       dbInsert('fin_lancamentos',{usuario_id:U.id,tipo:'marmita',descricao:'Marmita '+hojeStr,valor:valorMarm,data:hojeStr,descontado:false})
