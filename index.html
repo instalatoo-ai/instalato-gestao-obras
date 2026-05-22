@@ -1087,6 +1087,7 @@ function carregarSelectApto(oId){
 }
 
 function aptoChanged(oId,aptoNome){
+  var oIdL=oId; var aptoL=aptoNome;
   var lista=getEl('l-amb-lista'); if(!lista) return;
   var wrap=getEl('l-area-wrap');
   lista.innerHTML='';
@@ -1101,19 +1102,78 @@ function aptoChanged(oId,aptoNome){
     var unidade=a.unidade||'m2';
     var div=document.createElement('div');
     div.style.cssText='display:flex;align-items:center;justify-content:space-between;background:var(--gray);border-radius:8px;padding:9px 12px;';
+    // Calcular ja lancado deste ambiente neste apto/obra
+    var m2Total=parseFloat(a.m2)||0;
+    var m2Lancado=0;
+    if(oIdL&&aptoL){
+      lancs.forEach(function(l){
+        if(l.obra_id===oIdL&&l.apartamento===aptoL){
+          var ambsL=[];try{ambsL=(l.ambiente||'').split(', ');}catch(e){}
+          if(ambsL.indexOf(a.nome)>=0||l.ambiente===a.nome) m2Lancado+=(parseFloat(l.area_m2)||0)/Math.max(ambsL.length,1);
+        }
+      });
+    }
+    var m2Disp=Math.max(0,m2Total-m2Lancado);
     var vfAmbStr=a.valor_fixo?'<span style="font-size:10px;background:#1a3a5c;color:#fff;padding:1px 6px;border-radius:10px;margin-left:4px;">R$ '+parseFloat(a.valor_fixo).toFixed(2)+'/'+( unidade==='ml'?'ml':'m²')+'</span>':'';
+    var dispColor=m2Disp<m2Total?'#B8860B':'var(--sub)';
     div.innerHTML='<div style="display:flex;align-items:center;gap:8px;">'
-      +'<input type="checkbox" id="lamb-cb-'+idx+'" data-nome="'+a.nome+'" data-m2="'+(a.m2||0)+'" data-unit="'+unidade+'" data-vf="'+(a.valor_fixo||0)+'" onchange="recalcAmbs()" style="width:16px;height:16px;cursor:pointer;">'
-      +'<label for="lamb-cb-'+idx+'" style="cursor:pointer;">'
+      +'<input type="checkbox" id="lamb-cb-'+idx+'" data-nome="'+a.nome+'" data-m2="'+m2Disp+'" data-m2-total="'+m2Total+'" data-unit="'+unidade+'" data-vf="'+(a.valor_fixo||0)+'" onchange="recalcAmbs();toggleParcialAmb(this,'+idx+')" style="width:16px;height:16px;cursor:pointer;"'+(m2Disp<=0?' disabled':'')+'>'
+      +'<label for="lamb-cb-'+idx+'" style="cursor:pointer;'+(m2Disp<=0?'opacity:.4':'')+';">'
       +'<div style="font-size:13px;font-weight:700;">'+a.nome+vfAmbStr+'</div>'
-      +'<div style="font-size:10px;color:var(--sub);">'+(a.m2||0)+' '+(unidade==='ml'?'ml':'m²')+(a.valor_fixo?' · valor fixo por unidade':'')+'</div>'
+      +'<div style="font-size:10px;color:'+dispColor+';">'
+      +m2Disp.toFixed(1)+(m2Lancado>0?' disponivel de '+m2Total:' '+(unidade==='ml'?'ml':'m²'))
+      +(a.valor_fixo?' · valor fixo':'')
+      +(m2Lancado>0?' · '+m2Lancado.toFixed(1)+' ja lancado':'')
+      +'</div>'
       +'</label></div>'
-      +'<div style="text-align:right;font-size:12px;font-weight:700;color:var(--gold);">'+(a.m2||0)+(unidade==='ml'?' ml':' m²')+'</div>';
+      +'<div style="text-align:right;font-size:12px;font-weight:700;color:'+dispColor+';">'+m2Disp.toFixed(1)+(unidade==='ml'?' ml':' m²')+'</div>';
+    // Campo parcial (aparece ao marcar)
+    var parcialDiv=document.createElement('div');
+    parcialDiv.id='parcial-'+idx;
+    parcialDiv.style.cssText='display:none;padding:6px 8px;background:#fdf3e3;border-radius:8px;';
+    parcialDiv.innerHTML='<div style="font-size:10px;color:#B8860B;font-weight:700;margin-bottom:4px;">Quantidade a lancar (max: '+m2Disp.toFixed(1)+' '+(unidade==='ml'?'ml':'m²')+')</div>'
+      +'<div style="display:flex;gap:6px;align-items:center;">'
+      +'<input class="inp" type="number" id="parcial-val-'+idx+'" min="0.1" max="'+m2Disp+'" step="0.1" value="'+m2Disp.toFixed(1)+'" data-idx="'+idx+'" oninput="atualizarParcial(this)" style="margin:0;flex:1;">'
+      +'<span style="font-size:11px;color:#B8860B;font-weight:700;">'+(unidade==='ml'?'ml':'m²')+'</span>'
+      +'<button onclick="usarTudo('+idx+','+m2Disp+')" style="padding:4px 8px;border-radius:8px;border:none;background:#B8860B;color:#fff;font-size:10px;cursor:pointer;">Tudo</button>'
+      +'</div>';
     lista.appendChild(div);
+    lista.appendChild(parcialDiv);
   });
   if(wrap) wrap.style.display='none';
   if(getEl('l-area')) getEl('l-area').value='';
   if(getEl('l-amb')) getEl('l-amb').value='';
+}
+
+function toggleParcialAmb(cb, idx){
+  var parcial=document.getElementById('parcial-'+idx);
+  if(!parcial) return;
+  if(cb.checked){
+    parcial.style.display='block';
+  } else {
+    parcial.style.display='none';
+  }
+  recalcAmbs();
+}
+
+function atualizarParcial(inp){
+  var idx=inp.getAttribute('data-idx');
+  var max=parseFloat(inp.max)||0;
+  var val=parseFloat(inp.value)||0;
+  if(val>max){inp.value=max;}
+  if(val<0){inp.value=0;}
+  // Atualizar data-m2 do checkbox
+  var cb=document.getElementById('lamb-cb-'+idx);
+  if(cb) cb.setAttribute('data-m2',inp.value);
+  recalcAmbs();
+}
+
+function usarTudo(idx, max){
+  var inp=document.getElementById('parcial-val-'+idx);
+  if(inp){inp.value=max;}
+  var cb=document.getElementById('lamb-cb-'+idx);
+  if(cb) cb.setAttribute('data-m2',max);
+  recalcAmbs();
 }
 
 function recalcAmbs(){
