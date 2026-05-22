@@ -415,6 +415,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div><div class="fl">Cliente</div><input class="inp" id="mo-cliente" type="text"></div>
       <div><div class="fl">Cidade</div><input class="inp" id="mo-cidade" type="text"></div>
       <div><div class="fl">Endereco</div><input class="inp" id="mo-endereco" type="text" placeholder="Ex: Rua das Flores, 123"></div>
+      <div>
+        <div class="fl">Localizacao GPS (para validar ponto)</div>
+        <div class="row2">
+          <div><div style="font-size:10px;color:var(--sub);margin-bottom:4px;">Latitude</div><input class="inp" id="mo-lat" type="number" step="any" placeholder="Ex: -26.9078"></div>
+          <div><div style="font-size:10px;color:var(--sub);margin-bottom:4px;">Longitude</div><input class="inp" id="mo-lng" type="number" step="any" placeholder="Ex: -48.6619"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+          <div style="flex:1;"><div style="font-size:10px;color:var(--sub);margin-bottom:4px;">Raio permitido (metros)</div><input class="inp" id="mo-raio" type="number" placeholder="300" value="300"></div>
+          <button type="button" onclick="capturarGPSObra()" style="padding:8px 12px;border-radius:10px;border:1px solid #1a3a5c;background:transparent;color:#1a3a5c;font-size:11px;font-weight:700;cursor:pointer;margin-top:14px;">Usar minha localizacao</button>
+        </div>
+      </div>
       <div class="row2">
         <div><div class="fl">Metragem total (m2)</div><input class="inp" id="mo-contrato" type="number" placeholder="Ex: 1250"></div>
         <div><div class="fl">Status</div>
@@ -430,6 +441,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div><div class="fl">Valor venda R$/m²</div><input class="inp" id="mo-rate-venda" type="number" placeholder="Ex: 70"></div>
         <div><div class="fl">Valor func R$/ml (metro linear)</div><input class="inp" id="mo-rate-func-ml" type="number" placeholder="Ex: 25"></div>
         <div><div class="fl">Valor venda R$/ml (metro linear)</div><input class="inp" id="mo-rate-venda-ml" type="number" placeholder="Ex: 50"></div>
+        <div><div class="fl">Valor lider R$/m²</div><input class="inp" id="mo-rate-lider" type="number" placeholder="Ex: 40"></div>
+        <div><div class="fl">Valor lider R$/ml (metro linear)</div><input class="inp" id="mo-rate-lider-ml" type="number" placeholder="Ex: 30"></div>
       </div>
       <div class="row2">
         <div><div class="fl">Inicio</div><input class="inp" id="mo-inicio" type="date"></div>
@@ -897,7 +910,7 @@ function atualizarBadgeOcorr(){
   // Funcionarios nao veem badge (apenas gestao)
   if(T==='func'){navEl.innerHTML='<span class="ni">⚠️</span>Ocorrencias';return;}
   try{
-    var lidas=JSON.parse(localStorage.getItem('instalato_ocorr_lidas_'+(U?U.id:''))||'{}');
+    var lidas=getOcorrLidas();
     var novas=ocorrs.filter(function(o){return !lidas[o.id];}).length;
     if(novas>0){
       navEl.innerHTML='<span class="ni" style="position:relative;display:inline-block;">⚠️'
@@ -913,9 +926,7 @@ function atualizarBadgeOcorr(){
 
 function marcarOcorrsLidas(){
   try{
-    var lidas={};
-    ocorrs.forEach(function(o){lidas[o.id]=true;});
-    localStorage.setItem('instalato_ocorr_lidas_'+(U?U.id:''),JSON.stringify(lidas));
+    ocorrs.forEach(function(o){setOcorrLida(o.id);});
     atualizarBadgeOcorr();
   }catch(e){}
 }
@@ -1149,12 +1160,14 @@ function calcTotal() {
     if(getEl('b-'+k)&&getEl('b-'+k).classList.contains('on')) pct+=bonusMap[k];
   });
   pct=Math.min(pct,10);
-  // Usar rate linear se unidade for ml
+  // Determinar taxa correta: lider ou func, m2 ou ml
   var oIdRate=val('l-obra');
+  var fIdRate=val('l-func');
   var oRate=null; for(var i=0;i<obras.length;i++) if(obras[i].id===oIdRate){oRate=obras[i];break;}
-  if(_unidade==='ml' && oRate && oRate.rate_func_ml) {
-    // substituir rate pelo linear
-    var rateLinear=parseFloat(oRate.rate_func_ml)||0;
+  var uRate=null; for(var i=0;i<users.length;i++) if(users[i].id===fIdRate){uRate=users[i];break;}
+  var isLider2=uRate&&(uRate.tipo==='lider'||uRate.tipo==='lider_chefe');
+  if(_unidade==='ml' && oRate && (isLider2?oRate.rate_lider_ml:oRate.rate_func_ml)) {
+    var rateLinear=parseFloat(isLider2?(oRate.rate_lider_ml||oRate.rate_func_ml):oRate.rate_func_ml)||0;
     var areaVal=parseFloat(getEl('l-area')?getEl('l-area').value:0)||0;
     var baseLinear=areaVal*rateLinear;
     var bvalLinear=baseLinear*(pct/100);
@@ -1911,8 +1924,24 @@ function renderOcorr(){
     ?'<div><div class="fl">Colaborador</div><div class="inp" style="color:var(--sub);">'+U.apelido+' (voce)</div></div>'
     :'<div><div class="fl">Colaborador</div><select class="sel" id="oc-colab"><option value="">Selecione</option>'+fOpts+'</select></div>';
 
+  var minhasOcorrs=isFunc?ocorrs.filter(function(oc){return oc.colaborador_id===U.id;}):[];
+  var minhasHtml=minhasOcorrs.map(function(oc){
+    var tObj2=null; for(var i=0;i<tipos.length;i++) if(tipos[i].k===oc.tipo){tObj2=tipos[i];break;}
+    var respostas2=[]; try{respostas2=JSON.parse(oc.respostas||'[]');}catch(e){}
+    var temResp=respostas2.length>0;
+    return '<div data-ocid="'+oc.id+'" onclick="abrirOcorrFunc(this.dataset.ocid)" style="cursor:pointer;border-left:3px solid '+(temResp?'var(--green)':'#8B0000')+';" class="hi">'
+      +'<div class="hi-ico">'+(tObj2?tObj2.i:'⚠️')+'</div>'
+      +'<div class="hi-b"><div class="hi-t">'+(tObj2?tObj2.l:oc.tipo||'--')+'</div>'
+      +(oc.observacao?'<div class="hi-s" style="font-style:italic;">"'+oc.observacao.substring(0,50)+'"</div>':'')
+      +(temResp?'<div style="font-size:10px;color:var(--green);font-weight:700;margin-top:2px;">📩 Resposta da lideranca</div>':'')
+      +'</div><div class="hi-r"><div class="hi-d">'+fmtD(oc.data)+'</div></div></div>';
+  }).join('');
+  var funcHistHtml=minhasOcorrs.length
+    ?'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;"><div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;">Minhas ocorrencias</div>'+minhasHtml+'</div>'
+    :'<div class="info-box" style="background:rgba(139,0,0,.06);border-color:#8B0000;color:#8B0000;">Nenhuma ocorrencia registrada.</div>';
+
   var historicoHtml=isFunc
-    ?'<div class="info-box" style="background:rgba(139,0,0,.06);border-color:#8B0000;color:#8B0000;">Suas ocorrencias sao visiveis apenas para a gestao.</div>'
+    ?funcHistHtml
     :'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
       +'<div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">'
       +'<span style="font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;">Historico</span>'
@@ -1978,7 +2007,6 @@ function abrirOcorr(id){
   var oc=null; for(var i=0;i<ocorrs.length;i++) if(ocorrs[i].id===id){oc=ocorrs[i];break;}
   if(!oc) return;
 
-  // Marcar como lida
   setOcorrLida(id);
   atualizarBadgeOcorr();
 
@@ -1986,13 +2014,11 @@ function abrirOcorr(id){
   var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===oc.obra_id){o=obras[i];break;}
   var tObj=null; for(var i=0;i<_TIPOS_OCORR.length;i++) if(_TIPOS_OCORR[i].k===oc.tipo){tObj=_TIPOS_OCORR[i];break;}
 
-  var comentarios=[];
-  try{comentarios=JSON.parse(oc.comentarios||'[]');}catch(e){}
+  var comentarios=[]; try{comentarios=JSON.parse(oc.comentarios||'[]');}catch(e){}
+  var respostas=[]; try{respostas=JSON.parse(oc.respostas||'[]');}catch(e){}
+  var lidasPor=[]; try{lidasPor=JSON.parse(oc.lidas_por||'[]');}catch(e){}
 
-  // Lidas por
-  var lidasPor=[];
-  try{lidasPor=JSON.parse(oc.lidas_por||'[]');}catch(e){}
-  // Adicionar eu na lista de lidas
+  // Marcar como lida
   var jaLi=lidasPor.some(function(l){return l.id===U.id;});
   if(!jaLi){
     lidasPor.push({id:U.id,nome:U.apelido,em:hoje()+' '+horaAgora()});
@@ -2002,16 +2028,30 @@ function abrirOcorr(id){
   }
 
   var isGestao=(U.tipo==='admin'||U.tipo==='lider'||U.tipo==='lider_chefe');
+  var isFunc=(U.tipo==='func');
+  var nomeFunc=u?u.apelido:'funcionario';
 
+  // Comentarios da lideranca (visivel para todos)
   var comentariosHtml=comentarios.length
     ?comentarios.map(function(c){
-      return '<div style="background:var(--gray);border-radius:10px;padding:10px 12px;margin-bottom:6px;">'
-        +'<div style="font-size:11px;font-weight:700;color:#1a3a5c;">'+c.autor+'</div>'
+      return '<div style="background:rgba(26,58,92,.06);border-radius:10px;padding:10px 12px;margin-bottom:6px;border-left:3px solid #1a3a5c;">'
+        +'<div style="font-size:11px;font-weight:700;color:#1a3a5c;">👥 '+c.autor+'</div>'
         +'<div style="font-size:12px;margin-top:3px;">'+c.texto+'</div>'
         +'<div style="font-size:10px;color:var(--sub);margin-top:4px;">'+c.data+' '+c.hora+'</div>'
         +'</div>';
     }).join('')
-    :'<div style="font-size:12px;color:var(--sub);text-align:center;padding:10px;">Nenhum comentario ainda.</div>';
+    :'<div style="font-size:11px;color:var(--sub);padding:6px 0;">Nenhum comentario ainda.</div>';
+
+  // Respostas para o funcionario (visivel para todos)
+  var respostasHtml=respostas.length
+    ?respostas.map(function(r){
+      return '<div style="background:rgba(30,132,73,.06);border-radius:10px;padding:10px 12px;margin-bottom:6px;border-left:3px solid var(--green);">'
+        +'<div style="font-size:11px;font-weight:700;color:var(--green);">📩 Resposta de '+r.autor+' para '+nomeFunc+'</div>'
+        +'<div style="font-size:12px;margin-top:3px;">'+r.texto+'</div>'
+        +'<div style="font-size:10px;color:var(--sub);margin-top:4px;">'+r.data+' '+r.hora+'</div>'
+        +'</div>';
+    }).join('')
+    :'<div style="font-size:11px;color:var(--sub);padding:6px 0;">Nenhuma resposta ainda.</div>';
 
   var lidasHtml=lidasPor.length
     ?lidasPor.map(function(l){return '<span style="font-size:10px;background:rgba(26,58,92,.1);color:#1a3a5c;padding:2px 8px;border-radius:20px;">'+l.nome+'</span>';}).join(' ')
@@ -2024,33 +2064,71 @@ function abrirOcorr(id){
     +'<button class="mhdr-x" type="button" onclick="fecharModalOcorr()" style="color:#fff;">X</button>'
     +'</div>'
     +'<div class="mf">'
-    // Info da ocorrencia
+    // Info
     +'<div style="background:#fff8f8;border-radius:12px;padding:12px;border-left:3px solid #8B0000;">'
     +'<div style="display:flex;justify-content:space-between;margin-bottom:6px;">'
     +'<div style="font-size:14px;font-weight:700;">'+(u?u.apelido:'--')+'</div>'
-    +'<div style="font-size:11px;color:var(--sub);">'+fmtD(oc.data)+' '+( oc.hora||'')+'</div>'
+    +'<div style="font-size:11px;color:var(--sub);">'+fmtD(oc.data)+' '+(oc.hora||'')+'</div>'
     +'</div>'
     +'<div style="font-size:12px;color:var(--sub);margin-bottom:4px;">'+(o?o.nome:'Sem obra')+'</div>'
     +'<div style="font-size:13px;font-style:italic;color:#333;">"'+(oc.observacao||'')+'"</div>'
     +'</div>'
-    // Lidas por
-    +'<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:6px;">Lido por</div>'
-    +'<div style="display:flex;flex-wrap:wrap;gap:4px;">'+lidasHtml+'</div></div>'
-    // Comentarios
-    +'<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:6px;">Comentarios da lideranca</div>'
+    // Lidas por (so gestao ve)
+    +(isGestao?'<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:6px;">Lido por</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:4px;">'+lidasHtml+'</div></div>':'')
+    // Comentarios lideranca
+    +'<div>'
+    +'<div style="font-size:11px;font-weight:700;color:#1a3a5c;text-transform:uppercase;margin-bottom:6px;">Comentarios da lideranca</div>'
     +comentariosHtml+'</div>'
-    // Campo comentario (so gestao)
-    +(isGestao
-      ?'<div><textarea class="inp" id="ocorr-coment-txt" rows="3" style="resize:none;" placeholder="Adicionar comentario..."></textarea>'
-        +'<button data-ocid="'+id+'" onclick="salvarComentOcorr(this.dataset.ocid)" class="btn-gold" style="width:100%;margin-top:6px;">Comentar</button></div>'
-      :'')
-    // Excluir (admin)
+    // Respostas para funcionario
+    +'<div>'
+    +'<div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;margin-bottom:6px;">Resposta para '+nomeFunc+'</div>'
+    +respostasHtml+'</div>'
+    // Campos de gestao
+    +(isGestao?
+      '<div style="border-top:1px solid var(--border);padding-top:12px;display:flex;flex-direction:column;gap:10px;">'
+      // Comentario lideranca
+      +'<div>'
+      +'<div style="font-size:11px;font-weight:700;color:#1a3a5c;margin-bottom:6px;">Novo comentario da lideranca (visivel para todos)</div>'
+      +'<textarea class="inp" id="ocorr-coment-txt" rows="2" style="resize:none;" placeholder="Comentario interno da lideranca..."></textarea>'
+      +'<button data-ocid="'+id+'" onclick="salvarComentOcorr(this.dataset.ocid)" class="btn-gold" style="width:100%;margin-top:6px;">Comentar</button>'
+      +'</div>'
+      // Resposta para funcionario
+      +'<div>'
+      +'<div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:6px;">Resposta para '+nomeFunc+' (ele vera esta mensagem)</div>'
+      +'<textarea class="inp" id="ocorr-resp-txt" rows="2" style="resize:none;border-color:var(--green);" placeholder="Mensagem que '+nomeFunc+' vai visualizar..."></textarea>'
+      +'<button data-ocid="'+id+'" data-func="'+(u?u.apelido:'')+'" onclick="confirmarRespOcorr(this.dataset.ocid,this.dataset.func)" style="width:100%;padding:10px;border-radius:10px;border:none;background:var(--green);color:#fff;font-size:12px;font-weight:700;cursor:pointer;margin-top:6px;">Enviar resposta para '+nomeFunc+'</button>'
+      +'</div>'
+      +'</div>'
+    :'')
     +(U.tipo==='admin'
       ?'<button data-ocid="'+id+'" onclick="delOcorrModal(this.dataset.ocid)" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--red);background:transparent;color:var(--red);font-size:12px;font-weight:700;cursor:pointer;margin-top:4px;">Excluir ocorrencia</button>'
       :'')
     +'</div></div></div>';
 
   document.body.insertAdjacentHTML('beforeend',html);
+}
+
+function confirmarRespOcorr(id, nomeFunc){
+  var txt=(getEl('ocorr-resp-txt')?getEl('ocorr-resp-txt').value||'':'').trim();
+  if(!txt){toast('Digite a resposta.');return;}
+  if(!confirm('Esta resposta sera visualizada por '+nomeFunc+'. Deseja mesmo enviar?')) return;
+  salvarRespOcorr(id, txt);
+}
+
+function salvarRespOcorr(id, txt){
+  var oc=null; for(var i=0;i<ocorrs.length;i++) if(ocorrs[i].id===id){oc=ocorrs[i];break;}
+  if(!oc) return;
+  var respostas=[]; try{respostas=JSON.parse(oc.respostas||'[]');}catch(e){}
+  respostas.push({autor:U.apelido,texto:txt,data:hoje(),hora:horaAgora()});
+  dbUpdate('ocorrencias',id,{respostas:JSON.stringify(respostas)}).then(function(ok){
+    if(ok){
+      for(var i=0;i<ocorrs.length;i++) if(ocorrs[i].id===id){ocorrs[i].respostas=JSON.stringify(respostas);break;}
+      fecharModalOcorr();
+      setTimeout(function(){abrirOcorr(id);},100);
+      toast('Resposta enviada para o funcionario!');
+    }
+  });
 }
 
 function fecharModalOcorr(){
@@ -2085,6 +2163,55 @@ function salvarComentOcorr(id){
       toast('Comentario adicionado!');
     }
   });
+}
+
+function fecharModalOcorrFunc(){var m=document.getElementById('modal-ocorr-func');if(m)m.remove();}
+
+function abrirOcorrFunc(id){
+  var oc=null; for(var i=0;i<ocorrs.length;i++) if(ocorrs[i].id===id){oc=ocorrs[i];break;}
+  if(!oc) return;
+  var tObj=null; for(var i=0;i<_TIPOS_OCORR.length;i++) if(_TIPOS_OCORR[i].k===oc.tipo){tObj=_TIPOS_OCORR[i];break;}
+  var respostas=[]; try{respostas=JSON.parse(oc.respostas||'[]');}catch(e){}
+  var comentarios=[]; try{comentarios=JSON.parse(oc.comentarios||'[]');}catch(e){}
+
+  var respostasHtml=respostas.length
+    ?respostas.map(function(r){
+      return '<div style="background:rgba(30,132,73,.08);border-radius:10px;padding:12px;border-left:3px solid var(--green);margin-bottom:8px;">'
+        +'<div style="font-size:11px;font-weight:700;color:var(--green);">📩 '+r.autor+' respondeu</div>'
+        +'<div style="font-size:13px;margin-top:6px;">'+r.texto+'</div>'
+        +'<div style="font-size:10px;color:var(--sub);margin-top:4px;">'+r.data+' '+r.hora+'</div>'
+        +'</div>';
+    }).join('')
+    :'<div style="font-size:12px;color:var(--sub);text-align:center;padding:10px;">Aguardando resposta da lideranca.</div>';
+
+  var comentariosHtml2=comentarios.length
+    ?comentarios.map(function(c){
+      return '<div style="background:rgba(26,58,92,.06);border-radius:10px;padding:10px 12px;margin-bottom:6px;">'
+        +'<div style="font-size:11px;font-weight:700;color:#1a3a5c;">'+c.autor+'</div>'
+        +'<div style="font-size:12px;margin-top:3px;">'+c.texto+'</div>'
+        +'<div style="font-size:10px;color:var(--sub);margin-top:4px;">'+c.data+' '+c.hora+'</div>'
+        +'</div>';
+    }).join('')
+    :'';
+
+  var html='<div class="modal-bg show" id="modal-ocorr-func" style="z-index:9999;align-items:flex-start;padding-top:0;">'
+    +'<div class="modal-sheet" style="max-height:95vh;border-radius:0 0 20px 20px;">'
+    +'<div class="mhdr" style="background:#8B0000;">'
+    +'<span class="mhdr-t" style="color:#fff;">'+(tObj?tObj.i+' ':'')+''+(tObj?tObj.l:oc.tipo)+'</span>'
+    +'<button class="mhdr-x" type="button" onclick="fecharModalOcorrFunc()" style="color:#fff;">X</button>'
+    +'</div>'
+    +'<div class="mf">'
+    +'<div style="background:#fff8f8;border-radius:12px;padding:12px;border-left:3px solid #8B0000;">'
+    +'<div style="font-size:13px;font-weight:700;margin-bottom:4px;">Sua ocorrencia registrada</div>'
+    +'<div style="font-size:13px;font-style:italic;color:#333;">"'+(oc.observacao||'')+'"</div>'
+    +'<div style="font-size:11px;color:var(--sub);margin-top:6px;">'+fmtD(oc.data)+'</div>'
+    +'</div>'
+    +(comentariosHtml2?'<div><div style="font-size:11px;font-weight:700;color:#1a3a5c;text-transform:uppercase;margin-bottom:6px;">Comentarios da lideranca</div>'+comentariosHtml2+'</div>':'')
+    +'<div><div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;margin-bottom:6px;">Resposta da lideranca</div>'
+    +respostasHtml+'</div>'
+    +'</div></div></div>';
+
+  document.body.insertAdjacentHTML('beforeend',html);
 }
 
 function salvarOcorr(){
@@ -2755,12 +2882,25 @@ function registrarPonto(tipo){
   }
 
   if(!geoData){
-    // Usar endereço da obra como localização
     var obraTemp=null; for(var i=0;i<obras.length;i++) if(obras[i].id===oId){obraTemp=obras[i];break;}
     if(obraTemp && obraTemp.endereco){
       geoData={lat:0,lng:0,acc:0,endereco:obraTemp.endereco};
     } else {
-      toast('⚠️ Obtenha a localização ou cadastre o endereço da obra.');return;
+      toast('Obtenha a localizacao ou cadastre o endereco da obra.');return;
+    }
+  }
+
+  // Validar distancia para funcionarios (nao admin/lider)
+  var isFunc2=(U.tipo==='func');
+  if(isFunc2 && geoData.lat && geoData.lat!==0){
+    var obraGeo=null; for(var i=0;i<obras.length;i++) if(obras[i].id===oId){obraGeo=obras[i];break;}
+    if(obraGeo && obraGeo.lat_obra && obraGeo.lng_obra){
+      var dist=calcDistancia(geoData.lat,geoData.lng,parseFloat(obraGeo.lat_obra),parseFloat(obraGeo.lng_obra));
+      var raio=parseFloat(obraGeo.raio_metros)||300;
+      if(dist>raio){
+        toast('Voce esta a '+Math.round(dist)+'m da obra. Limite: '+raio+'m. Aproxime-se da obra para registrar o ponto.');
+        return;
+      }
     }
   }
   var obraRef = null; for(var i=0;i<obras.length;i++) if(obras[i].id===oId){obraRef=obras[i];break;}
@@ -3648,6 +3788,11 @@ function showModalObra(id){
     getEl('mo-rate-func').value=o.rate_func||'';
     getEl('mo-rate-venda').value=o.rate_venda||'';
     var rfml=getEl('mo-rate-func-ml'); if(rfml) rfml.value=o.rate_func_ml||'';
+    var rl=getEl('mo-rate-lider'); if(rl) rl.value=o.rate_lider||'';
+    var rlml=getEl('mo-rate-lider-ml'); if(rlml) rlml.value=o.rate_lider_ml||'';
+    var mlat=getEl('mo-lat'); if(mlat) mlat.value=o.lat_obra||'';
+    var mlng=getEl('mo-lng'); if(mlng) mlng.value=o.lng_obra||'';
+    var mraio=getEl('mo-raio'); if(mraio) mraio.value=o.raio_metros||300;
     var rvml=getEl('mo-rate-venda-ml'); if(rvml) rvml.value=o.rate_venda_ml||'';
     getEl('mo-inicio').value=o.inicio||''; getEl('mo-entrega').value=o.entrega||'';
     getEl('mo-status').value=o.status||'ativa';
@@ -3793,6 +3938,24 @@ function gerarSobradoPreview(){
       +'<button type="button" data-oid="'+oId+'" data-ai="'+ai+'" data-pi="0" onclick="abrirAmbientes(this)" style="padding:6px 12px;border-radius:8px;border:1.5px solid #185FA5;background:transparent;color:#185FA5;font-size:11px;font-weight:700;cursor:pointer;">Ambientes</button>'
       +'</div>';
   }).join('');
+}
+
+function capturarGPSObra(){
+  if(!navigator.geolocation){toast('GPS nao disponivel.');return;}
+  navigator.geolocation.getCurrentPosition(function(pos){
+    var latEl=getEl('mo-lat'), lngEl=getEl('mo-lng');
+    if(latEl) latEl.value=pos.coords.latitude.toFixed(6);
+    if(lngEl) lngEl.value=pos.coords.longitude.toFixed(6);
+    toast('Localização capturada!');
+  },function(){toast('Nao foi possivel obter localização.');});
+}
+
+function calcDistancia(lat1,lng1,lat2,lng2){
+  var R=6371000;
+  var dLat=(lat2-lat1)*Math.PI/180;
+  var dLng=(lat2-lng1)*Math.PI/180;
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
 function gerarAndaresPreview(){
@@ -4100,9 +4263,14 @@ function salvarObra(){
   var obj={nome:nome,tipo:val('mo-tipo'),cliente:val('mo-cliente'),cidade:val('mo-cidade'),endereco:val('mo-endereco'),
     andares:nA,aptos_andar:nP,num_inicio:nI,
     contrato:parseFloat(getEl('mo-contrato').value)||0,
+    lat_obra:parseFloat(getEl('mo-lat')?getEl('mo-lat').value:0)||null,
+    lng_obra:parseFloat(getEl('mo-lng')?getEl('mo-lng').value:0)||null,
+    raio_metros:parseFloat(getEl('mo-raio')?getEl('mo-raio').value:300)||300,
     rate_func:parseFloat(getEl('mo-rate-func').value)||0,
     rate_venda:parseFloat(getEl('mo-rate-venda').value)||0,
     rate_func_ml:parseFloat(getEl('mo-rate-func-ml')?getEl('mo-rate-func-ml').value:0)||0,
+    rate_lider:parseFloat(getEl('mo-rate-lider')?getEl('mo-rate-lider').value:0)||0,
+    rate_lider_ml:parseFloat(getEl('mo-rate-lider-ml')?getEl('mo-rate-lider-ml').value:0)||0,
     rate_venda_ml:parseFloat(getEl('mo-rate-venda-ml')?getEl('mo-rate-venda-ml').value:0)||0,
     inicio:getEl('mo-inicio').value||null,entrega:getEl('mo-entrega').value||null,
     status:getEl('mo-status').value,estrutura:estrutura};
@@ -4211,7 +4379,7 @@ function abrirEditFunc(id){
   var sel=getEl('ef-obra');
   sel.innerHTML='<option value="">Sem obra</option>'+obras.map(function(o){return '<option value="'+o.id+'"'+(u.obra_id===o.id?' selected':'')+'>'+o.nome+'</option>';}).join('');
   // Carregar tipo atual
-  novoTipoEdit=f.tipo||'func';
+  novoTipoEdit=u.tipo||'func';
   ['func','lider','lider_chefe','admin'].forEach(function(x){
     var b=getEl('et-'+x); if(b) b.classList.toggle('on',x===novoTipoEdit);
   });
@@ -4222,7 +4390,8 @@ function salvarEditFunc(){
   var nome=val('ef-nome'), apelido=val('ef-apelido');
   if(!nome||!apelido){toast('⚠️ Preencha nome e apelido.');return;}
   var obj={nome:nome,apelido:apelido,telefone:val('ef-tel'),obra_id:val('ef-obra')||null,
-    rate_m2:parseFloat(getEl('ef-rate').value)||35,meta_mensal:parseFloat(getEl('ef-meta').value)||0};
+    rate_m2:parseFloat(getEl('ef-rate').value)||35,meta_mensal:parseFloat(getEl('ef-meta').value)||0,
+    tipo:novoTipoEdit||'func'};
   var pw=val('ef-senha');
   if(pw){if(pw.length<6){toast('⚠️ Senha mínimo 6 caracteres.');return;}obj.senha=pw;}
   dbUpdate('usuarios',editFuncId,obj).then(function(ok){
@@ -4804,6 +4973,16 @@ function gerarRelPonto(){
 
   var el=getEl('rel-ponto-result');
   if(el) el.innerHTML='<div style="margin-top:12px;">'+html+'</div>';
+}
+
+function getRate(oId){
+  var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===oId){o=obras[i];break;}
+  if(!o) return 35;
+  var fId=val('l-func');
+  var u=null; for(var i=0;i<users.length;i++) if(users[i].id===fId){u=users[i];break;}
+  var isLider3=u&&(u.tipo==='lider'||u.tipo==='lider_chefe');
+  if(isLider3 && o.rate_lider) return parseFloat(o.rate_lider)||parseFloat(o.rate_func)||35;
+  return parseFloat(o.rate_func)||35;
 }
 </script>
 </body>
