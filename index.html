@@ -568,6 +568,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div><div class="fl">R$/m²</div><input class="inp" id="ef-rate" type="number"></div>
         <div><div class="fl">Meta R$</div><input class="inp" id="ef-meta" type="number"></div>
       </div>
+      <div><div class="fl">Tipo</div>
+        <div class="row3">
+          <button class="tb" id="et-func" type="button" onclick="selET('func')">👷 Func.</button>
+          <button class="tb" id="et-lider" type="button" onclick="selET('lider')">👑 Líder</button>
+          <button class="tb" id="et-lider_chefe" type="button" onclick="selET('lider_chefe')">⭐ L. Chefe</button>
+          <button class="tb" id="et-admin" type="button" onclick="selET('admin')">🛡 Admin</button>
+        </div>
+      </div>
       <div><div class="fl">Nova senha (opcional)</div><input class="inp" id="ef-senha" type="password" placeholder="Deixe em branco para manter"></div>
     </div>
     <div class="macts"><button class="bmc" type="button" onclick="closeModal('editfunc')">Cancelar</button><button class="bmok" type="button" onclick="salvarEditFunc()">✓ Salvar</button></div>
@@ -588,7 +596,8 @@ var H = {'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY, 'Content-Type': 'app
 var U = null;
 var obras = [], users = [], lancs = [], confs = [], mats = [], desps = [], avs = [], ocorrs = [], pontos = [], clientes = [], marmitas = [];
 var editObraId = null, editFuncId = null, editAvId = null;
-var novoTipo = 'func', confSt = '', catSel = '', ocorrTipo = '';
+var novoTipo = 'func';
+var _TIPOS_OCORR=[{k:'atraso',i:'⏰',l:'Atraso'},{k:'qualidade',i:'🔨',l:'Qualidade'},{k:'conduta',i:'⚠️',l:'Conduta'},{k:'acidente',i:'🚨',l:'Acidente'},{k:'material',i:'📦',l:'Material'},{k:'marmita',i:'🍱',l:'Marmita'},{k:'outro',i:'📝',l:'Outro'}]; var novoTipoEdit = 'func'; var confSt = '', catSel = '', ocorrTipo = '';
 var chkState = {};
 var _checks=['Qualidade tecnica do assentamento','Organizacao e limpeza do local','Nivelamento e alinhamento','Rejunte e acabamento','Protecao e isolamento de piso'];
 
@@ -1835,49 +1844,92 @@ function salvarMat(){
 // ── OCORRÊNCIAS ──
 function renderOcorr(){
   var el=getEl('t-ocorr'); if(!el) return;
+  var T=U.tipo;
+  var isFunc=(T==='func');
+  var isGestao=(T==='admin'||T==='lider'||T==='lider_chefe');
   var oOpts=obras.map(function(o){return '<option value="'+o.id+'">'+o.nome+'</option>';}).join('');
   var fOpts=users.filter(function(u){return u.ativo;}).map(function(u){return '<option value="'+u.id+'">'+u.apelido+'</option>';}).join('');
-  var tipos=[{k:'atraso',i:'⏰',l:'Atraso'},{k:'qualidade',i:'🔨',l:'Qualidade'},{k:'conduta',i:'⚠️',l:'Conduta'},{k:'acidente',i:'🚨',l:'Acidente'},{k:'material',i:'📦',l:'Material'},{k:'marmita',i:'🍱',l:'Marmita'},{k:'outro',i:'📝',l:'Outro'}];
-  var tipoGrid=tipos.map(function(t){return '<div class="cat-btn'+(ocorrTipo===t.k?' on':'')+'" onclick="selOcorrTipo(\''+t.k+'\')"><span style="font-size:20px">'+t.i+'</span>'+t.l+'</div>';}).join('');
-  var hist=ocorrs.slice(0,20).map(function(oc){
+  var tipos=_TIPOS_OCORR;
+  var tipoGrid=tipos.map(function(t){return '<div class="cat-btn'+(ocorrTipo===t.k?' on':'')+'" data-tk="'+t.k+'" onclick="selOcorrTipo(this.dataset.tk)"><span style="font-size:20px">'+t.i+'</span>'+t.l+'</div>';}).join('');
+
+  var lidas=getOcorrLidas();
+  var naoLidas=isGestao?ocorrs.filter(function(oc){return !lidas[oc.id];}):[];
+
+  // Alertas
+  var alertasHtml='';
+  if(naoLidas.length){
+    alertasHtml='<div style="background:#fff;border-radius:14px;border:2px solid #8B0000;overflow:hidden;">'
+      +'<div style="padding:10px 14px;background:#8B0000;display:flex;justify-content:space-between;align-items:center;">'
+      +'<span style="font-size:13px;font-weight:700;color:#fff;">Novas ocorrencias</span>'
+      +'<span style="background:rgba(255,255,255,.2);color:#fff;font-size:12px;padding:2px 10px;border-radius:20px;font-weight:700;">'+naoLidas.length+' nao lida(s)</span>'
+      +'</div>'
+      +naoLidas.map(function(oc){
+        var u=null; for(var i=0;i<users.length;i++) if(users[i].id===oc.colaborador_id){u=users[i];break;}
+        var tObj=null; for(var i=0;i<tipos.length;i++) if(tipos[i].k===oc.tipo){tObj=tipos[i];break;}
+        return '<div data-ocid="'+oc.id+'" onclick="abrirOcorr(this.dataset.ocid)" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:#fff8f8;">'
+          +'<div style="font-size:24px;">'+(tObj?tObj.i:'⚠️')+'</div>'
+          +'<div style="flex:1;">'
+          +'<div style="font-size:13px;font-weight:700;">'+(u?u.apelido:'--')+' registrou uma ocorrencia</div>'
+          +'<div style="font-size:11px;color:var(--sub);">'+(tObj?tObj.l:oc.tipo||'--')+' · '+fmtD(oc.data)+'</div>'
+          +'<div style="font-size:11px;color:#8B0000;font-style:italic;margin-top:2px;">"'+(oc.observacao||'').substring(0,60)+'"</div>'
+          +'</div>'
+          +'<div style="font-size:11px;color:#8B0000;font-weight:700;white-space:nowrap;">Ver →</div>'
+          +'</div>';
+      }).join('')
+      +'</div>';
+  }
+
+  // Historico
+  var hist=ocorrs.slice(0,30).map(function(oc){
     var u=null; for(var i=0;i<users.length;i++) if(users[i].id===oc.colaborador_id){u=users[i];break;}
     var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===oc.obra_id){o=obras[i];break;}
     var tObj=null; for(var i=0;i<tipos.length;i++) if(tipos[i].k===oc.tipo){tObj=tipos[i];break;}
-    return '<div class="hi" style="border-left:3px solid var(--red)">'
+    var jaNaoLida=isGestao&&!lidas[oc.id];
+    var comentarios=[]; try{comentarios=JSON.parse(oc.comentarios||'[]');}catch(e){}
+    return '<div data-ocid="'+oc.id+'" onclick="abrirOcorr(this.dataset.ocid)" style="cursor:pointer;border-left:3px solid '+(jaNaoLida?'#8B0000':'var(--border)')+';" class="hi">'
       +'<div class="hi-ico">'+(tObj?tObj.i:'⚠️')+'</div>'
-      +'<div class="hi-b"><div class="hi-t">'+(u?u.apelido:'--')+' · '+(tObj?tObj.l:oc.tipo||'--')+'</div>'
+      +'<div class="hi-b">'
+      +'<div class="hi-t">'+(u?u.apelido:'--')+' · '+(tObj?tObj.l:oc.tipo||'--')+'</div>'
       +'<div class="hi-s">'+(o?o.nome:'Sem obra')+'</div>'
-      +(oc.observacao?'<div class="hi-s" style="font-style:italic">"'+oc.observacao+'"</div>':'')+'</div>'
-      +'<div class="hi-r"><div class="hi-d">'+fmtD(oc.data)+'</div><div class="hi-d">'+(oc.hora||'')+'</div>'
-      +(U.tipo==='admin'?'<button type="button" onclick="delOcorr(\''+oc.id+'\')" style="background:transparent;border:none;cursor:pointer;color:var(--red);font-size:11px;margin-top:3px">🗑</button>':'')
+      +(oc.observacao?'<div class="hi-s" style="font-style:italic;">"'+oc.observacao.substring(0,60)+'"</div>':'')
+      +(comentarios.length?'<div style="font-size:10px;color:var(--sub);margin-top:2px;">💬 '+comentarios.length+' comentario(s)</div>':'')
+      +'</div>'
+      +'<div class="hi-r"><div class="hi-d">'+fmtD(oc.data)+'</div>'
+      +(jaNaoLida?'<div style="width:8px;height:8px;border-radius:50%;background:#8B0000;margin:4px auto 0;"></div>':'')
       +'</div></div>';
   }).join('');
-  var isFunc=(U.tipo==='func');
-  // Campo colaborador: funcionario ve apenas ele mesmo, lider/admin pode selecionar
+
   var colabField=isFunc
     ?'<div><div class="fl">Colaborador</div><div class="inp" style="color:var(--sub);">'+U.apelido+' (voce)</div></div>'
     :'<div><div class="fl">Colaborador</div><select class="sel" id="oc-colab"><option value="">Selecione</option>'+fOpts+'</select></div>';
 
-  var historicoHtml='';
-  if(!isFunc){
-    historicoHtml=(ocorrs.length
-      ?'<div><div class="fl">Filtrar historico</div><div class="fil-row"><select id="of-obra" onchange="renderOcorrFiltro()"><option value="">Todas as obras</option>'+oOpts+'</select><select id="of-colab" onchange="renderOcorrFiltro()"><option value="">Todos</option>'+fOpts+'</select></div><div id="ocorr-hist">'+hist+'</div></div>'
-      :'<div class="empty"><p>Nenhuma ocorrencia registrada.</p></div>');
-  } else {
-    historicoHtml='<div class="info-box" style="background:rgba(139,0,0,.06);border-color:#8B0000;color:#8B0000;">Suas ocorrencias sao visiveis apenas para a gestao.</div>';
-  }
+  var historicoHtml=isFunc
+    ?'<div class="info-box" style="background:rgba(139,0,0,.06);border-color:#8B0000;color:#8B0000;">Suas ocorrencias sao visiveis apenas para a gestao.</div>'
+    :'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
+      +'<div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">'
+      +'<span style="font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;">Historico</span>'
+      +'<div style="display:flex;gap:6px;">'
+      +'<select id="of-obra" onchange="renderOcorrFiltro()" style="font-size:11px;padding:4px 6px;border-radius:8px;border:1px solid var(--border);"><option value="">Todas obras</option>'+oOpts+'</select>'
+      +'<select id="of-colab" onchange="renderOcorrFiltro()" style="font-size:11px;padding:4px 6px;border-radius:8px;border:1px solid var(--border);"><option value="">Todos</option>'+fOpts+'</select>'
+      +'</div></div>'
+      +'<div id="ocorr-hist">'+(hist||'<div class="empty"><p>Nenhuma ocorrencia.</p></div>')+'</div>'
+      +'</div>';
 
-  el.innerHTML='<div class="hero" style="background:#8B0000"><p>'+(isFunc?'Registrar':'Acesso restrito')+'</p><h2>Ocorrencias</h2></div>'
-    +'<div class="pad">'
+  el.innerHTML='<div class="hero" style="background:#8B0000"><p>'+(isFunc?'Registrar':'Gestao')+'</p><h2>Ocorrencias</h2></div>'
+    +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'
+    +alertasHtml
+    +'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
+    +'<div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;">Registrar ocorrencia</div>'
+    +'<div class="mf">'
     +'<div><div class="fl">Tipo</div><div class="cat-grid">'+tipoGrid+'</div></div>'
     +colabField
     +'<div><div class="fl">Obra</div><select class="sel" id="oc-obra"><option value="">Selecione a obra</option>'+oOpts+'</select></div>'
-    +'<div><div class="fl">Observacao</div><textarea class="inp" id="oc-obs" rows="4" style="resize:none" placeholder="Descreva a ocorrencia detalhadamente..."></textarea></div>'
+    +'<div><div class="fl">Descricao</div><textarea class="inp" id="oc-obs" rows="3" style="resize:none" placeholder="Descreva detalhadamente..."></textarea></div>'
     +'<button class="btn-pri" type="button" style="background:#8B0000" onclick="salvarOcorr()">Registrar ocorrencia</button>'
+    +'</div></div>'
     +historicoHtml
     +'</div>';
 }
-
 function selOcorrTipo(t){
   if(t==='marmita'){
     goTab('marmita');
@@ -1898,13 +1950,133 @@ function renderOcorrFiltro(){
     var u=null; for(var i=0;i<users.length;i++) if(users[i].id===oc.colaborador_id){u=users[i];break;}
     var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===oc.obra_id){o=obras[i];break;}
     var tObj=null; for(var i=0;i<tipos.length;i++) if(tipos[i].k===oc.tipo){tObj=tipos[i];break;}
-    return '<div class="hi" style="border-left:3px solid var(--red)">'
+    var lidas2=getOcorrLidas();
+    var jaNaoLida2=!lidas2[oc.id];
+    var comentarios2=[]; try{comentarios2=JSON.parse(oc.comentarios||'[]');}catch(e){}
+    return '<div data-ocid="'+oc.id+'" onclick="abrirOcorr(this.dataset.ocid)" style="cursor:pointer;" class="hi">'
       +'<div class="hi-ico">'+(tObj?tObj.i:'⚠️')+'</div>'
       +'<div class="hi-b"><div class="hi-t">'+(u?u.apelido:'--')+' · '+(tObj?tObj.l:oc.tipo||'--')+'</div>'
       +'<div class="hi-s">'+(o?o.nome:'Sem obra')+'</div>'
-      +(oc.observacao?'<div class="hi-s" style="font-style:italic">"'+oc.observacao+'"</div>':'')+'</div>'
-      +'<div class="hi-r"><div class="hi-d">'+fmtD(oc.data)+'</div></div></div>';
+      +(oc.observacao?'<div class="hi-s" style="font-style:italic;">"'+oc.observacao.substring(0,60)+'"</div>':'')
+      +(comentarios2.length?'<div style="font-size:10px;color:var(--sub);">💬 '+comentarios2.length+' comentario(s)</div>':'')
+      +'</div>'
+      +'<div class="hi-r"><div class="hi-d">'+fmtD(oc.data)+'</div>'
+      +(jaNaoLida2?'<div style="width:8px;height:8px;border-radius:50%;background:#8B0000;margin:4px auto 0;"></div>':'')
+      +'</div></div>';
   }).join('')||'<div class="empty"><p>Nenhum resultado.</p></div>';
+}
+
+function abrirOcorr(id){
+  var oc=null; for(var i=0;i<ocorrs.length;i++) if(ocorrs[i].id===id){oc=ocorrs[i];break;}
+  if(!oc) return;
+
+  // Marcar como lida
+  setOcorrLida(id);
+  atualizarBadgeOcorr();
+
+  var u=null; for(var i=0;i<users.length;i++) if(users[i].id===oc.colaborador_id){u=users[i];break;}
+  var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===oc.obra_id){o=obras[i];break;}
+  var tObj=null; for(var i=0;i<_TIPOS_OCORR.length;i++) if(_TIPOS_OCORR[i].k===oc.tipo){tObj=_TIPOS_OCORR[i];break;}
+
+  var comentarios=[];
+  try{comentarios=JSON.parse(oc.comentarios||'[]');}catch(e){}
+
+  // Lidas por
+  var lidasPor=[];
+  try{lidasPor=JSON.parse(oc.lidas_por||'[]');}catch(e){}
+  // Adicionar eu na lista de lidas
+  var jaLi=lidasPor.some(function(l){return l.id===U.id;});
+  if(!jaLi){
+    lidasPor.push({id:U.id,nome:U.apelido,em:hoje()+' '+horaAgora()});
+    dbUpdate('ocorrencias',id,{lidas_por:JSON.stringify(lidasPor)}).then(function(){
+      for(var i=0;i<ocorrs.length;i++) if(ocorrs[i].id===id){ocorrs[i].lidas_por=JSON.stringify(lidasPor);break;}
+    });
+  }
+
+  var isGestao=(U.tipo==='admin'||U.tipo==='lider'||U.tipo==='lider_chefe');
+
+  var comentariosHtml=comentarios.length
+    ?comentarios.map(function(c){
+      return '<div style="background:var(--gray);border-radius:10px;padding:10px 12px;margin-bottom:6px;">'
+        +'<div style="font-size:11px;font-weight:700;color:#1a3a5c;">'+c.autor+'</div>'
+        +'<div style="font-size:12px;margin-top:3px;">'+c.texto+'</div>'
+        +'<div style="font-size:10px;color:var(--sub);margin-top:4px;">'+c.data+' '+c.hora+'</div>'
+        +'</div>';
+    }).join('')
+    :'<div style="font-size:12px;color:var(--sub);text-align:center;padding:10px;">Nenhum comentario ainda.</div>';
+
+  var lidasHtml=lidasPor.length
+    ?lidasPor.map(function(l){return '<span style="font-size:10px;background:rgba(26,58,92,.1);color:#1a3a5c;padding:2px 8px;border-radius:20px;">'+l.nome+'</span>';}).join(' ')
+    :'<span style="font-size:11px;color:var(--sub);">Nenhum gestor leu ainda</span>';
+
+  var html='<div class="modal-bg show" id="modal-ocorr-det" style="z-index:9999;align-items:flex-start;padding-top:0;">'
+    +'<div class="modal-sheet" style="max-height:95vh;border-radius:0 0 20px 20px;">'
+    +'<div class="mhdr" style="background:#8B0000;">'
+    +'<span class="mhdr-t" style="color:#fff;">'+(tObj?tObj.i+' ':'')+''+(tObj?tObj.l:oc.tipo)+'</span>'
+    +'<button class="mhdr-x" type="button" onclick="fecharModalOcorr()" style="color:#fff;">X</button>'
+    +'</div>'
+    +'<div class="mf">'
+    // Info da ocorrencia
+    +'<div style="background:#fff8f8;border-radius:12px;padding:12px;border-left:3px solid #8B0000;">'
+    +'<div style="display:flex;justify-content:space-between;margin-bottom:6px;">'
+    +'<div style="font-size:14px;font-weight:700;">'+(u?u.apelido:'--')+'</div>'
+    +'<div style="font-size:11px;color:var(--sub);">'+fmtD(oc.data)+' '+( oc.hora||'')+'</div>'
+    +'</div>'
+    +'<div style="font-size:12px;color:var(--sub);margin-bottom:4px;">'+(o?o.nome:'Sem obra')+'</div>'
+    +'<div style="font-size:13px;font-style:italic;color:#333;">"'+(oc.observacao||'')+'"</div>'
+    +'</div>'
+    // Lidas por
+    +'<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:6px;">Lido por</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:4px;">'+lidasHtml+'</div></div>'
+    // Comentarios
+    +'<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:6px;">Comentarios da gestao</div>'
+    +comentariosHtml+'</div>'
+    // Campo comentario (so gestao)
+    +(isGestao
+      ?'<div><textarea class="inp" id="ocorr-coment-txt" rows="3" style="resize:none;" placeholder="Adicionar comentario..."></textarea>'
+        +'<button data-ocid="'+id+'" onclick="salvarComentOcorr(this.dataset.ocid)" class="btn-gold" style="width:100%;margin-top:6px;">Comentar</button></div>'
+      :'')
+    // Excluir (admin)
+    +(U.tipo==='admin'
+      ?'<button data-ocid="'+id+'" onclick="delOcorrModal(this.dataset.ocid)" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--red);background:transparent;color:var(--red);font-size:12px;font-weight:700;cursor:pointer;margin-top:4px;">Excluir ocorrencia</button>'
+      :'')
+    +'</div></div></div>';
+
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+function fecharModalOcorr(){
+  var m=document.getElementById('modal-ocorr-det'); if(m) m.remove();
+  renderOcorr();
+}
+
+function delOcorrModal(id){
+  if(!confirm('Excluir esta ocorrencia?')) return;
+  dbDelete('ocorrencias',id).then(function(ok){
+    if(ok){
+      ocorrs=ocorrs.filter(function(o){return o.id!==id;});
+      fecharModalOcorr();
+      toast('Ocorrencia excluida!');
+    }
+  });
+}
+
+function salvarComentOcorr(id){
+  var txt=(getEl('ocorr-coment-txt')?getEl('ocorr-coment-txt').value||'':'').trim();
+  if(!txt){toast('Digite um comentario.');return;}
+  var oc=null; for(var i=0;i<ocorrs.length;i++) if(ocorrs[i].id===id){oc=ocorrs[i];break;}
+  if(!oc) return;
+  var comentarios=[];
+  try{comentarios=JSON.parse(oc.comentarios||'[]');}catch(e){}
+  comentarios.push({autor:U.apelido,texto:txt,data:hoje(),hora:horaAgora()});
+  dbUpdate('ocorrencias',id,{comentarios:JSON.stringify(comentarios)}).then(function(ok){
+    if(ok){
+      for(var i=0;i<ocorrs.length;i++) if(ocorrs[i].id===id){ocorrs[i].comentarios=JSON.stringify(comentarios);break;}
+      fecharModalOcorr();
+      setTimeout(function(){abrirOcorr(id);},100);
+      toast('Comentario adicionado!');
+    }
+  });
 }
 
 function salvarOcorr(){
@@ -2275,6 +2447,15 @@ function copiarListaMarmitas(){
   }
 }
 
+function recusarMarmitaHoje(){
+  try{localStorage.setItem('instalato_marm_recusou_'+hoje(),'1');}catch(e){}
+  renderPonto();
+}
+
+function getMarmitaRecusou(){
+  try{return localStorage.getItem('instalato_marm_recusou_'+hoje())==='1';}catch(e){return false;}
+}
+
 function pedirMarmita(){
   var obs=(getEl('marm-obs')?getEl('marm-obs').value.trim():'');
   var hojeStr=hoje();
@@ -2321,16 +2502,59 @@ function renderPonto(){
       +'<div style="font-size:32px;margin-bottom:6px;">🟢</div>'
       +'<div style="font-size:15px;font-weight:700;color:var(--green)">Em serviço</div>'
       +'<div style="font-size:12px;color:var(--sub);margin-top:4px">Entrada: '+(entradaAtiva.entrada_hora||'--')+(obraAtiva?' · '+obraAtiva.nome:'')+'</div>'
-      +'<div style="font-size:11px;color:var(--green);margin-top:4px;font-weight:600;">Para sair, clique em 🔴 Saída</div></div>';
+      +'<div style="font-size:13px;font-weight:700;color:var(--green);margin-top:8px;">Bom trabalho! Atropela!!!</div>'
+      +'<div style="font-size:11px;color:var(--sub);margin-top:4px;">Para encerrar, clique em Saida</div>'
+      +(function(){
+        var hm=new Date().getHours()*60+new Date().getMinutes();
+        var jp=marmitas.some(function(m){return m.usuario_id===U.id&&m.data===hoje();});
+        var rec=getMarmitaRecusou();
+        return (!jp&&!rec&&hm<9*60)
+          ?'<div style="background:rgba(184,134,11,.15);border-radius:10px;padding:8px 12px;margin-top:10px;display:flex;align-items:center;gap:8px;">'
+            +'<span style="font-size:20px;">🍱</span>'
+            +'<div style="flex:1;font-size:11px;font-weight:700;color:#B8860B;">Nao esqueca de pedir sua marmita! Ate 09h00.</div>'
+            +'<button data-t="marmita" onclick="goTab(this.dataset.t)" style="padding:5px 10px;border-radius:20px;border:none;background:#B8860B;color:#fff;font-size:10px;font-weight:700;cursor:pointer;">Pedir</button>'
+            +'<button onclick="recusarMarmitaHoje()" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:10px;cursor:pointer;">Nao quero</button>'
+            +'</div>'
+          :'';
+      })()
+      +'</div>';
   } else {
-    statusHtml='<div style="background:var(--gray);border-radius:14px;padding:16px;text-align:center;">'
-      +'<div style="font-size:32px;margin-bottom:6px;">⚪</div>'
-      +'<div style="font-size:15px;font-weight:700;color:var(--sub)">Sem registro ativo</div>'
-      +'<div style="font-size:12px;color:var(--sub);margin-top:4px">Registre sua entrada para começar</div></div>';
+    // Verificar se teve saida hoje
+    var teveSaidaHoje=meusPontos.some(function(p){return p.saida_hora&&p.data===hoje();});
+    if(teveSaidaHoje){
+      statusHtml='<div style="background:rgba(26,58,92,.08);border-radius:14px;padding:20px;text-align:center;border:2px solid #1a3a5c;">'
+        +'<div style="font-size:42px;margin-bottom:8px;">🌙</div>'
+        +'<div style="font-size:16px;font-weight:700;color:#1a3a5c;">Bom descanso!</div>'
+        +'<div style="font-size:13px;color:var(--sub);margin-top:6px;">Voce ja encerrou seu expediente hoje.</div>'
+        +'<div style="font-size:12px;color:var(--sub);margin-top:4px;">Descanse bem, ate amanha! Deus abencoe.</div></div>';
+    } else {
+      // Verificar lembrete marmita
+      var horaAtualM=new Date().getHours()*60+new Date().getMinutes();
+      var jaPediuMarm=marmitas.some(function(m){return m.usuario_id===U.id&&m.data===hoje();});
+      var mostrarLembrete=!jaPediuMarm&&!getMarmitaRecusou()&&horaAtualM<9*60;
+      var lembreteHtml=mostrarLembrete
+        ?'<div style="background:#fdf3e3;border-radius:10px;padding:10px 12px;margin-top:10px;display:flex;align-items:center;gap:10px;">'
+          +'<div style="font-size:24px;">🍱</div>'
+          +'<div style="flex:1;">'
+          +'<div style="font-size:12px;font-weight:700;color:#B8860B;">Lembrete: Pedido de marmita!</div>'
+          +'<div style="font-size:11px;color:var(--sub);margin-top:2px;">Pedidos ate 09h00. Voce ainda nao pediu hoje.</div>'
+          +'</div>'
+          +'<button data-t="marmita" onclick="goTab(this.dataset.t)" style="padding:6px 12px;border-radius:20px;border:none;background:#B8860B;color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Pedir</button>'
+          +'<button onclick="recusarMarmitaHoje()" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:10px;cursor:pointer;">Nao quero</button>'
+          +'</div>'
+        :'';
+      statusHtml='<div style="background:var(--gray);border-radius:14px;padding:20px;text-align:center;">'
+        +'<div style="font-size:42px;margin-bottom:8px;">👷</div>'
+        +'<div style="font-size:16px;font-weight:700;color:var(--sub)">Bom dia, '+U.apelido+'!</div>'
+        +'<div style="font-size:13px;color:var(--sub);margin-top:6px;">Registre sua entrada para comecar.</div>'
+        +'<div style="font-size:12px;color:var(--sub);margin-top:4px;">Um otimo dia de trabalho!</div>'
+        +lembreteHtml
+        +'</div>';
+    }
   }
 
-  // Histórico
-  var histList = (T==='admin'||T==='lider') ? pontos : meusPontos;
+  // Historico - apenas admin/lider ve
+  var histList = (T==='admin'||T==='lider_chefe') ? pontos : [];
   var hist=histList.slice(0,20).map(function(p){
     var u=null; for(var i=0;i<users.length;i++) if(users[i].id===p.usuario_id){u=users[i];break;}
     var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===p.obra_id){o=obras[i];break;}
@@ -2347,8 +2571,8 @@ function renderPonto(){
       +'</div><div class="hi-r"><div class="hi-d">'+fmtD(p.data)+'</div>'
       +(U.tipo==='admin'
         ?'<div style="display:flex;gap:4px;margin-top:4px;">'
-          +'<button type="button" onclick="editarPonto("+p.id+")" style="background:transparent;border:1px solid var(--gold);color:var(--gold);border-radius:6px;padding:3px 7px;font-size:10px;cursor:pointer;font-weight:700;">✏️</button>'
-          +'<button type="button" onclick="excluirPonto("+p.id+")" style="background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;padding:3px 7px;font-size:10px;cursor:pointer;font-weight:700;">🗑</button>'
+          +'<button type="button" data-pid="'+p.id+'" onclick="editarPonto(this.dataset.pid)" style="background:transparent;border:1px solid var(--gold);color:var(--gold);border-radius:6px;padding:3px 7px;font-size:10px;cursor:pointer;font-weight:700;">✏️</button>'
+          +'<button type="button" data-pid="'+p.id+'" onclick="excluirPonto(this.dataset.pid)" style="background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;padding:3px 7px;font-size:10px;cursor:pointer;font-weight:700;">🗑</button>'
           +'</div>':''
       )
       +'</div></div>';
@@ -2474,8 +2698,8 @@ function renderPontoFiltro(){
       +'</div><div class="hi-r"><div class="hi-d">'+fmtD(p.data)+'</div>'
       +(U.tipo==='admin'
         ?'<div style="display:flex;gap:4px;margin-top:4px;">'
-          +'<button type="button" onclick="editarPonto("+p.id+")" style="background:transparent;border:1px solid var(--gold);color:var(--gold);border-radius:6px;padding:3px 7px;font-size:10px;cursor:pointer;font-weight:700;">✏️</button>'
-          +'<button type="button" onclick="excluirPonto("+p.id+")" style="background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;padding:3px 7px;font-size:10px;cursor:pointer;font-weight:700;">🗑</button>'
+          +'<button type="button" data-pid="'+p.id+'" onclick="editarPonto(this.dataset.pid)" style="background:transparent;border:1px solid var(--gold);color:var(--gold);border-radius:6px;padding:3px 7px;font-size:10px;cursor:pointer;font-weight:700;">✏️</button>'
+          +'<button type="button" data-pid="'+p.id+'" onclick="excluirPonto(this.dataset.pid)" style="background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;padding:3px 7px;font-size:10px;cursor:pointer;font-weight:700;">🗑</button>'
           +'</div>':''
       )
       +'</div></div>';
@@ -3511,20 +3735,21 @@ function addMarmAmb(){
 }
 
 function toggleUnitAmb(btn){
-  var row=btn.parentElement;
+  var btnRow=btn.parentElement; // div com os 2 botoes
+  var lineRow=btnRow.parentElement; // div com input numero + botoes + span
   var unit=btn.getAttribute('data-unit');
-  var label=row.nextElementSibling;
-  row.querySelectorAll('button[data-unit]').forEach(function(b){
+  // Atualizar botoes
+  btnRow.querySelectorAll('button[data-unit]').forEach(function(b){
     var isThis=b===btn;
     b.style.background=isThis?'#6a0dad':'#fff';
     b.style.color=isThis?'#fff':'var(--sub)';
     b.style.borderColor=isThis?'#6a0dad':'var(--border)';
   });
   // Atualizar label
-  var lbl=row.querySelector('span');
-  if(lbl) lbl.textContent=unit==='m2'?'m²':'ml';
+  var lbl=lineRow.querySelector('span');
+  if(lbl) lbl.textContent=unit==='m2'?'m2':'ml';
   // Guardar unidade no input de valor
-  var inp=row.querySelector('input[type=number]');
+  var inp=lineRow.querySelector('input[type=number]');
   if(inp) inp.setAttribute('data-unit',unit);
 }
 
@@ -3943,6 +4168,14 @@ function selNT(t){
     var b=getEl('nt-'+k); if(b) b.className='tb'+(k===t?' '+map[k]:'');
   });
 }
+
+function selET(t){
+  novoTipoEdit=t;
+  ['func','lider','lider_chefe','admin'].forEach(function(x){
+    var b=getEl('et-'+x); if(b){b.classList.remove('on');}
+  });
+  var btn=getEl('et-'+t); if(btn) btn.classList.add('on');
+}
 function cadastrarFunc(){
   var nome=val('nf-nome'), ap=val('nf-apelido'), pw=val('nf-senha');
   if(!nome||!ap){toast('⚠️ Preencha nome e apelido.');return;}
@@ -3969,6 +4202,11 @@ function abrirEditFunc(id){
   getEl('ef-meta').value=u.meta_mensal||0; getEl('ef-senha').value='';
   var sel=getEl('ef-obra');
   sel.innerHTML='<option value="">Sem obra</option>'+obras.map(function(o){return '<option value="'+o.id+'"'+(u.obra_id===o.id?' selected':'')+'>'+o.nome+'</option>';}).join('');
+  // Carregar tipo atual
+  novoTipoEdit=f.tipo||'func';
+  ['func','lider','lider_chefe','admin'].forEach(function(x){
+    var b=getEl('et-'+x); if(b) b.classList.toggle('on',x===novoTipoEdit);
+  });
   getEl('modal-editfunc').classList.add('show');
 }
 function salvarEditFunc(){
