@@ -601,6 +601,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 // CONFIG
 var SURL = 'https://qfqbbfcqkzzezzmopssv.supabase.co';
 var WHATSAPP_MARMITA = '5547996507391'; // Numero do fornecedor (com DDI+DDD, sem espacos)
+var WHATSAPP_RELATORIO = '5547999999999'; // Numero para receber relatorios (com DDI+DDD, sem espacos)
 var SKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmcWJiZmNxa3p6ZXp6bW9wc3N2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2NDMwMDUsImV4cCI6MjA5NDIxOTAwNX0.EiSpKp_ywz4JTxMC18EK_Dv0MWFNpx9Db5jFVQwSdJA';
 var GSCRIPT = window.location.origin + '/gscript';
 var H = {'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation'};
@@ -3725,6 +3726,9 @@ function abrirRelatorioFinanceiro(){
     return '<option value="'+u.id+'">'+u.apelido+'</option>';
   }).join('');
 
+  // Carregar numero salvo
+  try{var savedNum=localStorage.getItem('instalato_wpp_relatorio');if(savedNum)WHATSAPP_RELATORIO=savedNum;}catch(e){}
+
   var html='<div class="modal-bg show" id="modal-rel-fin" style="z-index:9999;align-items:flex-start;padding-top:0;">'
     +'<div class="modal-sheet" style="max-height:95vh;border-radius:0 0 20px 20px;">'
     +'<div class="mhdr" style="background:#1a3a5c;">'
@@ -3738,6 +3742,11 @@ function abrirRelatorioFinanceiro(){
     +'<div><div class="fl">Data inicio</div><input class="inp" type="date" id="rel-ini" value="'+hoje()+'"></div>'
     +'<div><div class="fl">Data fim</div><input class="inp" type="date" id="rel-fim" value="'+hoje()+'"></div>'
     +'</div>'
+    +'<div><div class="fl">Numero WhatsApp para envio</div>'
+    +'<div style="display:flex;gap:6px;">'
+    +'<input class="inp" type="tel" id="rel-wpp" placeholder="Ex: 5547999887766" value="'+WHATSAPP_RELATORIO+'" style="margin:0;flex:1;">'
+    +'<button onclick="salvarNumRelatorio()" style="padding:8px 12px;border-radius:10px;border:none;background:#1a3a5c;color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Salvar</button>'
+    +'</div></div>'
     +'<button onclick="gerarRelatorioFin()" class="btn-gold" style="width:100%;">Gerar relatorio</button>'
     +'<div id="rel-fin-resultado" style="margin-top:4px;"></div>'
     +'</div></div></div>';
@@ -3784,7 +3793,10 @@ function gerarRelatorioFin(){
     +'<div style="padding:10px 14px;background:#1a3a5c;display:flex;justify-content:space-between;align-items:center;">'
     +'<div><div style="font-size:13px;font-weight:700;color:#fff;">Relatorio de Producao</div>'
     +'<div style="font-size:10px;color:rgba(255,255,255,.7);">'+fmtD(ini)+' ate '+fmtD(fim)+'</div></div>'
+    +'<div style="display:flex;gap:6px;">'
     +'<button onclick="imprimirRelFin()" style="padding:6px 12px;border-radius:20px;border:none;background:#B8860B;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">Imprimir</button>'
+    +'<button onclick="enviarRelWhats()" style="padding:6px 12px;border-radius:20px;border:none;background:#25D366;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">WhatsApp</button>'
+    +'</div>'
     +'</div>';
 
   Object.keys(porFunc).forEach(function(nome){
@@ -3821,6 +3833,69 @@ function gerarRelatorioFin(){
     +'</div></div>';
 
   document.getElementById('rel-fin-resultado').innerHTML=html;
+}
+
+function salvarNumRelatorio(){
+  var num=document.getElementById('rel-wpp')?document.getElementById('rel-wpp').value.trim():'';
+  if(!num){toast('Informe o numero.');return;}
+  WHATSAPP_RELATORIO=num;
+  try{localStorage.setItem('instalato_wpp_relatorio',num);}catch(e){}
+  toast('Numero salvo!');
+}
+
+function enviarRelWhats(){
+  // Verificar numero
+  try{var saved=localStorage.getItem('instalato_wpp_relatorio');if(saved)WHATSAPP_RELATORIO=saved;}catch(e){}
+  var num=WHATSAPP_RELATORIO;
+  if(!num||num==='5547999999999'){toast('Configure o numero do WhatsApp primeiro!');return;}
+
+  // Montar texto do relatorio
+  var funcId=document.getElementById('rel-func')?document.getElementById('rel-func').value:'';
+  var ini=document.getElementById('rel-ini')?document.getElementById('rel-ini').value:'';
+  var fim=document.getElementById('rel-fim')?document.getElementById('rel-fim').value:'';
+
+  var lista=lancs.filter(function(l){
+    var dentroData=l.data>=ini&&l.data<=fim;
+    var funcOk=!funcId||l.usuario_id===funcId;
+    return dentroData&&funcOk;
+  });
+
+  if(!lista.length){toast('Nenhum lancamento para enviar.');return;}
+
+  var porFunc={};
+  lista.forEach(function(l){
+    var u=null; for(var i=0;i<users.length;i++) if(users[i].id===l.usuario_id){u=users[i];break;}
+    var nome=u?u.apelido:'Desconhecido';
+    if(!porFunc[nome]) porFunc[nome]={totalM2:0,totalValor:0,qtd:0,itens:[]};
+    porFunc[nome].totalM2+=(parseFloat(l.area_m2)||0);
+    porFunc[nome].totalValor+=(parseFloat(l.total)||0);
+    porFunc[nome].qtd++;
+    porFunc[nome].itens.push(l);
+  });
+
+  var totalM2=lista.reduce(function(s,l){return s+(parseFloat(l.area_m2)||0);},0);
+  var totalValor=lista.reduce(function(s,l){return s+(parseFloat(l.total)||0);},0);
+
+  var texto='RELATORIO DE PRODUCAO\n';
+  texto+=fmtD(ini)+' a '+fmtD(fim)+'\n';
+
+  Object.keys(porFunc).forEach(function(nome){
+    var f=porFunc[nome];
+    texto+='\n';
+    texto+='*'+nome+'*\n';
+    texto+='--------------------------------\n';
+    f.itens.sort(function(a,b){return a.data>b.data?1:-1;}).forEach(function(l){
+      texto+=fmtD(l.data)+' | '+(l.apartamento||'')+' | '+(l.ambiente||'')+' | '+(parseFloat(l.area_m2)||0).toFixed(1)+'m2 | R$ '+(parseFloat(l.total)||0).toFixed(2)+'\n';
+    });
+    texto+='--------------------------------\n';
+    texto+='Total: '+f.totalM2.toFixed(1)+'m2 | R$ '+f.totalValor.toFixed(2)+'\n';
+  });
+
+  texto+='\n================================\n';
+  texto+='TOTAL GERAL: '+totalM2.toFixed(1)+'m2 | R$ '+totalValor.toFixed(2);
+
+  var url='https://wa.me/'+num+'?text='+encodeURIComponent(texto);
+  window.open(url,'_blank');
 }
 
 function imprimirRelFin(){
