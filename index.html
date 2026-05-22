@@ -1152,6 +1152,7 @@ function getRate(oId){
 function calcTotal() {
   var area = parseFloat(getEl('l-area') ? getEl('l-area').value : 0)||0; var unidadeLanc=_unidade||'m2';
   var rate = getRate(val('l-obra'));
+  var ri=getEl('rate-inf'); if(ri&&ri.style.display!=='none') ri.innerHTML='Valor do m2: <strong>R$ '+rate.toFixed(2)+'</strong>';
   var base = area * rate;
   var ext = 0;
   document.querySelectorAll('#extras-wrap .el-line').forEach(function(l) {
