@@ -978,7 +978,7 @@ function renderLancar() {
     +'<button class="btn-gold" type="button" style="width:auto;padding:11px 14px;font-size:13px;" onclick="definirMeta()">Definir</button></div></div>'
     +'<div><div class="fl">Obra</div><select class="sel" id="l-obra" onchange="obraChanged()"><option value="">-- Selecione --</option>'+oOpts+'</select>'
     +'<div id="obra-inf" style="display:none;background:rgba(184,134,11,.08);border-radius:10px;padding:8px 12px;font-size:11px;color:#854F0B;margin-top:6px;"></div></div>'
-    +'<div><div class="fl">Funcionário</div><select class="sel" id="l-func" onchange="calcTotal()"><option value="">Selecione</option>'+fOpts+'</select></div>'
+    +'<div><div class="fl">Funcionário</div><select class="sel" id="l-func" onchange="funcChanged()"><option value="">Selecione</option>'+fOpts+'</select></div>'
     +'<div><div class="fl">Apartamento</div><select class="sel" id="l-apto-sel"><option value="">Selecione a obra primeiro</option></select></div>'
     +'<div><div class="fl">Ambientes (selecione um ou mais)</div>'
     +'<div id="l-amb-lista" style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;padding:4px 0;"></div>'
@@ -1101,11 +1101,12 @@ function aptoChanged(oId,aptoNome){
     var unidade=a.unidade||'m2';
     var div=document.createElement('div');
     div.style.cssText='display:flex;align-items:center;justify-content:space-between;background:var(--gray);border-radius:8px;padding:9px 12px;';
+    var vfAmbStr=a.valor_fixo?'<span style="font-size:10px;background:#1a3a5c;color:#fff;padding:1px 6px;border-radius:10px;margin-left:4px;">R$ '+parseFloat(a.valor_fixo).toFixed(2)+'/'+( unidade==='ml'?'ml':'m²')+'</span>':'';
     div.innerHTML='<div style="display:flex;align-items:center;gap:8px;">'
-      +'<input type="checkbox" id="lamb-cb-'+idx+'" data-nome="'+a.nome+'" data-m2="'+(a.m2||0)+'" data-unit="'+unidade+'" onchange="recalcAmbs()" style="width:16px;height:16px;cursor:pointer;">'
+      +'<input type="checkbox" id="lamb-cb-'+idx+'" data-nome="'+a.nome+'" data-m2="'+(a.m2||0)+'" data-unit="'+unidade+'" data-vf="'+(a.valor_fixo||0)+'" onchange="recalcAmbs()" style="width:16px;height:16px;cursor:pointer;">'
       +'<label for="lamb-cb-'+idx+'" style="cursor:pointer;">'
-      +'<div style="font-size:13px;font-weight:700;">'+a.nome+'</div>'
-      +'<div style="font-size:10px;color:var(--sub);">'+(a.m2||0)+' '+(unidade==='ml'?'ml':'m²')+' · '+(unidade==='ml'?'metro linear':'metro quadrado')+'</div>'
+      +'<div style="font-size:13px;font-weight:700;">'+a.nome+vfAmbStr+'</div>'
+      +'<div style="font-size:10px;color:var(--sub);">'+(a.m2||0)+' '+(unidade==='ml'?'ml':'m²')+(a.valor_fixo?' · valor fixo por unidade':'')+'</div>'
       +'</label></div>'
       +'<div style="text-align:right;font-size:12px;font-weight:700;color:var(--gold);">'+(a.m2||0)+(unidade==='ml'?' ml':' m²')+'</div>';
     lista.appendChild(div);
@@ -1149,11 +1150,32 @@ function getRate(oId){
   return parseFloat(o.rate_func)||35;
 }
 
+function funcChanged(){
+  setTimeout(function(){
+    var oId=val('l-obra');
+    var rate=getRate(oId);
+    var ri=getEl('rate-inf');
+    if(ri&&ri.style.display!=='none') ri.innerHTML='Valor do m2: <strong>R$ '+rate.toFixed(2)+'</strong>';
+    calcTotal();
+  },50);
+}
+
 function calcTotal() {
   var area = parseFloat(getEl('l-area') ? getEl('l-area').value : 0)||0; var unidadeLanc=_unidade||'m2';
   var rate = getRate(val('l-obra'));
   var ri=getEl('rate-inf'); if(ri&&ri.style.display!=='none') ri.innerHTML='Valor do m2: <strong>R$ '+rate.toFixed(2)+'</strong>';
-  var base = area * rate;
+  // Calcular base considerando valor_fixo por ambiente
+  var cbs2=document.querySelectorAll('#l-amb-lista input[type=checkbox]:checked');
+  var base=0;
+  if(cbs2.length){
+    cbs2.forEach(function(cb){
+      var m2cb=parseFloat(cb.getAttribute('data-m2'))||0;
+      var vfcb=parseFloat(cb.getAttribute('data-vf'))||0;
+      base+=vfcb>0?(m2cb*vfcb):(m2cb*rate);
+    });
+  } else {
+    base=area*rate;
+  }
   var ext = 0;
   document.querySelectorAll('#extras-wrap .el-line').forEach(function(l) {
     var ins = l.querySelectorAll('input');
@@ -4041,7 +4063,7 @@ function abrirAmbientes(el){
   var apto=_obraAndares[oId].andares[ai].aptos[pi];
   getEl('ma-apto-nome').textContent=apto.nome;
   var lista=getEl('ambientes-lista'); lista.innerHTML='';
-  (apto.ambientes||[]).forEach(function(a){adicionarLinhaAmb(a.nome,a.m2,a.unidade||'m2');});
+  (apto.ambientes||[]).forEach(function(a){adicionarLinhaAmb(a.nome,a.m2,a.unidade||'m2',a.valor_fixo||'');});
   getEl('modal-ambientes').classList.add('show');
 }
 
@@ -4050,9 +4072,10 @@ function adicionarLinhaAmb(nome,m2,unidade){
   var un=unidade||'m2';
   var d=document.createElement('div');
   d.className='amb-linha'; d.style.cssText='background:var(--gray);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:6px;';
+  var vf=arguments[3]||''; // valor_fixo
   d.innerHTML='<div style="display:grid;grid-template-columns:1fr 80px 32px;gap:6px;align-items:center;">'
     +'<input class="inp" type="text" placeholder="Ex: WC 01, Suite..." value="'+(nome||'')+'" style="margin:0">'
-    +'<input class="inp" type="number" placeholder="valor" value="'+(m2||'')+'" data-unit="'+un+'" style="margin:0;text-align:center;">'
+    +'<input class="inp" type="number" placeholder="m2/ml" value="'+(m2||'')+'" data-unit="'+un+'" style="margin:0;text-align:center;">'
     +'<button type="button" class="btn-rem" onclick="this.parentElement.remove()">✕</button>'
     +'</div>'
     +'<div style="display:flex;align-items:center;gap:6px;">'
@@ -4060,6 +4083,11 @@ function adicionarLinhaAmb(nome,m2,unidade){
     +'<button type="button" data-unit="m2" onclick="toggleUnitLinhaAmb(this)" style="padding:3px 10px;border-radius:20px;border:1px solid '+(un==='m2'?'var(--gold);background:var(--gold);color:#fff':'var(--border);background:#fff;color:var(--sub)')+';font-size:10px;font-weight:700;cursor:pointer;">m²</button>'
     +'<button type="button" data-unit="ml" onclick="toggleUnitLinhaAmb(this)" style="padding:3px 10px;border-radius:20px;border:1px solid '+(un==='ml'?'var(--gold);background:var(--gold);color:#fff':'var(--border);background:#fff;color:var(--sub)')+';font-size:10px;font-weight:700;cursor:pointer;">ml</button>'
     +'<span class="unit-desc" style="font-size:10px;color:var(--sub);">'+(un==='m2'?'metro quadrado':'metro linear')+'</span>'
+    +'</div>'
+    +'<div style="display:flex;align-items:center;gap:6px;margin-top:2px;">'
+    +'<span style="font-size:10px;color:var(--sub);font-weight:700;">Valor fixo R$/unit (opcional):</span>'
+    +'<input class="inp" type="number" placeholder="Ex: 25.00" value="'+vf+'" data-vf="1" style="margin:0;width:90px;font-size:11px;" title="Se preenchido, ignora a taxa do funcionario">'
+    +'<span style="font-size:9px;color:var(--sub);">deixe vazio para usar taxa padrao</span>'
     +'</div>';
   lista.appendChild(d);
 }
@@ -4226,7 +4254,9 @@ function salvarAmbientesApto(){
     var nm=nomeInp?nomeInp.value.trim():'';
     var m2=parseFloat(valInp?valInp.value:0)||0;
     var unit=valInp?valInp.getAttribute('data-unit')||'m2':'m2';
-    if(nm) ambientes.push({nome:nm,m2:m2,unidade:unit});
+    var vfInp=linhas[i].querySelector('input[data-vf]');
+    var vf=parseFloat(vfInp?vfInp.value:0)||0;
+    if(nm) ambientes.push({nome:nm,m2:m2,unidade:unit,valor_fixo:vf||null});
   }
   var ref=_editAptoRef;
   _obraAndares[ref.oId].andares[ref.ai].aptos[ref.pi].ambientes=ambientes;
