@@ -607,7 +607,7 @@ var H = {'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY, 'Content-Type': 'app
 
 // STATE
 var U = null;
-var obras = [], users = [], lancs = [], confs = [], mats = [], desps = [], avs = [], ocorrs = [], pontos = [], clientes = [], marmitas = [];
+var obras = [], users = [], lancs = [], confs = [], mats = [], desps = [], avs = [], ocorrs = [], pontos = [], clientes = [], marmitas = [], recebimentos = [];
 var editObraId = null, editFuncId = null, editAvId = null;
 var novoTipo = 'func';
 function getOcorrLidas(){
@@ -811,6 +811,7 @@ function startApp() {
     dbGet('ocorrencias').then(function(d) { ocorrs = d||[]; }),
     dbGet('pontos').then(function(d) { pontos = d||[]; }),
     dbGet('marmitas').then(function(d) { marmitas = d||[]; }),
+    dbGet('recebimentos').then(function(d) { recebimentos = d||[]; }),
     dbGet('clientes').then(function(d) { clientes = d||[]; })
   ]).then(function() {
     renderAll();
@@ -837,6 +838,7 @@ function buildNav() {
   if(T==='admin') tabs.push({id:'dash',i:'📈',l:'Dashboard'});
   if(T==='admin') tabs.push({id:'desp',i:'💸',l:'Despesas'});
   if(T==='admin') tabs.push({id:'fin',i:'💰',l:'Financeiro'});
+  if(T==='admin') tabs.push({id:'receber',i:'💵',l:'A Receber'});
   tabs.push({id:'conta',i:'👤',l:'Minha Conta'});
   tabs.forEach(function(t, i) {
     var n = document.createElement('div');
@@ -941,13 +943,13 @@ function renderAll() {
   renderAvisos();
   renderMarmita();
   renderMeu();
-  if(T==='admin') { renderConf(); renderDash(); renderDesp(); renderFinanceiro(); }
+  if(T==='admin') { renderConf(); renderDash(); renderDesp(); renderFinanceiro(); renderReceber(); }
   if(T==='admin'||T==='lider'||T==='lider_chefe') renderAptos();
   renderConta();
 }
 
 function renderTab(id) {
-  var map = {lancar:renderLancar,meu:renderMeu,hist:renderHist,conf:renderConf,aptos:renderAptos,ponto:renderPonto,mat:renderMat,meumat:renderMeuMat,ocorr:function(){renderOcorr();if(U&&U.tipo!=='func')marcarOcorrsLidas();},aviso:renderAvisos,marmita:function(){renderMarmita();if(U&&U.tipo==='admin'){marcarMarmitasLidas();verificarBannerMarmita();}},dash:renderDash,desp:renderDesp,fin:renderFinanceiro,conta:renderConta};
+  var map = {lancar:renderLancar,meu:renderMeu,hist:renderHist,conf:renderConf,aptos:renderAptos,ponto:renderPonto,mat:renderMat,meumat:renderMeuMat,ocorr:function(){renderOcorr();if(U&&U.tipo!=='func')marcarOcorrsLidas();},aviso:renderAvisos,marmita:function(){renderMarmita();if(U&&U.tipo==='admin'){marcarMarmitasLidas();verificarBannerMarmita();}},dash:renderDash,desp:renderDesp,fin:renderFinanceiro,receber:renderReceber,conta:renderConta};
   if(map[id]) map[id]();
 }
 
@@ -3541,6 +3543,178 @@ function renderAptos(){
   el.innerHTML=html;
   var novoFiltro=getEl('aptos-filtro-obra');
   if(novoFiltro&&filtroId) novoFiltro.value=filtroId;
+}
+
+function renderReceber(){
+  var el=getEl('t-receber'); if(!el) return;
+
+  // Filtros salvos
+  var _fIni=window._recIni||''; var _fFim=window._recFim||'';
+  var _fObra=window._recObra||'';
+
+  // Calcular itens a receber por obra (apenas conferidos aprovados)
+  var oOpts=obras.map(function(o){return '<option value="'+o.id+'"'+(_fObra===o.id?' selected':'')+'>'+o.nome+'</option>';}).join('');
+
+  // Montar lista de ambientes aprovados
+  var itens=[];
+  confs.filter(function(c){return c.status==='aprovado';}).forEach(function(c){
+    // Verificar periodo
+    if(_fIni && c.data<_fIni) return;
+    if(_fFim && c.data>_fFim) return;
+    if(_fObra && c.obra_id!==_fObra) return;
+
+    var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===c.obra_id){o=obras[i];break;}
+    if(!o) return;
+
+    // Buscar lancamento vinculado
+    var l=null;
+    if(c.lancamento_id){for(var i=0;i<lancs.length;i++) if(lancs[i].id===c.lancamento_id){l=lancs[i];break;}}
+
+    // Buscar ambiente no cadastro da obra para pegar tipo e valor_fixo
+    var ambCad=null; var unidade='m2';
+    if(o.estrutura){
+      try{
+        var est=JSON.parse(o.estrutura);
+        est.andares&&est.andares.forEach(function(andar){
+          andar.aptos&&andar.aptos.forEach(function(apto){
+            (apto.ambientes||[]).forEach(function(a){
+              if(a.nome===c.ambiente||(c.ambiente&&c.ambiente.indexOf(a.nome)>=0)){
+                ambCad=a;unidade=a.unidade||'m2';
+              }
+            });
+          });
+        });
+      }catch(e){}
+    }
+
+    var area=l?parseFloat(l.area_m2)||0:0;
+    var valorFixo=ambCad&&ambCad.valor_fixo?parseFloat(ambCad.valor_fixo):0;
+    var rateVenda=parseFloat(o.rate_venda)||0;
+    var rateVendaMl=parseFloat(o.rate_venda_ml)||0;
+
+    var valor=0;
+    if(valorFixo>0){
+      valor=area*valorFixo; // valor fixo
+    } else if(unidade==='ml'){
+      valor=area*rateVendaMl;
+    } else {
+      valor=area*rateVenda;
+    }
+
+    // Verificar se ja foi recebido
+    var jaRecebido=recebimentos.some(function(r){return r.conf_id===c.id;});
+
+    itens.push({
+      confId:c.id,obra:o.nome,obraId:o.id,apto:c.apartamento,amb:c.ambiente,
+      area:area,unidade:unidade,valor:valor,valorFixo:valorFixo>0,
+      rateVenda:valorFixo>0?valorFixo:(unidade==='ml'?rateVendaMl:rateVenda),
+      data:c.data,recebido:jaRecebido
+    });
+  });
+
+  // Totais
+  var totalM2=itens.filter(function(i){return !i.unidade||i.unidade==='m2';}).filter(function(i){return !i.valorFixo;}).reduce(function(s,i){return s+i.area;},0);
+  var totalMl=itens.filter(function(i){return i.unidade==='ml';}).filter(function(i){return !i.valorFixo;}).reduce(function(s,i){return s+i.area;},0);
+  var totalFixo=itens.filter(function(i){return i.valorFixo;}).reduce(function(s,i){return s+i.valor;},0);
+  var totalGeral=itens.reduce(function(s,i){return s+i.valor;},0);
+  var totalRecebido=itens.filter(function(i){return i.recebido;}).reduce(function(s,i){return s+i.valor;},0);
+  var totalPendente=totalGeral-totalRecebido;
+
+  // HTML
+  var html='<div class="hero" style="background:#1a3a5c"><p>Gestao financeira</p><h2>Contas a Receber</h2></div>'
+    +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'
+
+    // Filtros
+    +'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);padding:12px 14px;display:flex;flex-direction:column;gap:10px;">'
+    +'<div class="row2">'
+    +'<div><div class="fl">De</div><input class="inp" type="date" id="rec-ini" value="'+_fIni+'" onchange="filtrarReceber()" style="margin:0;"></div>'
+    +'<div><div class="fl">Ate</div><input class="inp" type="date" id="rec-fim" value="'+_fFim+'" onchange="filtrarReceber()" style="margin:0;"></div>'
+    +'</div>'
+    +'<div><div class="fl">Obra</div>'
+    +'<select class="sel" id="rec-obra" onchange="filtrarReceber()" style="margin:0;"><option value="">Todas as obras</option>'+oOpts+'</select></div>'
+    +'<button onclick="limparFiltrosReceber()" style="padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:11px;cursor:pointer;align-self:flex-start;">Limpar filtros</button>'
+    +'</div>'
+
+    // Resumo
+    +'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
+    +'<div style="padding:10px 14px;background:#1a3a5c;">'
+    +'<div style="font-size:12px;color:rgba(255,255,255,.7);margin-bottom:2px;">Resumo</div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;">'
+    +'<div style="font-size:22px;font-weight:700;color:#fff;">'+fmt(totalGeral)+'</div>'
+    +'<div style="text-align:right;font-size:11px;color:rgba(255,255,255,.8);">'+itens.length+' ambiente(s)</div>'
+    +'</div></div>'
+    +'<div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px;">'
+    +(totalM2>0?'<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">'
+      +'<span style="font-size:12px;color:var(--sub);">m² · '+totalM2.toFixed(1)+' m²</span>'
+      +'<span style="font-size:13px;font-weight:700;">'+fmt(itens.filter(function(i){return !i.unidade||i.unidade==='m2';}).filter(function(i){return !i.valorFixo;}).reduce(function(s,i){return s+i.valor;},0))+'</span>'
+      +'</div>':'')
+    +(totalMl>0?'<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">'
+      +'<span style="font-size:12px;color:var(--sub);">ml · '+totalMl.toFixed(1)+' ml</span>'
+      +'<span style="font-size:13px;font-weight:700;">'+fmt(itens.filter(function(i){return i.unidade==='ml';}).filter(function(i){return !i.valorFixo;}).reduce(function(s,i){return s+i.valor;},0))+'</span>'
+      +'</div>':'')
+    +(totalFixo>0?'<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">'
+      +'<span style="font-size:12px;color:var(--sub);">Valor fixo</span>'
+      +'<span style="font-size:13px;font-weight:700;">'+fmt(totalFixo)+'</span>'
+      +'</div>':'')
+    +'<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">'
+    +'<span style="font-size:12px;color:var(--green);">Recebido</span>'
+    +'<span style="font-size:13px;font-weight:700;color:var(--green);">'+fmt(totalRecebido)+'</span>'
+    +'</div>'
+    +'<div style="display:flex;justify-content:space-between;padding:6px 0;">'
+    +'<span style="font-size:12px;color:var(--red);">Pendente</span>'
+    +'<span style="font-size:14px;font-weight:700;color:var(--red);">'+fmt(totalPendente)+'</span>'
+    +'</div>'
+    +'</div></div>'
+
+    // Lista de itens
+    +'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
+    +'<div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;">Detalhamento</div>'
+    +(!itens.length?'<div class="empty"><p>Nenhum ambiente aprovado no periodo.</p></div>'
+      :itens.map(function(item){
+        var cor=item.recebido?'var(--green)':'#1a3a5c';
+        var bg=item.recebido?'rgba(30,132,73,.04)':'#fff';
+        return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:'+bg+';">'
+          +'<div style="flex:1;">'
+          +'<div style="font-size:13px;font-weight:700;">'+item.apto+' · '+item.amb+'</div>'
+          +'<div style="font-size:11px;color:var(--sub);">'+item.obra+' · '+fmtD(item.data)+'</div>'
+          +'<div style="font-size:10px;color:var(--sub);">'+item.area.toFixed(1)+(item.unidade==='ml'?' ml':' m²')+(item.valorFixo?' · valor fixo R$'+item.rateVenda.toFixed(2)+'/unit':' · R$'+item.rateVenda.toFixed(2)+'/'+(item.unidade==='ml'?'ml':'m²'))+'</div>'
+          +'</div>'
+          +'<div style="text-align:right;">'
+          +'<div style="font-size:14px;font-weight:700;color:'+cor+';">'+fmt(item.valor)+'</div>'
+          +'<button data-cid="'+item.confId+'" onclick="toggleReceber(this.dataset.cid)" style="margin-top:4px;padding:3px 10px;border-radius:20px;border:1px solid '+(item.recebido?'var(--green)':'#1a3a5c')+';background:'+(item.recebido?'var(--green)':'transparent')+';color:'+(item.recebido?'#fff':'#1a3a5c')+';font-size:10px;font-weight:700;cursor:pointer;">'+(item.recebido?'✓ Recebido':'Marcar recebido')+'</button>'
+          +'</div></div>';
+      }).join(''))
+    +'</div>'
+    +'</div>';
+
+  el.innerHTML=html;
+}
+
+function filtrarReceber(){
+  window._recIni=document.getElementById('rec-ini')?document.getElementById('rec-ini').value:'';
+  window._recFim=document.getElementById('rec-fim')?document.getElementById('rec-fim').value:'';
+  window._recObra=document.getElementById('rec-obra')?document.getElementById('rec-obra').value:'';
+  renderReceber();
+}
+
+function limparFiltrosReceber(){
+  window._recIni='';window._recFim='';window._recObra='';
+  renderReceber();
+}
+
+function toggleReceber(confId){
+  var jaRec=recebimentos.find(function(r){return r.conf_id===confId;});
+  if(jaRec){
+    // Remover recebimento
+    dbDelete('recebimentos',jaRec.id).then(function(ok){
+      if(ok){recebimentos=recebimentos.filter(function(r){return r.id!==jaRec.id;});renderReceber();}
+    });
+  } else {
+    // Marcar como recebido
+    dbInsert('recebimentos',{conf_id:confId,data:hoje(),usuario_id:U.id}).then(function(r){
+      if(r){recebimentos=[r].concat(recebimentos);renderReceber();toast('Marcado como recebido!');}
+    });
+  }
 }
 
 function renderFinanceiro(){
