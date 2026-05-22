@@ -597,6 +597,14 @@ var U = null;
 var obras = [], users = [], lancs = [], confs = [], mats = [], desps = [], avs = [], ocorrs = [], pontos = [], clientes = [], marmitas = [];
 var editObraId = null, editFuncId = null, editAvId = null;
 var novoTipo = 'func';
+function getOcorrLidas(){
+  try{return JSON.parse(localStorage.getItem('instalato_ocorr_lidas2_'+(U?U.id:''))||'{}');}catch(e){return {};}
+}
+function setOcorrLida(id){
+  var l=getOcorrLidas(); l[id]=true;
+  try{localStorage.setItem('instalato_ocorr_lidas2_'+(U?U.id:''),JSON.stringify(l));}catch(e){}
+}
+
 var _TIPOS_OCORR=[{k:'atraso',i:'⏰',l:'Atraso'},{k:'qualidade',i:'🔨',l:'Qualidade'},{k:'conduta',i:'⚠️',l:'Conduta'},{k:'acidente',i:'🚨',l:'Acidente'},{k:'material',i:'📦',l:'Material'},{k:'marmita',i:'🍱',l:'Marmita'},{k:'outro',i:'📝',l:'Outro'}]; var novoTipoEdit = 'func'; var confSt = '', catSel = '', ocorrTipo = '';
 var chkState = {};
 var _checks=['Qualidade tecnica do assentamento','Organizacao e limpeza do local','Nivelamento e alinhamento','Rejunte e acabamento','Protecao e isolamento de piso'];
@@ -2029,7 +2037,7 @@ function abrirOcorr(id){
     +'<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:6px;">Lido por</div>'
     +'<div style="display:flex;flex-wrap:wrap;gap:4px;">'+lidasHtml+'</div></div>'
     // Comentarios
-    +'<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:6px;">Comentarios da gestao</div>'
+    +'<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:6px;">Comentarios da lideranca</div>'
     +comentariosHtml+'</div>'
     // Campo comentario (so gestao)
     +(isGestao
@@ -2612,9 +2620,9 @@ function renderPonto(){
         +'</div>'
       : '')
     +'</div>'
-    +(T==='admin'||T==='lider'?'<button class="btn-sec" type="button" onclick="showRelPonto()">📄 Relatório de ponto</button>':'')
+    +(T==='admin'||T==='lider_chefe'?'<button class="btn-sec" type="button" onclick="showRelPonto()">📄 Relatório de ponto</button>':'')
     +(pontos.length?'<div><div class="fl">Histórico de pontos</div>'
-    +(T==='admin'||T==='lider'?'<div class="fil-row"><select id="pf-func" onchange="renderPontoFiltro()"><option value="">Todos</option>'+fOpts+'</select><select id="pf-obra" onchange="renderPontoFiltro()"><option value="">Todas as obras</option>'+oOpts+'</select></div>':'')
+    +(T==='admin'||T==='lider_chefe'?'<div class="fil-row"><select id="pf-func" onchange="renderPontoFiltro()"><option value="">Todos</option>'+fOpts+'</select><select id="pf-obra" onchange="renderPontoFiltro()"><option value="">Todas as obras</option>'+oOpts+'</select></div>':'')
     +'<div id="ponto-hist">'+hist+'</div></div>':'<div class="empty"><p>Nenhum registro de ponto ainda.</p></div>')
     +'</div>';
 }
