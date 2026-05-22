@@ -585,7 +585,7 @@ var H = {'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY, 'Content-Type': 'app
 
 // STATE
 var U = null;
-var obras = [], users = [], lancs = [], confs = [], mats = [], desps = [], avs = [], ocorrs = [], pontos = [], clientes = [];
+var obras = [], users = [], lancs = [], confs = [], mats = [], desps = [], avs = [], ocorrs = [], pontos = [], clientes = [], marmitas = [];
 var editObraId = null, editFuncId = null, editAvId = null;
 var novoTipo = 'func', confSt = '', catSel = '', ocorrTipo = '';
 var chkState = {};
@@ -779,6 +779,7 @@ function startApp() {
     dbGet('avisos').then(function(d) { avs = d||[]; }),
     dbGet('ocorrencias').then(function(d) { ocorrs = d||[]; }),
     dbGet('pontos').then(function(d) { pontos = d||[]; }),
+    dbGet('marmitas').then(function(d) { marmitas = d||[]; }),
     dbGet('clientes').then(function(d) { clientes = d||[]; })
   ]).then(function() {
     renderAll();
@@ -799,6 +800,7 @@ function buildNav() {
   if(T==='admin'||T==='lider'||T==='lider_chefe') tabs.push({id:'mat',i:'📦',l:'Materiais'});
   tabs.push({id:'meumat',i:'📦',l:'Meus Mat.'});
   tabs.push({id:'ocorr',i:'⚠️',l:'Ocorrências'});
+  tabs.push({id:'marmita',i:'🍱',l:'Marmita'});
   tabs.push({id:'aviso',i:'📢',l:'Avisos'});
   if(T==='admin'||T==='lider'||T==='lider_chefe') tabs.push({id:'aptos',i:'🏁',l:'Aptos'});
   if(T==='admin') tabs.push({id:'dash',i:'📈',l:'Dashboard'});
@@ -878,6 +880,7 @@ function renderAll() {
   renderMeuMat();
   renderOcorr();
   renderAvisos();
+  renderMarmita();
   renderMeu();
   if(T==='admin') { renderConf(); renderDash(); renderDesp(); renderFinanceiro(); }
   if(T==='admin'||T==='lider'||T==='lider_chefe') renderAptos();
@@ -885,7 +888,7 @@ function renderAll() {
 }
 
 function renderTab(id) {
-  var map = {lancar:renderLancar,meu:renderMeu,hist:renderHist,conf:renderConf,aptos:renderAptos,ponto:renderPonto,mat:renderMat,meumat:renderMeuMat,ocorr:function(){renderOcorr();if(U&&U.tipo!=='func')marcarOcorrsLidas();},aviso:renderAvisos,dash:renderDash,desp:renderDesp,fin:renderFinanceiro,conta:renderConta};
+  var map = {lancar:renderLancar,meu:renderMeu,hist:renderHist,conf:renderConf,aptos:renderAptos,ponto:renderPonto,mat:renderMat,meumat:renderMeuMat,ocorr:function(){renderOcorr();if(U&&U.tipo!=='func')marcarOcorrsLidas();},aviso:renderAvisos,marmita:renderMarmita,dash:renderDash,desp:renderDesp,fin:renderFinanceiro,conta:renderConta};
   if(map[id]) map[id]();
 }
 
@@ -1803,7 +1806,7 @@ function renderOcorr(){
   var el=getEl('t-ocorr'); if(!el) return;
   var oOpts=obras.map(function(o){return '<option value="'+o.id+'">'+o.nome+'</option>';}).join('');
   var fOpts=users.filter(function(u){return u.ativo;}).map(function(u){return '<option value="'+u.id+'">'+u.apelido+'</option>';}).join('');
-  var tipos=[{k:'atraso',i:'⏰',l:'Atraso'},{k:'qualidade',i:'🔨',l:'Qualidade'},{k:'conduta',i:'⚠️',l:'Conduta'},{k:'acidente',i:'🚨',l:'Acidente'},{k:'material',i:'📦',l:'Material'},{k:'outro',i:'📝',l:'Outro'}];
+  var tipos=[{k:'atraso',i:'⏰',l:'Atraso'},{k:'qualidade',i:'🔨',l:'Qualidade'},{k:'conduta',i:'⚠️',l:'Conduta'},{k:'acidente',i:'🚨',l:'Acidente'},{k:'material',i:'📦',l:'Material'},{k:'marmita',i:'🍱',l:'Marmita'},{k:'outro',i:'📝',l:'Outro'}];
   var tipoGrid=tipos.map(function(t){return '<div class="cat-btn'+(ocorrTipo===t.k?' on':'')+'" onclick="selOcorrTipo(\''+t.k+'\')"><span style="font-size:20px">'+t.i+'</span>'+t.l+'</div>';}).join('');
   var hist=ocorrs.slice(0,20).map(function(oc){
     var u=null; for(var i=0;i<users.length;i++) if(users[i].id===oc.colaborador_id){u=users[i];break;}
@@ -1844,7 +1847,13 @@ function renderOcorr(){
     +'</div>';
 }
 
-function selOcorrTipo(t){ocorrTipo=t;renderOcorr();}
+function selOcorrTipo(t){
+  if(t==='marmita'){
+    goTab('marmita');
+    return;
+  }
+  ocorrTipo=t;renderOcorr();
+}
 
 function renderOcorrFiltro(){
   var oId=getEl('of-obra')?getEl('of-obra').value:'';
@@ -1852,7 +1861,7 @@ function renderOcorrFiltro(){
   var lista=ocorrs;
   if(oId) lista=lista.filter(function(o){return o.obra_id===oId;});
   if(cId) lista=lista.filter(function(o){return o.colaborador_id===cId;});
-  var tipos=[{k:'atraso',i:'⏰',l:'Atraso'},{k:'qualidade',i:'🔨',l:'Qualidade'},{k:'conduta',i:'⚠️',l:'Conduta'},{k:'acidente',i:'🚨',l:'Acidente'},{k:'material',i:'📦',l:'Material'},{k:'outro',i:'📝',l:'Outro'}];
+  var tipos=[{k:'atraso',i:'⏰',l:'Atraso'},{k:'qualidade',i:'🔨',l:'Qualidade'},{k:'conduta',i:'⚠️',l:'Conduta'},{k:'acidente',i:'🚨',l:'Acidente'},{k:'material',i:'📦',l:'Material'},{k:'marmita',i:'🍱',l:'Marmita'},{k:'outro',i:'📝',l:'Outro'}];
   var el=getEl('ocorr-hist'); if(!el) return;
   el.innerHTML=lista.map(function(oc){
     var u=null; for(var i=0;i<users.length;i++) if(users[i].id===oc.colaborador_id){u=users[i];break;}
@@ -1884,6 +1893,119 @@ function delOcorr(id){
 }
 
 // ── PONTO ──
+function renderMarmita(){
+  var el=getEl('t-marmita'); if(!el) return;
+  var T=U?U.tipo:'';
+  var isAdmin=(T==='admin');
+  var agora=new Date();
+  var horaAtual=agora.getHours()*60+agora.getMinutes();
+  var limite=9*60; // 09:00
+  var hojeStr=hoje();
+
+  // Verificar se usuario bateu ponto hoje
+  var bateuPonto=pontos.some(function(p){
+    return p.usuario_id===U.id && (p.data===hojeStr||(p.created_at&&p.created_at.startsWith(hojeStr)));
+  });
+
+  // Verificar se ja pediu hoje
+  var jaPediu=marmitas.some(function(m){
+    return m.usuario_id===U.id && m.data===hojeStr;
+  });
+
+  // Pedidos de hoje
+  var pedidosHoje=marmitas.filter(function(m){return m.data===hojeStr;});
+  var pedidosHist=marmitas.filter(function(m){return m.data!==hojeStr;});
+
+  // Status do pedido
+  var podePedir=bateuPonto && !jaPediu && horaAtual<=limite;
+  var motivo=!bateuPonto?'Voce precisa bater ponto antes de pedir':jaPediu?'Voce ja pediu sua marmita hoje':horaAtual>limite?'Pedidos encerrados apos 09h00':'';
+
+  // Lista do dia para admin (apenas nomes)
+  var listaAdminHtml='';
+  if(isAdmin&&pedidosHoje.length){
+    listaAdminHtml='<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
+      +'<div style="padding:10px 14px;background:#1a3a5c;display:flex;justify-content:space-between;align-items:center;">'
+      +'<span style="font-size:13px;font-weight:700;color:#fff;">Lista de hoje</span>'
+      +'<span style="font-size:12px;background:rgba(255,255,255,.2);color:#fff;padding:2px 10px;border-radius:20px;font-weight:700;">'+pedidosHoje.length+' pedido(s)</span>'
+      +'</div>'
+      +pedidosHoje.map(function(m,i){
+        var u=null; for(var j=0;j<users.length;j++) if(users[j].id===m.usuario_id){u=users[j];break;}
+        return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);">'
+          +'<div style="display:flex;align-items:center;gap:10px;">'
+          +'<div style="width:28px;height:28px;border-radius:50%;background:#1a3a5c;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">'+(i+1)+'</div>'
+          +'<div><div style="font-size:13px;font-weight:700;">'+(u?u.apelido:'--')+'</div>'
+          +(m.obs?'<div style="font-size:10px;color:var(--sub);">'+m.obs+'</div>':'')
+          +'</div></div>'
+          +'<div style="font-size:10px;color:var(--sub);">'+(m.hora||'')+'</div>'
+          +'</div>';
+      }).join('')
+      +'</div>';
+  }
+
+  // Historico
+  var histHtml='';
+  if(marmitas.length){
+    var lista=isAdmin?marmitas:marmitas.filter(function(m){return m.usuario_id===U.id;});
+    lista=lista.slice(0,20);
+    histHtml='<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
+      +'<div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;">Historico</div>'
+      +lista.map(function(m){
+        var u=null; for(var j=0;j<users.length;j++) if(users[j].id===m.usuario_id){u=users[j];break;}
+        return '<div class="hi"><div class="hi-ico">🍱</div>'
+          +'<div class="hi-b"><div class="hi-t">'+(isAdmin?u?u.apelido:'--':'Minha marmita')+'</div>'
+          +'<div class="hi-s">'+(m.obs||'Sem obs')+'</div></div>'
+          +'<div class="hi-r"><div class="hi-d">'+fmtD(m.data)+'</div>'
+          +(isAdmin?'<div style="font-size:10px;color:var(--sub);">'+fmt(m.valor||0)+'</div>':'')
+          +'</div></div>';
+      }).join('')
+      +'</div>';
+  }
+
+  el.innerHTML='<div class="hero" style="background:#B8860B"><p>Solicitar</p><h2>🍱 Marmita</h2></div>'
+    +'<div class="pad" style="display:flex;flex-direction:column;gap:14px;">'
+    // Card de status
+    +'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);padding:16px;text-align:center;">'
+    +(jaPediu
+      ?'<div style="font-size:36px;margin-bottom:8px;">✅</div><div style="font-size:15px;font-weight:700;color:var(--green);">Pedido confirmado!</div><div style="font-size:12px;color:var(--sub);margin-top:4px;">Sua marmita foi solicitada hoje.</div>'
+      :podePedir
+        ?'<div style="font-size:36px;margin-bottom:8px;">🍱</div><div style="font-size:15px;font-weight:700;">Pedir marmita</div><div style="font-size:12px;color:var(--sub);margin-top:4px;">Pedidos ate 09h00 · Desconto em folha</div>'
+        :'<div style="font-size:36px;margin-bottom:8px;">⛔</div><div style="font-size:15px;font-weight:700;color:var(--red);">Pedido nao disponivel</div><div style="font-size:12px;color:var(--sub);margin-top:4px;">'+motivo+'</div>'
+    )
+    +'</div>'
+    // Formulario de pedido
+    +(podePedir
+      ?'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);padding:16px;display:flex;flex-direction:column;gap:12px;">'
+        +'<div><div class="fl">Observacao (opcional)</div><input class="inp" id="marm-obs" type="text" placeholder="Ex: sem pimenta, vegetariano..."></div>'
+        +'<div style="background:#fdf3e3;border-radius:10px;padding:10px 12px;font-size:12px;color:#B8860B;font-weight:600;">O valor sera descontado do seu pagamento mensal.</div>'
+        +'<button class="btn-gold" type="button" onclick="pedirMarmita()">🍱 Confirmar pedido</button>'
+        +'</div>'
+      :'')
+    // Lista do dia (admin)
+    +listaAdminHtml
+    // Historico
+    +histHtml
+    +'</div>';
+}
+
+function pedirMarmita(){
+  var obs=(getEl('marm-obs')?getEl('marm-obs').value.trim():'');
+  var hojeStr=hoje();
+  var horaAtual=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  // Valor da marmita (pode ser configuravel futuramente)
+  var valorMarm=15; // R$ 15,00 padrao
+  dbInsert('marmitas',{usuario_id:U.id,data:hojeStr,hora:horaAtual,obs:obs,valor:valorMarm,descontado:false})
+  .then(function(r){
+    if(r){
+      marmitas=[r].concat(marmitas);
+      toast('🍱 Marmita pedida! Sera descontada no pagamento.');
+      renderMarmita();
+      // Inserir no financeiro como desconto pendente
+      dbInsert('fin_lancamentos',{usuario_id:U.id,tipo:'marmita',descricao:'Marmita '+hojeStr,valor:valorMarm,data:hojeStr,descontado:false})
+      .then(function(){});
+    }
+  });
+}
+
 function renderPonto(){
   var el=getEl('t-ponto'); if(!el) return;
   var T=U.tipo;
@@ -2167,6 +2289,7 @@ function registrarPonto(tipo){
   renderMeuMat();
   renderOcorr();
   renderAvisos();
+  renderMarmita();
     }
   });
 }
@@ -2219,6 +2342,7 @@ function salvarEditPonto(){
   renderMeuMat();
   renderOcorr();
   renderAvisos();
+  renderMarmita();
     }
   });
 }
@@ -2234,6 +2358,7 @@ function excluirPonto(id){
   renderMeuMat();
   renderOcorr();
   renderAvisos();
+  renderMarmita();
     }
   });
 }
@@ -2280,6 +2405,7 @@ function registrarPontoManual(){
   renderMeuMat();
   renderOcorr();
   renderAvisos();
+  renderMarmita();
     }
   });
 }
