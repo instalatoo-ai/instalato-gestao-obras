@@ -3561,6 +3561,178 @@ function renderAptos(){
   if(novoFiltro&&filtroId) novoFiltro.value=filtroId;
 }
 
+function abrirRelatorioReceber(){
+  var existing=document.getElementById('modal-rel-receber');
+  if(existing) existing.remove();
+  try{var saved=localStorage.getItem('instalato_wpp_receber');if(saved)window._wppReceber=saved;}catch(e){}
+  var wppReceber=window._wppReceber||'5547999999999';
+  var oOpts2=obras.map(function(o){return '<option value="'+o.id+'">'+o.nome+'</option>';}).join('');
+  var html='<div class="modal-bg show" id="modal-rel-receber" style="z-index:9999;align-items:flex-start;padding-top:0;">'
+    +'<div class="modal-sheet" style="max-height:95vh;border-radius:0 0 20px 20px;">'
+    +'<div class="mhdr" style="background:#1a3a5c;">'
+    +'<span class="mhdr-t" style="color:#fff;">Relatorio a Receber</span>'
+    +'<button class="mhdr-x" type="button" onclick="fecharRelReceber()" style="color:#fff;">X</button>'
+    +'</div>'
+    +'<div class="mf">'
+    +'<div><div class="fl">Obra</div>'
+    +'<select class="sel" id="relr-obra"><option value="">Todas</option>'+oOpts2+'</select></div>'
+    +'<div class="row2">'
+    +'<div><div class="fl">Data inicio</div><input class="inp" type="date" id="relr-ini"></div>'
+    +'<div><div class="fl">Data fim</div><input class="inp" type="date" id="relr-fim"></div>'
+    +'</div>'
+    +'<div><div class="fl">WhatsApp para envio</div>'
+    +'<div style="display:flex;gap:6px;">'
+    +'<input class="inp" type="tel" id="relr-wpp" placeholder="Ex: 5547999887766" value="'+wppReceber+'" style="margin:0;flex:1;">'
+    +'<button onclick="salvarNumReceber()" style="padding:8px 12px;border-radius:10px;border:none;background:#1a3a5c;color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Salvar</button>'
+    +'</div></div>'
+    +'<button onclick="gerarRelatorioReceber()" class="btn-gold" style="width:100%;">Gerar relatorio</button>'
+    +'<div id="relr-resultado" style="margin-top:4px;"></div>'
+    +'</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function fecharRelReceber(){
+  var m=document.getElementById('modal-rel-receber'); if(m) m.remove();
+}
+
+function salvarNumReceber(){
+  var num=document.getElementById('relr-wpp')?document.getElementById('relr-wpp').value.trim():'';
+  if(!num){toast('Informe o numero.');return;}
+  window._wppReceber=num;
+  try{localStorage.setItem('instalato_wpp_receber',num);}catch(e){}
+  toast('Numero salvo!');
+}
+
+function gerarRelatorioReceber(){
+  var obraFiltro=document.getElementById('relr-obra')?document.getElementById('relr-obra').value:'';
+  var ini=document.getElementById('relr-ini')?document.getElementById('relr-ini').value:'';
+  var fim=document.getElementById('relr-fim')?document.getElementById('relr-fim').value:'';
+
+  // Montar lista aprovados
+  var itensRel=[];
+  confs.filter(function(c){return c.status==='aprovado';}).forEach(function(c){
+    if(ini&&c.data<ini) return;
+    if(fim&&c.data>fim) return;
+    if(obraFiltro&&c.obra_id!==obraFiltro) return;
+    var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===c.obra_id){o=obras[i];break;}
+    if(!o) return;
+    var l=null; if(c.lancamento_id){for(var i=0;i<lancs.length;i++) if(lancs[i].id===c.lancamento_id){l=lancs[i];break;}}
+    var ambCad=null; var unidade='m2';
+    if(o.estrutura){try{var est=JSON.parse(o.estrutura);est.andares&&est.andares.forEach(function(andar){andar.aptos&&andar.aptos.forEach(function(apto){(apto.ambientes||[]).forEach(function(a){if(a.nome===c.ambiente||(c.ambiente&&c.ambiente.indexOf(a.nome)>=0)){ambCad=a;unidade=a.unidade||'m2';}});});});}catch(e){}}
+    var area=l?parseFloat(l.area_m2)||0:0;
+    var valorFixo=ambCad&&ambCad.valor_fixo?parseFloat(ambCad.valor_fixo):0;
+    var isRejunte2=c.ambiente&&c.ambiente.toLowerCase().indexOf('rejunte')>=0;
+    var rateVenda=parseFloat(o.rate_venda)||0;
+    var rateVendaMl=isRejunte2&&o.rate_rejunte_venda?parseFloat(o.rate_rejunte_venda):parseFloat(o.rate_venda_ml)||0;
+    var valor=valorFixo>0?area*valorFixo:(unidade==='ml'||isRejunte2)?area*rateVendaMl:area*rateVenda;
+    var jaRecebido=recebimentos.some(function(r){return r.conf_id===c.id;});
+    itensRel.push({confId:c.id,obra:o.nome,apto:c.apartamento,amb:c.ambiente,area:area,unidade:unidade,valor:valor,data:c.data,recebido:jaRecebido});
+  });
+
+  if(!itensRel.length){
+    document.getElementById('relr-resultado').innerHTML='<div class="empty"><p>Nenhum item no periodo.</p></div>';
+    return;
+  }
+
+  // Agrupar por obra
+  var porObra2={};
+  itensRel.forEach(function(it){
+    if(!porObra2[it.obra]) porObra2[it.obra]={itens:[],total:0,recebido:0,pendente:0};
+    porObra2[it.obra].itens.push(it);
+    porObra2[it.obra].total+=it.valor;
+    if(it.recebido) porObra2[it.obra].recebido+=it.valor;
+    else porObra2[it.obra].pendente+=it.valor;
+  });
+
+  var totalGeral2=itensRel.reduce(function(s,i){return s+i.valor;},0);
+  var totalRecebido2=itensRel.filter(function(i){return i.recebido;}).reduce(function(s,i){return s+i.valor;},0);
+  var totalPendente2=totalGeral2-totalRecebido2;
+
+  var html2='<div id="relr-print" style="border:1px solid var(--border);border-radius:12px;overflow:hidden;">'
+    +'<div style="padding:10px 14px;background:#1a3a5c;display:flex;justify-content:space-between;align-items:center;">'
+    +'<div><div style="font-size:13px;font-weight:700;color:#fff;">Contas a Receber</div>'
+    +'<div style="font-size:10px;color:rgba(255,255,255,.7);">'+(ini?fmtD(ini)+' ate '+fmtD(fim):'Todos os periodos')+'</div></div>'
+    +'<div style="display:flex;gap:6px;">'
+    +'<button onclick="imprimirRelReceber()" style="padding:6px 12px;border-radius:20px;border:none;background:#B8860B;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">Imprimir</button>'
+    +'<button onclick="enviarRelReceberWhats()" style="padding:6px 12px;border-radius:20px;border:none;background:#25D366;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">WhatsApp</button>'
+    +'</div></div>';
+
+  Object.keys(porObra2).forEach(function(nomeObra){
+    var fo=porObra2[nomeObra];
+    html2+='<div style="border-bottom:2px solid #1a3a5c;padding:8px 14px;background:#f0f4f8;">'
+      +'<div style="font-size:13px;font-weight:700;color:#1a3a5c;">'+nomeObra+'</div>'
+      +'<div style="font-size:10px;color:var(--sub);">'+fo.itens.length+' ambiente(s) · Total: '+fmt(fo.total)+'</div>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 80px;padding:6px 14px;font-size:10px;font-weight:700;color:var(--sub);background:#f9f9f9;border-bottom:1px solid var(--border);">'
+      +'<span>Data</span><span>Apto</span><span>Ambiente</span><span style="text-align:right;">Qtd</span><span style="text-align:right;">Valor</span>'
+      +'</div>';
+    fo.itens.sort(function(a,b){return a.data>b.data?1:-1;}).forEach(function(it){
+      html2+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 80px;padding:6px 14px;border-bottom:1px solid var(--border);font-size:11px;background:'+(it.recebido?'rgba(30,132,73,.04)':'#fff')+';">'
+        +'<span>'+fmtD(it.data)+'</span>'
+        +'<span>'+(it.apto||'')+'</span>'
+        +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(it.amb||'')+'</span>'
+        +'<span style="text-align:right;">'+it.area.toFixed(1)+(it.unidade==='ml'?' ml':' m²')+'</span>'
+        +'<span style="text-align:right;font-weight:700;color:'+(it.recebido?'var(--green)':'#1a3a5c')+';">'+fmt(it.valor)+'</span>'
+        +'</div>';
+    });
+    html2+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 80px;padding:8px 14px;background:#f0f4f8;border-bottom:2px solid #1a3a5c;font-size:11px;font-weight:700;">'
+      +'<span style="color:var(--sub);">Subtotal</span><span></span><span></span><span></span>'
+      +'<span style="text-align:right;color:#1a3a5c;">'+fmt(fo.total)+'</span>'
+      +'</div>';
+  });
+
+  html2+='<div style="padding:10px 14px;background:#1a3a5c;">'
+    +'<div style="display:flex;justify-content:space-between;color:#fff;font-size:12px;font-weight:700;margin-bottom:4px;">'
+    +'<span>Total Geral</span><span>'+fmt(totalGeral2)+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">'
+    +'<span style="color:rgba(255,255,255,.7);">Recebido</span><span style="color:#7dffb3;">'+fmt(totalRecebido2)+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between;font-size:11px;">'
+    +'<span style="color:rgba(255,255,255,.7);">Pendente</span><span style="color:#ff9999;">'+fmt(totalPendente2)+'</span></div>'
+    +'</div></div>';
+
+  document.getElementById('relr-resultado').innerHTML=html2;
+  // Salvar dados para WhatsApp
+  window._relReceberData={itensRel:itensRel,porObra:porObra2,totalGeral:totalGeral2,totalRecebido:totalRecebido2,totalPendente:totalPendente2,ini:ini,fim:fim};
+}
+
+function imprimirRelReceber(){
+  var conteudo=document.getElementById('relr-print');
+  if(!conteudo) return;
+  var w=window.open('','_blank');
+  w.document.write('<html><head><title>Contas a Receber</title>'
+    +'<style>body{font-family:sans-serif;font-size:12px;margin:20px;}*{box-sizing:border-box;}</style>'
+    +'</head><body>'+conteudo.innerHTML+'</body></html>');
+  w.document.close();
+  w.print();
+}
+
+function enviarRelReceberWhats(){
+  try{var saved=localStorage.getItem('instalato_wpp_receber');if(saved)window._wppReceber=saved;}catch(e){}
+  var num=window._wppReceber||'';
+  if(!num||num==='5547999999999'){toast('Configure o numero do WhatsApp primeiro!');return;}
+  var d=window._relReceberData;
+  if(!d){toast('Gere o relatorio primeiro.');return;}
+
+  var texto='CONTAS A RECEBER\n';
+  texto+=(d.ini?fmtD(d.ini)+' a '+fmtD(d.fim):'Todos os periodos')+'\n';
+  Object.keys(d.porObra).forEach(function(nomeObra){
+    var fo=d.porObra[nomeObra];
+    texto+='\n*'+nomeObra+'*\n';
+    texto+='--------------------------------\n';
+    fo.itens.sort(function(a,b){return a.data>b.data?1:-1;}).forEach(function(it){
+      texto+=fmtD(it.data)+' | '+(it.apto||'')+' | '+(it.amb||'')+' | '+it.area.toFixed(1)+(it.unidade==='ml'?' ml':' m²')+' | R$ '+it.valor.toFixed(2)+(it.recebido?' ✓':'')+'\n';
+    });
+    texto+='Subtotal: R$ '+fo.total.toFixed(2)+'\n';
+  });
+  texto+='\n================================\n';
+  texto+='TOTAL: R$ '+d.totalGeral.toFixed(2)+'\n';
+  texto+='Recebido: R$ '+d.totalRecebido.toFixed(2)+'\n';
+  texto+='Pendente: R$ '+d.totalPendente.toFixed(2);
+
+  var url='https://wa.me/'+num+'?text='+encodeURIComponent(texto);
+  window.open(url,'_blank');
+}
+
 function renderReceber(){
   var el=getEl('t-receber'); if(!el) return;
 
@@ -3641,6 +3813,7 @@ function renderReceber(){
 
   // HTML
   var html='<div class="hero" style="background:#1a3a5c"><p>Gestao financeira</p><h2>Contas a Receber</h2></div>'
+    +'<div style="padding:10px 14px 0;"><button onclick="abrirRelatorioReceber()" style="width:100%;padding:11px;border-radius:12px;border:1.5px solid #1a3a5c;background:transparent;color:#1a3a5c;font-size:13px;font-weight:700;cursor:pointer;">Gerar Relatorio de Contas a Receber</button></div>'
     +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'
 
     // Filtros
