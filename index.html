@@ -1127,18 +1127,11 @@ function aptoChanged(oId,aptoNome){
       +'</div>'
       +'</label></div>'
       +'<div style="text-align:right;font-size:12px;font-weight:700;color:'+dispColor+';">'+m2Disp.toFixed(1)+(unidade==='ml'?' ml':' m²')+'</div>';
-    // Campo parcial (aparece ao marcar)
-    var parcialDiv=document.createElement('div');
-    parcialDiv.id='parcial-'+idx;
-    parcialDiv.style.cssText='display:none;padding:6px 8px;background:#fdf3e3;border-radius:8px;';
-    parcialDiv.innerHTML='<div style="font-size:10px;color:#B8860B;font-weight:700;margin-bottom:4px;">Quantidade a lancar (max: '+m2Disp.toFixed(1)+' '+(unidade==='ml'?'ml':'m²')+')</div>'
-      +'<div style="display:flex;gap:6px;align-items:center;">'
-      +'<input class="inp" type="number" id="parcial-val-'+idx+'" min="0.1" max="'+m2Disp+'" step="0.1" value="'+m2Disp.toFixed(1)+'" data-idx="'+idx+'" oninput="atualizarParcial(this)" style="margin:0;flex:1;">'
-      +'<span style="font-size:11px;color:#B8860B;font-weight:700;">'+(unidade==='ml'?'ml':'m²')+'</span>'
-      +'<button onclick="usarTudo('+idx+','+m2Disp+')" style="padding:4px 8px;border-radius:8px;border:none;background:#B8860B;color:#fff;font-size:10px;cursor:pointer;">Tudo</button>'
-      +'</div>';
+    // Campo parcial sera adicionado pelo toggleParcialAmb dinamicamente
+    div.setAttribute('data-idx',idx);
+    div.setAttribute('data-m2disp',m2Disp);
+    div.setAttribute('data-unit-amb',unidade);
     lista.appendChild(div);
-    lista.appendChild(parcialDiv);
   });
   if(wrap) wrap.style.display='none';
   if(getEl('l-area')) getEl('l-area').value='';
@@ -1146,13 +1139,27 @@ function aptoChanged(oId,aptoNome){
 }
 
 function toggleParcialAmb(cb, idx){
-  var parcial=document.getElementById('parcial-'+idx);
-  if(!parcial) return;
-  if(cb.checked){
-    parcial.style.display='block';
-  } else {
-    parcial.style.display='none';
-  }
+  // Remover parcial existente
+  var old=document.getElementById('parcial-'+idx);
+  if(old) old.remove();
+  if(!cb.checked) return;
+  // Criar campo parcial
+  var row=cb.closest('div[data-idx]');
+  var m2Disp=parseFloat(row?row.getAttribute('data-m2disp'):cb.getAttribute('data-m2'))||0;
+  var unidAmb=row?row.getAttribute('data-unit-amb'):'m2';
+  var parcial=document.createElement('div');
+  parcial.id='parcial-'+idx;
+  parcial.style.cssText='padding:8px 10px;background:#fdf3e3;border-radius:8px;border:1px solid #B8860B;';
+  parcial.innerHTML='<div style="font-size:10px;color:#B8860B;font-weight:700;margin-bottom:6px;">Quantidade a lancar (max: '+m2Disp.toFixed(1)+' '+(unidAmb==='ml'?'ml':'m²')+')</div>'
+    +'<div style="display:flex;gap:6px;align-items:center;">'
+    +'<input class="inp" type="number" id="parcial-val-'+idx+'" min="0.1" max="'+m2Disp+'" step="0.1" value="'+m2Disp.toFixed(1)+'" data-idx="'+idx+'" oninput="atualizarParcial(this)" style="margin:0;flex:1;border-color:#B8860B;">'
+    +'<span style="font-size:11px;color:#B8860B;font-weight:700;">'+(unidAmb==='ml'?'ml':'m²')+'</span>'
+    +'<button onclick="usarTudo('+idx+','+m2Disp+')" style="padding:5px 10px;border-radius:8px;border:none;background:#B8860B;color:#fff;font-size:10px;font-weight:700;cursor:pointer;">Tudo</button>'
+    +'</div>';
+  // Inserir depois do div do ambiente
+  if(row) row.parentNode.insertBefore(parcial, row.nextSibling);
+  // Atualizar data-m2
+  cb.setAttribute('data-m2', m2Disp);
   recalcAmbs();
 }
 
