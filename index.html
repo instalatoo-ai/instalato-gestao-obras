@@ -1292,7 +1292,20 @@ function salvarLanc() {
     toast('Apto '+apto+' / '+amb+' ja tem lancamento nesta obra! Exclua ou edite o existente.');
     return;
   }
-  var rate=getRate(oId), base=area*rate, extras=[];
+  var rate=getRate(oId);
+  // Calcular base usando valor_fixo por ambiente quando disponivel
+  var base=0;
+  var cbs3=document.querySelectorAll('#l-amb-lista input[type=checkbox]:checked');
+  if(cbs3.length){
+    cbs3.forEach(function(cb){
+      var m2cb=parseFloat(cb.getAttribute('data-m2'))||0;
+      var vfcb=parseFloat(cb.getAttribute('data-vf'))||0;
+      base+=vfcb>0?(m2cb*vfcb):(m2cb*rate);
+    });
+  } else {
+    base=area*rate;
+  }
+  var extras=[];
   document.querySelectorAll('#extras-wrap .el-line').forEach(function(l) {
     var ins=l.querySelectorAll('input');
     var nm=ins[0]?ins[0].value.trim():'';
@@ -4067,12 +4080,12 @@ function abrirAmbientes(el){
   getEl('modal-ambientes').classList.add('show');
 }
 
-function adicionarLinhaAmb(nome,m2,unidade){
+function adicionarLinhaAmb(nome,m2,unidade,valorFixo){
   var lista=getEl('ambientes-lista');
   var un=unidade||'m2';
   var d=document.createElement('div');
   d.className='amb-linha'; d.style.cssText='background:var(--gray);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:6px;';
-  var vf=arguments[3]||''; // valor_fixo
+  var vf=valorFixo||'';
   d.innerHTML='<div style="display:grid;grid-template-columns:1fr 80px 32px;gap:6px;align-items:center;">'
     +'<input class="inp" type="text" placeholder="Ex: WC 01, Suite..." value="'+(nome||'')+'" style="margin:0">'
     +'<input class="inp" type="number" placeholder="m2/ml" value="'+(m2||'')+'" data-unit="'+un+'" style="margin:0;text-align:center;">'
