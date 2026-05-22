@@ -579,7 +579,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <script>
 // CONFIG
 var SURL = 'https://qfqbbfcqkzzezzmopssv.supabase.co';
-var WHATSAPP_MARMITA = '5547999999999'; // Numero do fornecedor (com DDI+DDD, sem espacos)
+var WHATSAPP_MARMITA = '5547996507391'; // Numero do fornecedor (com DDI+DDD, sem espacos)
 var SKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmcWJiZmNxa3p6ZXp6bW9wc3N2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2NDMwMDUsImV4cCI6MjA5NDIxOTAwNX0.EiSpKp_ywz4JTxMC18EK_Dv0MWFNpx9Db5jFVQwSdJA';
 var GSCRIPT = window.location.origin + '/gscript';
 var H = {'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation'};
@@ -1924,42 +1924,84 @@ function delOcorr(id){
 }
 
 // ── PONTO ──
+function getValorMarmita(){
+  try{return parseFloat(localStorage.getItem('instalato_marm_valor')||'15');}catch(e){return 15;}
+}
+
 function renderMarmita(){
   var el=getEl('t-marmita'); if(!el) return;
   var T=U?U.tipo:'';
   var isAdmin=(T==='admin');
   var agora=new Date();
   var horaAtual=agora.getHours()*60+agora.getMinutes();
-  var limite=9*60; // 09:00
+  var limite=9*60;
   var hojeStr=hoje();
+  var valorMarmita=getValorMarmita();
 
-  // Verificar se usuario bateu ponto hoje
+  // Verificar se bateu ponto hoje
   var bateuPonto=pontos.some(function(p){
     return p.usuario_id===U.id && (p.data===hojeStr||(p.created_at&&p.created_at.startsWith(hojeStr)));
   });
 
   // Verificar se ja pediu hoje
-  var jaPediu=marmitas.some(function(m){
-    return m.usuario_id===U.id && m.data===hojeStr;
-  });
+  var jaPediu=marmitas.some(function(m){return m.usuario_id===U.id && m.data===hojeStr;});
 
   // Pedidos de hoje
   var pedidosHoje=marmitas.filter(function(m){return m.data===hojeStr;});
-  var pedidosHist=marmitas.filter(function(m){return m.data!==hojeStr;});
 
-  // Status do pedido
+  // Status
   var podePedir=bateuPonto && !jaPediu && horaAtual<=limite;
   var motivo=!bateuPonto?'Voce precisa bater ponto antes de pedir':jaPediu?'Voce ja pediu sua marmita hoje':horaAtual>limite?'Pedidos encerrados apos 09h00':'';
 
-  // Lista do dia para admin (apenas nomes)
+  // Meus totais (funcionario)
+  var minhasMarmitas=marmitas.filter(function(m){return m.usuario_id===U.id;});
+  var meuTotal=minhasMarmitas.reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
+  var meuQtd=minhasMarmitas.length;
+
+  // Config admin - valor marmita
+  var fOpts2=users.filter(function(u){return u.ativo;}).map(function(u){return '<option value="'+u.id+'">'+u.apelido+'</option>';}).join('');
+
+  var configAdminHtml='';
+  if(isAdmin){
+    configAdminHtml='<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
+      +'<div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;">Configuracoes</div>'
+      +'<div style="padding:12px 14px;display:flex;flex-direction:column;gap:10px;">'
+      // Valor da marmita
+      +'<div style="display:flex;align-items:center;gap:10px;">'
+      +'<div class="fl" style="margin:0;flex:1;">Valor R$</div>'
+      +'<input class="inp" type="number" id="marm-valor-cfg" value="'+valorMarmita+'" style="margin:0;width:80px;text-align:center;">'
+      +'<button onclick="salvarValorMarmita()" style="padding:8px 14px;border-radius:20px;border:none;background:var(--gold);color:#fff;font-size:11px;font-weight:700;cursor:pointer;">Salvar</button>'
+      +'</div>'
+      // Lancamento manual
+      +'<div style="border-top:1px solid var(--border);padding-top:10px;">'
+      +'<div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:8px;">Lancamento manual</div>'
+      +'<div style="display:flex;flex-direction:column;gap:8px;">'
+      +'<div class="row2">'
+      +'<div><div class="fl">Funcionario</div><select class="sel" id="marm-func-manual" style="margin:0;">'+fOpts2+'</select></div>'
+      +'<div><div class="fl">Data</div><input class="inp" type="date" id="marm-data-manual" value="'+hojeStr+'" style="margin:0;"></div>'
+      +'</div>'
+      +'<div class="row2">'
+      +'<div><div class="fl">Valor R$</div><input class="inp" type="number" id="marm-val-manual" value="'+valorMarmita+'" style="margin:0;"></div>'
+      +'<div><div class="fl">Obs (opcional)</div><input class="inp" type="text" id="marm-obs-manual" placeholder="Ex: sem pimenta" style="margin:0;"></div>'
+      +'</div>'
+      +'<button onclick="lancarMarmitaManual()" style="width:100%;padding:10px;border-radius:10px;border:none;background:#1a3a5c;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">Lancar marmita manual</button>'
+      +'<button onclick="lancarMarmitaManualEEnviar()" style="width:100%;padding:10px;border-radius:10px;border:none;background:#25D366;color:#fff;font-size:12px;font-weight:700;cursor:pointer;margin-top:6px;">Lancar e enviar WhatsApp</button>'
+      +'</div></div>'
+      +'</div></div>';
+  }
+
+  // Lista do dia (admin)
   var listaAdminHtml='';
   if(isAdmin&&pedidosHoje.length){
+    var totalHoje=pedidosHoje.reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
     listaAdminHtml='<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
       +'<div style="padding:10px 14px;background:#1a3a5c;display:flex;justify-content:space-between;align-items:center;">'
-      +'<span style="font-size:13px;font-weight:700;color:#fff;">Lista de hoje</span>'
+      +'<div><span style="font-size:13px;font-weight:700;color:#fff;">Lista de hoje</span>'
+      +'<div style="font-size:10px;color:rgba(255,255,255,.7);">Total: '+fmt(totalHoje)+'</div></div>'
       +'<div style="display:flex;gap:6px;align-items:center;">'
       +'<span style="font-size:12px;background:rgba(255,255,255,.2);color:#fff;padding:2px 10px;border-radius:20px;font-weight:700;">'+pedidosHoje.length+' pedido(s)</span>'
-      +'<button onclick="copiarListaMarmitas()" style="padding:4px 10px;border-radius:20px;border:none;background:#B8860B;color:#fff;font-size:10px;font-weight:700;cursor:pointer;">Copiar</button>'+'<button onclick="enviarListaWhatsAppMarmita()" style="padding:4px 10px;border-radius:20px;border:none;background:#25D366;color:#fff;font-size:10px;font-weight:700;cursor:pointer;">WhatsApp</button>'
+      +'<button onclick="copiarListaMarmitas()" style="padding:4px 10px;border-radius:20px;border:none;background:#B8860B;color:#fff;font-size:10px;font-weight:700;cursor:pointer;">Copiar</button>'
+      +'<button onclick="enviarListaWhatsAppMarmita()" style="padding:4px 10px;border-radius:20px;border:none;background:#25D366;color:#fff;font-size:10px;font-weight:700;cursor:pointer;">WhatsApp</button>'
       +'</div></div>'
       +pedidosHoje.map(function(m,i){
         var u=null; for(var j=0;j<users.length;j++) if(users[j].id===m.usuario_id){u=users[j];break;}
@@ -1969,55 +2011,184 @@ function renderMarmita(){
           +'<div><div style="font-size:13px;font-weight:700;">'+(u?u.apelido:'--')+'</div>'
           +(m.obs?'<div style="font-size:10px;color:var(--sub);">'+m.obs+'</div>':'')
           +'</div></div>'
+          +'<div style="text-align:right;">'
+          +'<div style="font-size:12px;font-weight:700;color:var(--gold);">'+fmt(m.valor||0)+'</div>'
           +'<div style="font-size:10px;color:var(--sub);">'+(m.hora||'')+'</div>'
-          +'</div>';
+          +'</div></div>';
       }).join('')
       +'</div>';
   }
 
   // Historico
   var histHtml='';
-  if(marmitas.length){
-    var lista=isAdmin?marmitas:marmitas.filter(function(m){return m.usuario_id===U.id;});
-    lista=lista.slice(0,20);
+  var listaHist=isAdmin?marmitas:minhasMarmitas;
+  if(listaHist.length){
+    var listaOrdenada=listaHist.slice().sort(function(a,b){return (b.data||'')>(a.data||'')?1:-1;});
     histHtml='<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
-      +'<div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;">Historico</div>'
-      +lista.map(function(m){
+      +'<div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">'
+      +'<span style="font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;">Historico</span>'
+      +(isAdmin?'':'<span style="font-size:12px;font-weight:700;color:var(--gold);">'+meuQtd+' pedidos · '+fmt(meuTotal)+'</span>')
+      +'</div>'
+      +listaOrdenada.slice(0,30).map(function(m){
         var u=null; for(var j=0;j<users.length;j++) if(users[j].id===m.usuario_id){u=users[j];break;}
+        var btnsM=isAdmin?'<div style="display:flex;gap:5px;margin-top:5px;">'
+          +'<button type="button" data-mid="'+m.id+'" onclick="editarMarmita(this.dataset.mid)" style="flex:1;font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;font-weight:700;">Editar</button>'
+          +'<button type="button" data-mid="'+m.id+'" onclick="excluirMarmita(this.dataset.mid)" style="flex:1;font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;font-weight:700;">Excluir</button>'
+          +'</div>':'';
         return '<div class="hi"><div class="hi-ico">🍱</div>'
-          +'<div class="hi-b"><div class="hi-t">'+(isAdmin?u?u.apelido:'--':'Minha marmita')+'</div>'
-          +'<div class="hi-s">'+(m.obs||'Sem obs')+'</div></div>'
-          +'<div class="hi-r"><div class="hi-d">'+fmtD(m.data)+'</div>'
-          +(isAdmin?'<div style="font-size:10px;color:var(--sub);">'+fmt(m.valor||0)+'</div>':'')
+          +'<div class="hi-b">'
+          +'<div class="hi-t">'+(isAdmin?(u?u.apelido:'--'):'Minha marmita')+'</div>'
+          +'<div class="hi-s">'+(m.obs||'Sem observacao')+'</div>'
+          +btnsM
+          +'</div>'
+          +'<div class="hi-r">'
+          +'<div class="hi-v" style="color:var(--red);">'+fmt(m.valor||0)+'</div>'
+          +'<div class="hi-d">'+fmtD(m.data)+'</div>'
           +'</div></div>';
       }).join('')
       +'</div>';
   }
 
-  el.innerHTML='<div class="hero" style="background:#B8860B"><p>Solicitar</p><h2>🍱 Marmita</h2></div>'
+  // Card resumo do funcionario
+  var resumoFuncHtml='';
+  if(!isAdmin && minhasMarmitas.length){
+    resumoFuncHtml='<div style="background:#fff;border-radius:14px;border:1px solid var(--border);padding:14px;">'
+      +'<div style="font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:10px;">Meu consumo</div>'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;">'
+      +'<div style="text-align:center;flex:1;">'
+      +'<div style="font-size:24px;font-weight:700;color:#B8860B;">'+meuQtd+'</div>'
+      +'<div style="font-size:10px;color:var(--sub);">pedidos</div>'
+      +'</div>'
+      +'<div style="width:1px;background:var(--border);height:40px;"></div>'
+      +'<div style="text-align:center;flex:1;">'
+      +'<div style="font-size:20px;font-weight:700;color:var(--red);">'+fmt(meuTotal)+'</div>'
+      +'<div style="font-size:10px;color:var(--sub);">a descontar</div>'
+      +'</div></div></div>';
+  }
+
+  el.innerHTML='<div class="hero" style="background:#B8860B"><p>Solicitar</p><h2>Marmita</h2></div>'
     +'<div class="pad" style="display:flex;flex-direction:column;gap:14px;">'
-    // Card de status
+    +configAdminHtml
     +'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);padding:16px;text-align:center;">'
     +(jaPediu
-      ?'<div style="font-size:36px;margin-bottom:8px;">✅</div><div style="font-size:15px;font-weight:700;color:var(--green);">Pedido confirmado!</div><div style="font-size:12px;color:var(--sub);margin-top:4px;">Sua marmita foi solicitada hoje.</div>'
+      ?'<div style="font-size:36px;margin-bottom:8px;">✅</div><div style="font-size:15px;font-weight:700;color:var(--green);">Pedido confirmado!</div><div style="font-size:12px;color:var(--sub);margin-top:4px;">Marmita solicitada hoje · '+fmt(valorMarmita)+' sera descontado.</div>'
       :podePedir
-        ?'<div style="font-size:36px;margin-bottom:8px;">🍱</div><div style="font-size:15px;font-weight:700;">Pedir marmita</div><div style="font-size:12px;color:var(--sub);margin-top:4px;">Pedidos ate 09h00 · Desconto em folha</div>'
+        ?'<div style="font-size:36px;margin-bottom:8px;">🍱</div><div style="font-size:15px;font-weight:700;">Pedir marmita</div><div style="font-size:12px;color:var(--sub);margin-top:4px;">Pedidos ate 09h00 · '+fmt(valorMarmita)+' descontado em folha</div>'
         :'<div style="font-size:36px;margin-bottom:8px;">⛔</div><div style="font-size:15px;font-weight:700;color:var(--red);">Pedido nao disponivel</div><div style="font-size:12px;color:var(--sub);margin-top:4px;">'+motivo+'</div>'
     )
     +'</div>'
-    // Formulario de pedido
     +(podePedir
       ?'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);padding:16px;display:flex;flex-direction:column;gap:12px;">'
         +'<div><div class="fl">Observacao (opcional)</div><input class="inp" id="marm-obs" type="text" placeholder="Ex: sem pimenta, vegetariano..."></div>'
-        +'<div style="background:#fdf3e3;border-radius:10px;padding:10px 12px;font-size:12px;color:#B8860B;font-weight:600;">O valor sera descontado do seu pagamento mensal.</div>'
-        +'<button class="btn-gold" type="button" onclick="pedirMarmita()">🍱 Confirmar pedido</button>'
+        +'<div style="background:#fdf3e3;border-radius:10px;padding:10px 12px;font-size:12px;color:#B8860B;font-weight:600;">Valor: '+fmt(valorMarmita)+' · Sera descontado no pagamento.</div>'
+        +'<button class="btn-gold" type="button" onclick="pedirMarmita()">Confirmar pedido</button>'
         +'</div>'
       :'')
-    // Lista do dia (admin)
+    +resumoFuncHtml
     +listaAdminHtml
-    // Historico
     +histHtml
     +'</div>';
+}
+
+function excluirMarmita(id){
+  if(!confirm('Excluir este pedido de marmita?')) return;
+  dbDelete('marmitas',id).then(function(ok){
+    if(ok){
+      marmitas=marmitas.filter(function(m){return m.id!==id;});
+      toast('Marmita excluida!');
+      renderMarmita();
+    }
+  });
+}
+
+function editarMarmita(id){
+  var m=null; for(var i=0;i<marmitas.length;i++) if(marmitas[i].id===id){m=marmitas[i];break;}
+  if(!m) return;
+  var html='<div class="modal-bg show" id="modal-edit-marm" style="z-index:9999;">'
+    +'<div class="modal-sheet">'
+    +'<div class="mhdr"><span class="mhdr-t">Editar marmita</span>'
+    +'<button class="mhdr-x" type="button" onclick="closeModalEditMarm()">X</button></div>'
+    +'<div class="mf">'
+    +'<div><div class="fl">Observacao</div><input class="inp" id="em-marm-obs" type="text" value="'+(m.obs||'')+'"></div>'
+    +'<div><div class="fl">Valor R$</div><input class="inp" id="em-marm-val" type="number" value="'+(m.valor||0)+'"></div>'
+    +'<div><div class="fl">Data</div><input class="inp" id="em-marm-data" type="date" value="'+(m.data||hoje())+'"></div>'
+    +'</div>'
+    +'<div class="macts">'
+    +'<button class="bmc" type="button" onclick="closeModalEditMarm()">Cancelar</button>'
+    +'<button class="bmok" type="button" data-mid="'+id+'" onclick="salvarEditMarmita(this.dataset.mid)">Salvar</button>'
+    +'</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+function closeModalEditMarm(){var m=document.getElementById("modal-edit-marm");if(m)m.remove();}
+
+function salvarEditMarmita(id){
+  var obs=(document.getElementById('em-marm-obs').value||'').trim();
+  var valor=parseFloat(document.getElementById('em-marm-val').value)||0;
+  var data=document.getElementById('em-marm-data').value||hoje();
+  dbUpdate('marmitas',id,{obs:obs,valor:valor,data:data}).then(function(ok){
+    if(ok){
+      for(var i=0;i<marmitas.length;i++) if(marmitas[i].id===id){marmitas[i].obs=obs;marmitas[i].valor=valor;marmitas[i].data=data;break;}
+      var modal=document.getElementById('modal-edit-marm');if(modal)modal.remove();
+      toast('Marmita atualizada!');
+      renderMarmita();
+    }
+  });
+}
+
+function lancarMarmitaManual(){
+  var funcId=document.getElementById('marm-func-manual').value;
+  var data=document.getElementById('marm-data-manual').value||hoje();
+  var valor=parseFloat(document.getElementById('marm-val-manual').value)||getValorMarmita();
+  var obs=(document.getElementById('marm-obs-manual').value||'').trim();
+  if(!funcId){toast('Selecione o funcionario.');return;}
+  // Verificar se ja tem pedido nesse dia
+  var jatem=marmitas.some(function(m){return m.usuario_id===funcId&&m.data===data;});
+  if(jatem){
+    if(!confirm('Este funcionario ja tem marmita em '+fmtD(data)+'. Lancar mesmo assim?')) return;
+  }
+  var hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  dbInsert('marmitas',{usuario_id:funcId,data:data,hora:hora,obs:obs,valor:valor,descontado:false})
+  .then(function(r){
+    if(r){
+      marmitas=[r].concat(marmitas);
+      dbInsert('fin_lancamentos',{usuario_id:funcId,tipo:'marmita',descricao:'Marmita '+data,valor:valor,data:data,descontado:false}).then(function(){});
+      toast('Marmita lancada manualmente!');
+      atualizarBadgeMarmita();
+      renderMarmita();
+    }
+  });
+}
+
+function lancarMarmitaManualEEnviar(){
+  // Primeiro lanca, depois abre WhatsApp
+  var funcId=document.getElementById('marm-func-manual')?document.getElementById('marm-func-manual').value:'';
+  var data=document.getElementById('marm-data-manual')?document.getElementById('marm-data-manual').value:hoje();
+  var valor=parseFloat(document.getElementById('marm-val-manual')?document.getElementById('marm-val-manual').value:0)||getValorMarmita();
+  var obs=(document.getElementById('marm-obs-manual')?document.getElementById('marm-obs-manual').value||'':'').trim();
+  if(!funcId){toast('Selecione o funcionario.');return;}
+  var jatem=marmitas.some(function(m){return m.usuario_id===funcId&&m.data===data;});
+  if(jatem){if(!confirm('Este funcionario ja tem marmita em '+fmtD(data)+'. Lancar mesmo assim?')) return;}
+  var hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  dbInsert('marmitas',{usuario_id:funcId,data:data,hora:hora,obs:obs,valor:valor,descontado:false})
+  .then(function(r){
+    if(r){
+      marmitas=[r].concat(marmitas);
+      dbInsert('fin_lancamentos',{usuario_id:funcId,tipo:'marmita',descricao:'Marmita '+data,valor:valor,data:data,descontado:false}).then(function(){});
+      toast('Marmita lancada!');
+      atualizarBadgeMarmita();
+      renderMarmita();
+      // Enviar WhatsApp
+      setTimeout(function(){ enviarListaWhatsAppMarmita(); }, 600);
+    }
+  });
+}
+
+function salvarValorMarmita(){
+  var v=parseFloat(document.getElementById('marm-valor-cfg').value)||15;
+  try{localStorage.setItem('instalato_marm_valor',String(v));}catch(e){}
+  toast('Valor da marmita atualizado: '+fmt(v));
+  renderMarmita();
 }
 
 function enviarListaWhatsAppMarmita(){
@@ -2109,7 +2280,7 @@ function pedirMarmita(){
   var hojeStr=hoje();
   var horaAtual=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   // Valor da marmita (pode ser configuravel futuramente)
-  var valorMarm=15; // R$ 15,00 padrao
+  var valorMarm=getValorMarmita();
   dbInsert('marmitas',{usuario_id:U.id,data:hojeStr,hora:horaAtual,obs:obs,valor:valorMarm,descontado:false})
   .then(function(r){
     if(r){
@@ -3474,7 +3645,7 @@ function adicionarLinhaAmb(nome,m2,unidade){
   var lista=getEl('ambientes-lista');
   var un=unidade||'m2';
   var d=document.createElement('div');
-  d.style.cssText='background:var(--gray);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:6px;';
+  d.className='amb-linha'; d.style.cssText='background:var(--gray);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:6px;';
   d.innerHTML='<div style="display:grid;grid-template-columns:1fr 80px 32px;gap:6px;align-items:center;">'
     +'<input class="inp" type="text" placeholder="Ex: WC 01, Suite..." value="'+(nome||'')+'" style="margin:0">'
     +'<input class="inp" type="number" placeholder="valor" value="'+(m2||'')+'" data-unit="'+un+'" style="margin:0;text-align:center;">'
@@ -3484,13 +3655,13 @@ function adicionarLinhaAmb(nome,m2,unidade){
     +'<span style="font-size:10px;color:var(--sub);font-weight:700;">Unidade:</span>'
     +'<button type="button" data-unit="m2" onclick="toggleUnitLinhaAmb(this)" style="padding:3px 10px;border-radius:20px;border:1px solid '+(un==='m2'?'var(--gold);background:var(--gold);color:#fff':'var(--border);background:#fff;color:var(--sub)')+';font-size:10px;font-weight:700;cursor:pointer;">m²</button>'
     +'<button type="button" data-unit="ml" onclick="toggleUnitLinhaAmb(this)" style="padding:3px 10px;border-radius:20px;border:1px solid '+(un==='ml'?'var(--gold);background:var(--gold);color:#fff':'var(--border);background:#fff;color:var(--sub)')+';font-size:10px;font-weight:700;cursor:pointer;">ml</button>'
-    +'<span style="font-size:10px;color:var(--sub);">'+(un==='m2'?'metro quadrado':'metro linear')+'</span>'
+    +'<span class="unit-desc" style="font-size:10px;color:var(--sub);">'+(un==='m2'?'metro quadrado':'metro linear')+'</span>'
     +'</div>';
   lista.appendChild(d);
 }
 
 function toggleUnitLinhaAmb(btn){
-  var row=btn.closest('div[style*="flex-direction:column"]');
+  var row=btn.closest('.amb-linha');
   if(!row) return;
   var unit=btn.getAttribute('data-unit');
   row.querySelectorAll('button[data-unit]').forEach(function(b){
@@ -3501,7 +3672,7 @@ function toggleUnitLinhaAmb(btn){
   });
   var inp=row.querySelector('input[type=number]');
   if(inp) inp.setAttribute('data-unit',unit);
-  var desc=row.querySelector('span:last-child');
+  var desc=row.querySelector('.unit-desc');
   if(desc) desc.textContent=unit==='m2'?'metro quadrado':'metro linear';
 }
 
