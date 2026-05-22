@@ -443,6 +443,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div><div class="fl">Valor venda R$/ml (metro linear)</div><input class="inp" id="mo-rate-venda-ml" type="number" placeholder="Ex: 50"></div>
         <div><div class="fl">Valor lider R$/m²</div><input class="inp" id="mo-rate-lider" type="number" placeholder="Ex: 40"></div>
         <div><div class="fl">Valor lider R$/ml (metro linear)</div><input class="inp" id="mo-rate-lider-ml" type="number" placeholder="Ex: 30"></div>
+        <div style="background:#f5eef8;border-radius:10px;padding:10px 12px;border-left:3px solid #6a0dad;">
+          <div style="font-size:11px;font-weight:700;color:#6a0dad;margin-bottom:8px;">Rejunte (metro linear)</div>
+          <div class="row2">
+            <div><div class="fl">Valor func R$/ml</div><input class="inp" id="mo-rate-rejunte-func" type="number" placeholder="Ex: 8.00"></div>
+            <div><div class="fl">Valor venda R$/ml</div><input class="inp" id="mo-rate-rejunte-venda" type="number" placeholder="Ex: 12.00"></div>
+          </div>
+        </div>
       </div>
       <div class="row2">
         <div><div class="fl">Inicio</div><input class="inp" id="mo-inicio" type="date"></div>
@@ -1210,12 +1217,16 @@ function recalcAmbs(){
   calcTotal();
 }
 
-function getRate(oId){
+function getRate(oId, ambNome){
   var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===oId){o=obras[i];break;}
   var fId=val('l-func');
   var u=null; for(var i=0;i<users.length;i++) if(users[i].id===fId){u=users[i];break;}
   var isLider=(u&&(u.tipo==='lider'||u.tipo==='lider_chefe'));
   if(!o) return isLider?40:35;
+  // Verificar se e rejunte
+  if(ambNome&&ambNome.toLowerCase().indexOf('rejunte')>=0&&o.rate_rejunte_func){
+    return parseFloat(o.rate_rejunte_func)||0;
+  }
   if(isLider && o.rate_lider) return parseFloat(o.rate_lider)||parseFloat(o.rate_func)||35;
   return parseFloat(o.rate_func)||35;
 }
@@ -3592,11 +3603,14 @@ function renderReceber(){
     var valorFixo=ambCad&&ambCad.valor_fixo?parseFloat(ambCad.valor_fixo):0;
     var rateVenda=parseFloat(o.rate_venda)||0;
     var rateVendaMl=parseFloat(o.rate_venda_ml)||0;
+    // Rejunte usa taxa propria
+    var isRejunte=c.ambiente&&c.ambiente.toLowerCase().indexOf('rejunte')>=0;
+    if(isRejunte&&o.rate_rejunte_venda) rateVendaMl=parseFloat(o.rate_rejunte_venda)||rateVendaMl;
 
     var valor=0;
     if(valorFixo>0){
-      valor=area*valorFixo; // valor fixo
-    } else if(unidade==='ml'){
+      valor=area*valorFixo;
+    } else if(unidade==='ml'||isRejunte){
       valor=area*rateVendaMl;
     } else {
       valor=area*rateVenda;
@@ -4266,6 +4280,8 @@ function showModalObra(id){
     var rfml=getEl('mo-rate-func-ml'); if(rfml) rfml.value=o.rate_func_ml||'';
     var rl=getEl('mo-rate-lider'); if(rl) rl.value=o.rate_lider||'';
     var rlml=getEl('mo-rate-lider-ml'); if(rlml) rlml.value=o.rate_lider_ml||'';
+    var rrf=getEl('mo-rate-rejunte-func'); if(rrf) rrf.value=o.rate_rejunte_func||'';
+    var rrv=getEl('mo-rate-rejunte-venda'); if(rrv) rrv.value=o.rate_rejunte_venda||'';
     var mlat=getEl('mo-lat'); if(mlat) mlat.value=o.lat_obra||'';
     var mlng=getEl('mo-lng'); if(mlng) mlng.value=o.lng_obra||'';
     var mraio=getEl('mo-raio'); if(mraio) mraio.value=o.raio_metros||300;
@@ -4755,6 +4771,8 @@ function salvarObra(){
     rate_func_ml:parseFloat(getEl('mo-rate-func-ml')?getEl('mo-rate-func-ml').value:0)||0,
     rate_lider:parseFloat(getEl('mo-rate-lider')?getEl('mo-rate-lider').value:0)||0,
     rate_lider_ml:parseFloat(getEl('mo-rate-lider-ml')?getEl('mo-rate-lider-ml').value:0)||0,
+    rate_rejunte_func:parseFloat(getEl('mo-rate-rejunte-func')?getEl('mo-rate-rejunte-func').value:0)||0,
+    rate_rejunte_venda:parseFloat(getEl('mo-rate-rejunte-venda')?getEl('mo-rate-rejunte-venda').value:0)||0,
     rate_venda_ml:parseFloat(getEl('mo-rate-venda-ml')?getEl('mo-rate-venda-ml').value:0)||0,
     inicio:getEl('mo-inicio').value||null,entrega:getEl('mo-entrega').value||null,
     status:getEl('mo-status').value,estrutura:estrutura};
