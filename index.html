@@ -1651,7 +1651,7 @@ function editarConf(confId){
 
   // Restaurar checklist
   try{ chkState=JSON.parse(c.checklist||'{}'); }catch(e){ chkState={}; }
-  checks.forEach(function(ck,i){
+  _checks.forEach(function(ck,i){
     var v=chkState[i];
     var ba=getEl('ca-'+i), br=getEl('cr-'+i);
     if(ba) ba.classList.toggle('on',v==='ap');
