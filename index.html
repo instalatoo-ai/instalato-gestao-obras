@@ -1243,20 +1243,24 @@ function funcChanged(){
 
 function calcTotal() {
   var area = parseFloat(getEl('l-area') ? getEl('l-area').value : 0)||0; var unidadeLanc=_unidade||'m2';
-  var rate = getRate(val('l-obra'));
-  var ri=getEl('rate-inf'); if(ri&&ri.style.display!=='none') ri.innerHTML='Valor do m2: <strong>R$ '+rate.toFixed(2)+'</strong>';
-  // Calcular base considerando valor_fixo por ambiente
   var cbs2=document.querySelectorAll('#l-amb-lista input[type=checkbox]:checked');
+  // Calcular base considerando valor_fixo e rejunte por ambiente
   var base=0;
+  var rateExibir=getRate(val('l-obra'));
   if(cbs2.length){
     cbs2.forEach(function(cb){
       var m2cb=parseFloat(cb.getAttribute('data-m2'))||0;
       var vfcb=parseFloat(cb.getAttribute('data-vf'))||0;
-      base+=vfcb>0?(m2cb*vfcb):(m2cb*rate);
+      var nomeAmb=cb.getAttribute('data-nome')||'';
+      var rateCb=getRate(val('l-obra'),nomeAmb);
+      base+=vfcb>0?(m2cb*vfcb):(m2cb*rateCb);
+      rateExibir=rateCb;
     });
   } else {
-    base=area*rate;
+    base=area*rateExibir;
   }
+  var rate=rateExibir;
+  var ri=getEl('rate-inf'); if(ri&&ri.style.display!=='none') ri.innerHTML='Valor do m2: <strong>R$ '+rate.toFixed(2)+'</strong>';
   var ext = 0;
   document.querySelectorAll('#extras-wrap .el-line').forEach(function(l) {
     var ins = l.querySelectorAll('input');
@@ -1373,15 +1377,15 @@ function salvarLanc() {
     toast('Apto '+apto+' / '+amb+' ja tem lancamento nesta obra! Exclua ou edite o existente.');
     return;
   }
-  var rate=getRate(oId);
-  // Calcular base usando valor_fixo por ambiente quando disponivel
-  var base=0;
+  var base=0; var rate=getRate(oId);
   var cbs3=document.querySelectorAll('#l-amb-lista input[type=checkbox]:checked');
   if(cbs3.length){
     cbs3.forEach(function(cb){
       var m2cb=parseFloat(cb.getAttribute('data-m2'))||0;
       var vfcb=parseFloat(cb.getAttribute('data-vf'))||0;
-      base+=vfcb>0?(m2cb*vfcb):(m2cb*rate);
+      var nomeAmbS=cb.getAttribute('data-nome')||'';
+      var rateCb2=getRate(oId,nomeAmbS);
+      base+=vfcb>0?(m2cb*vfcb):(m2cb*rateCb2);
     });
   } else {
     base=area*rate;
