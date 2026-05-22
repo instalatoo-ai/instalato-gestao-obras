@@ -1139,10 +1139,14 @@ function recalcAmbs(){
   calcTotal();
 }
 
-function getRate(obraId) {
-  var fId = val('l-func');
-  if(fId) { for(var i=0;i<users.length;i++) if(users[i].id===fId && users[i].rate_m2) return parseFloat(users[i].rate_m2); }
-  return 35;
+function getRate(oId){
+  var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===oId){o=obras[i];break;}
+  var fId=val('l-func');
+  var u=null; for(var i=0;i<users.length;i++) if(users[i].id===fId){u=users[i];break;}
+  var isLider=(u&&(u.tipo==='lider'||u.tipo==='lider_chefe'));
+  if(!o) return isLider?40:35;
+  if(isLider && o.rate_lider) return parseFloat(o.rate_lider)||parseFloat(o.rate_func)||35;
+  return parseFloat(o.rate_func)||35;
 }
 
 function calcTotal() {
@@ -1274,8 +1278,11 @@ function salvarLanc() {
     if(nm) extras.push({nome:nm,valor:vl,qty:qt,total:vl*qt});
   });
   var extTotal=extras.reduce(function(s,e){return s+e.total;},0);
-  var bonCnt=document.querySelectorAll('.bonus-item.on').length;
-  var pct=Math.min(bonCnt*2,10), bval=base*(pct/100), tot=base+extTotal+bval;
+  var bonusMapS={qualidade:2,limpeza:4,horario:2,retrabalho:2};
+  var pct=0;
+  Object.keys(bonusMapS).forEach(function(k){if(getEl('b-'+k)&&getEl('b-'+k).classList.contains('on')) pct+=bonusMapS[k];});
+  pct=Math.min(pct,10);
+  var bval=base*(pct/100), tot=base+extTotal+bval;
   var fotoData=window._fotoBase64||null;
   dbInsert('lancamentos',{obra_id:oId,usuario_id:fId,lancado_por:U.id,apartamento:apto,ambiente:amb,area_m2:area,rate_m2:rate,valor_base:base,extras:JSON.stringify(extras),extras_total:extTotal,bonus_pct:pct,bonus_valor:bval,total:tot,data:hoje(),hora:horaAgora(),foto:fotoData})
   .then(function(r) {
@@ -4975,15 +4982,6 @@ function gerarRelPonto(){
   if(el) el.innerHTML='<div style="margin-top:12px;">'+html+'</div>';
 }
 
-function getRate(oId){
-  var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===oId){o=obras[i];break;}
-  if(!o) return 35;
-  var fId=val('l-func');
-  var u=null; for(var i=0;i<users.length;i++) if(users[i].id===fId){u=users[i];break;}
-  var isLider3=u&&(u.tipo==='lider'||u.tipo==='lider_chefe');
-  if(isLider3 && o.rate_lider) return parseFloat(o.rate_lider)||parseFloat(o.rate_func)||35;
-  return parseFloat(o.rate_func)||35;
-}
 </script>
 </body>
 </html>
