@@ -4577,6 +4577,17 @@ function confirmarMED(btn){
   // Buscar usuario
   var u=null; for(var i=0;i<users.length;i++) if(users[i].apelido===nome){u=users[i];break;}
   if(!venc){toast('Informe o vencimento.');return;}
+  // Blindagem: verificar se ja existe MED para este funcionario no mesmo periodo
+  var medicaoExistente=medicoes.find(function(m){
+    if(m.nome_func!==nome) return false;
+    // Verificar sobreposicao de periodo
+    var mIni=m.periodo_ini||''; var mFim=m.periodo_fim||'';
+    return !(fim<mIni||ini>mFim);
+  });
+  if(medicaoExistente){
+    var msg='⚠️ JA EXISTE UM FECHAMENTO para '+nome+' no periodo '+fmtD(medicaoExistente.periodo_ini)+' a '+fmtD(medicaoExistente.periodo_fim)+'\n\nValor ja registrado: R$ '+medicaoExistente.valor.toFixed(2)+'\nStatus: '+(medicaoExistente.status==='pago'?'PAGO':'PENDENTE')+'\n\nGerar mesmo assim pode resultar em PAGAMENTO DUPLICADO!\nDeseja continuar?';
+    if(!confirm(msg)) return;
+  }
   // Salvar medicao no Supabase
   var obj={usuario_id:u?u.id:null,nome_func:nome,valor:valor,area_m2:parseFloat(m2)||0,periodo_ini:ini,periodo_fim:fim,vencimento:venc,observacao:obs,status:'pendente',criado_por:U.id,data:hoje()};
   dbInsert('medicoes',obj).then(function(r){
@@ -4666,6 +4677,87 @@ function imprimirMEDIndividual(med){
   setTimeout(function(){w.print();},600);
 }
 
+function abrirNovoLancamentoPagar(){
+  var existing=document.getElementById('modal-novo-pagar');
+  if(existing) existing.remove();
+  var fOpts=users.filter(function(u){return u.ativo&&u.tipo!=='admin';}).map(function(u){
+    return '<option value="'+u.id+'|'+u.apelido+'">'+u.apelido+'</option>';
+  }).join('');
+  // Vencimento padrao 10 dias
+  var venc=new Date(); venc.setDate(venc.getDate()+10);
+  var vencStr=venc.toISOString().split('T')[0];
+  var html='<div class="modal-bg show" id="modal-novo-pagar" style="z-index:9999;align-items:flex-start;padding-top:0;">'
+    +'<div class="modal-sheet" style="max-height:95vh;border-radius:0 0 20px 20px;">'
+    +'<div class="mhdr" style="background:#1e8449;">'
+    +'<span class="mhdr-t" style="color:#fff;">Novo Lançamento a Pagar</span>'
+    +'<button class="mhdr-x" onclick="fecharNovoPagar()" style="color:#fff;">✕</button>'
+    +'</div>'
+    +'<div class="mf">'
+    +'<div><div class="fl">Funcionario</div>'
+    +'<select class="sel" id="np-func"><option value="">Selecione</option>'+fOpts+'</select></div>'
+    +'<div><div class="fl">Descricao</div>'
+    +'<input class="inp" type="text" id="np-desc" placeholder="Ex: Pagamento producao maio"></div>'
+    +'<div class="row2">'
+    +'<div><div class="fl">Valor R$</div><input class="inp" type="number" id="np-valor" placeholder="0,00"></div>'
+    +'<div><div class="fl">m² (opcional)</div><input class="inp" type="number" id="np-m2" placeholder="0"></div>'
+    +'</div>'
+    +'<div class="row2">'
+    +'<div><div class="fl">Periodo De</div><input class="inp" type="date" id="np-ini"></div>'
+    +'<div><div class="fl">Periodo Ate</div><input class="inp" type="date" id="np-fim"></div>'
+    +'</div>'
+    +'<div><div class="fl">Vencimento</div><input class="inp" type="date" id="np-venc" value="'+vencStr+'"></div>'
+    +'<div><div class="fl">Observacao (opcional)</div>'
+    +'<input class="inp" type="text" id="np-obs" placeholder="Ex: Adiantamento, bonus..."></div>'
+    +'<button id="btn-salvar-pagar" onclick="this.disabled=true;this.textContent=\'Salvando...\';salvarNovoLancamentoPagar()" class="btn-gold" style="width:100%;">Salvar Lançamento</button>'
+    +'</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+function fecharNovoPagar(){var m=document.getElementById('modal-novo-pagar');if(m)m.remove();}
+function excluirMedicao(id){
+  if(!confirm('Excluir este lancamento?')) return;
+  dbDelete('medicoes',id).then(function(ok){
+    if(ok){medicoes=medicoes.filter(function(m){return m.id!==id;});renderAPagar();toast('Excluido!');}
+  }).catch(function(){
+    medicoes=medicoes.filter(function(m){return m.id!==id;});renderAPagar();toast('Excluido!');
+  });
+}
+function salvarNovoLancamentoPagar(){
+  var funcVal=document.getElementById('np-func')?document.getElementById('np-func').value:'';
+  var desc=(document.getElementById('np-desc')?document.getElementById('np-desc').value||'':'').trim();
+  var valor=parseFloat(document.getElementById('np-valor')?document.getElementById('np-valor').value:0)||0;
+  var m2=parseFloat(document.getElementById('np-m2')?document.getElementById('np-m2').value:0)||0;
+  var ini=document.getElementById('np-ini')?document.getElementById('np-ini').value:'';
+  var fim=document.getElementById('np-fim')?document.getElementById('np-fim').value:'';
+  var venc=document.getElementById('np-venc')?document.getElementById('np-venc').value:'';
+  var obs=(document.getElementById('np-obs')?document.getElementById('np-obs').value||'':'').trim();
+  if(!funcVal){toast('Selecione o funcionario.');return;}
+  if(!valor){toast('Informe o valor.');return;}
+  if(!venc){toast('Informe o vencimento.');return;}
+  // Verificar duplicata
+  var iniCheck=ini||hoje(); var fimCheck=fim||hoje();
+  var medDup=medicoes.find(function(m){
+    if(m.usuario_id!==uId&&m.nome_func!==uNome) return false;
+    var mI=m.periodo_ini||''; var mF=m.periodo_fim||'';
+    return !(fimCheck<mI||iniCheck>mF);
+  });
+  if(medDup){
+    var msg2='⚠️ JA EXISTE LANCAMENTO para '+uNome+' no periodo '+fmtD(medDup.periodo_ini)+' a '+fmtD(medDup.periodo_fim)+'\n\nValor: R$ '+medDup.valor.toFixed(2)+'\nStatus: '+(medDup.status==='pago'?'PAGO':'PENDENTE')+'\n\nContinuar pode gerar PAGAMENTO DUPLICADO! Continuar mesmo assim?';
+    if(!confirm(msg2)){var b2=document.getElementById('btn-salvar-pagar');if(b2){b2.disabled=false;b2.textContent='Salvar Lançamento';}return;}
+  }
+  var parts=funcVal.split('|');
+  var uId=parts[0]; var uNome=parts[1]||parts[0];
+  var obj={usuario_id:uId,nome_func:uNome,valor:valor,area_m2:m2,periodo_ini:ini||hoje(),periodo_fim:fim||hoje(),vencimento:venc,observacao:obs||desc,status:'pendente',criado_por:U.id,data:hoje()};
+  dbInsert('medicoes',obj).then(function(r){
+    if(r){
+      medicoes=[r].concat(medicoes);
+      var m=document.getElementById('modal-novo-pagar'); if(m) m.remove();
+      toast('Lançamento criado!');
+      renderAPagar();
+    }
+  });
+}
+
 function renderAPagar(){
   var el=getEl('t-apagar'); if(!el) return;
   var _fIniP=window._pagarIni||''; var _fFimP=window._pagarFim||'';
@@ -4680,7 +4772,11 @@ function renderAPagar(){
   var totalPendente=lista.filter(function(m){return m.status==='pendente';}).reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
   var totalPago=lista.filter(function(m){return m.status==='pago';}).reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
   var totalGeral=lista.reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
+  var fOpts=users.filter(function(u){return u.ativo&&u.tipo!=='admin';}).map(function(u){return '<option value="'+u.id+'">'+u.apelido+'</option>';}).join('');
   var html='<div class="hero" style="background:#1e8449"><p>Gestao financeira</p><h2>💳 Contas a Pagar</h2></div>'
+    +'<div style="padding:10px 14px 0;">'
+    +'<button onclick="abrirNovoLancamentoPagar()" style="width:100%;padding:11px;border-radius:12px;border:1.5px solid #1e8449;background:transparent;color:#1e8449;font-size:13px;font-weight:700;cursor:pointer;">+ Novo Lançamento</button>'
+    +'</div>'
     +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'
     // Filtros
     +'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);padding:12px 14px;display:flex;flex-direction:column;gap:10px;">'
@@ -4730,9 +4826,10 @@ function renderAPagar(){
           +'<div style="font-size:16px;font-weight:700;color:'+corStatus+';">'+fmt(m.valor)+'</div>'
           +'<div style="font-size:10px;font-weight:700;color:'+corStatus+';">'+(isPend?'PENDENTE':'✓ PAGO')+'</div>'
           +'</div></div>'
-          +'<div style="display:flex;gap:6px;">'
+          +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
           +(isPend?'<button data-mid="'+m.id+'" onclick="marcarMedicaoPaga(this.dataset.mid)" style="flex:1;padding:7px;border-radius:20px;border:none;background:var(--green);color:#fff;font-size:11px;font-weight:700;cursor:pointer;">✓ Marcar como Pago</button>':'')
-          +'<button data-mid="'+m.id+'" onclick="reimprMED(this.dataset.mid)" style="padding:7px 14px;border-radius:20px;border:1px solid #1a3a5c;background:transparent;color:#1a3a5c;font-size:11px;font-weight:700;cursor:pointer;">📄 Reimprimir MED</button>'
+          +'<button data-mid="'+m.id+'" onclick="reimprMED(this.dataset.mid)" style="padding:7px 12px;border-radius:20px;border:1px solid #1a3a5c;background:transparent;color:#1a3a5c;font-size:11px;font-weight:700;cursor:pointer;">📄 MED</button>'
+          +'<button data-mid="'+m.id+'" onclick="excluirMedicao(this.dataset.mid)" style="padding:7px 12px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);font-size:11px;font-weight:700;cursor:pointer;">🗑</button>'
           +'</div></div>';
       }).join(''))
     +'</div>'
