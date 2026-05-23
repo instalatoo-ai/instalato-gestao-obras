@@ -835,6 +835,7 @@ function buildNav() {
   var tabs = [];
   if(T==='admin'||T==='lider'||T==='lider_chefe') tabs.push({id:'lancar',i:'➕',l:'Lançar'});
   tabs.push({id:'meu',i:'📊',l:'Meu Resultado'});
+  tabs.push({id:'medicoes',i:'📋',l:'Medicoes'});
   if(T==='admin'||T==='lider'||T==='lider_chefe') tabs.push({id:'hist',i:'📋',l:'Histórico'});
   if(T==='admin') tabs.push({id:'conf',i:'✅',l:'Conferência'});
   tabs.push({id:'ponto',i:'📍',l:'Ponto'});
@@ -947,6 +948,7 @@ function renderAll() {
   var T = U.tipo;
   if(T==='admin'||T==='lider'||T==='lider_chefe') { renderLancar(); renderHist(); }
   renderPonto();
+  renderMedicoesFuncionario();
   if(T==='admin'||T==='lider'||T==='lider_chefe') renderMat();
   renderMeuMat();
   renderOcorr();
@@ -959,7 +961,7 @@ function renderAll() {
 }
 
 function renderTab(id) {
-  var map = {lancar:renderLancar,meu:renderMeu,hist:renderHist,conf:renderConf,aptos:renderAptos,ponto:renderPonto,mat:renderMat,meumat:renderMeuMat,ocorr:function(){renderOcorr();if(U&&U.tipo!=='func')marcarOcorrsLidas();},aviso:renderAvisos,marmita:function(){renderMarmita();if(U&&U.tipo==='admin'){marcarMarmitasLidas();verificarBannerMarmita();}},dash:renderDash,desp:renderDesp,fin:renderFinanceiro,receber:renderReceber,apagar:renderAPagar,conta:renderConta};
+  var map = {lancar:renderLancar,meu:renderMeu,hist:renderHist,conf:renderConf,aptos:renderAptos,ponto:renderPonto,mat:renderMat,meumat:renderMeuMat,ocorr:function(){renderOcorr();if(U&&U.tipo!=='func')marcarOcorrsLidas();},aviso:renderAvisos,marmita:function(){renderMarmita();if(U&&U.tipo==='admin'){marcarMarmitasLidas();verificarBannerMarmita();}},dash:renderDash,desp:renderDesp,fin:renderFinanceiro,receber:renderReceber,apagar:renderAPagar,medicoes:renderMedicoesFuncionario,conta:renderConta};
   if(map[id]) map[id]();
 }
 
@@ -1456,7 +1458,7 @@ function renderMeu() {
   // Separar pago x a receber
   var totalPago=meus.filter(function(l){
     return confs.some(function(c){return c.lancamento_id===l.id&&c.status==='aprovado';})
-      && fin_lancamentos&&fin_lancamentos.some&&fin_lancamentos.some(function(f){return f.usuario_id===U.id&&f.lancamento_id===l.id&&f.pago;});
+      && false; // campo ja pago pendente implementacao
   }).reduce(function(s,l){return s+(parseFloat(l.total)||0);},0);
   var totalAReceber=totalLiquido-totalPago;
 
@@ -2811,6 +2813,7 @@ function copiarListaMarmitas(){
 function recusarMarmitaHoje(){
   try{localStorage.setItem('instalato_marm_recusou_'+hoje(),'1');}catch(e){}
   renderPonto();
+  renderMedicoesFuncionario();
 }
 
 function getMarmitaRecusou(){
@@ -3203,6 +3206,7 @@ function registrarPonto(tipo){
       pontos=[r].concat(pontos);
       geoData=null;
       renderPonto();
+  renderMedicoesFuncionario();
   if(T==='admin'||T==='lider'||T==='lider_chefe') renderMat();
   renderMeuMat();
   renderOcorr();
@@ -3256,6 +3260,7 @@ function salvarEditPonto(){
       closeModal('ponto');
       editPontoId=null;
       renderPonto();
+  renderMedicoesFuncionario();
   if(T==='admin'||T==='lider'||T==='lider_chefe') renderMat();
   renderMeuMat();
   renderOcorr();
@@ -3272,6 +3277,7 @@ function excluirPonto(id){
       pontos=pontos.filter(function(p){return p.id!==id;});
       toast('🗑 Registro excluído.');
       renderPonto();
+  renderMedicoesFuncionario();
   if(T==='admin'||T==='lider'||T==='lider_chefe') renderMat();
   renderMeuMat();
   renderOcorr();
@@ -3319,6 +3325,7 @@ function registrarPontoManual(){
       var ei=getEl('pt-hora-entrada'); var es=getEl('pt-hora-saida');
       if(ei) ei.value=''; if(es) es.value='';
       renderPonto();
+  renderMedicoesFuncionario();
   if(T==='admin'||T==='lider'||T==='lider_chefe') renderMat();
   renderMeuMat();
   renderOcorr();
@@ -4828,7 +4835,8 @@ function renderAPagar(){
           +'</div></div>'
           +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
           +(isPend?'<button data-mid="'+m.id+'" onclick="marcarMedicaoPaga(this.dataset.mid)" style="flex:1;padding:7px;border-radius:20px;border:none;background:var(--green);color:#fff;font-size:11px;font-weight:700;cursor:pointer;">✓ Marcar como Pago</button>':'')
-          +'<button data-mid="'+m.id+'" onclick="reimprMED(this.dataset.mid)" style="padding:7px 12px;border-radius:20px;border:1px solid #1a3a5c;background:transparent;color:#1a3a5c;font-size:11px;font-weight:700;cursor:pointer;">📄 MED</button>'
+          +'<button data-mid="'+m.id+'" onclick="verDetalhesMED(this.dataset.mid)" style="padding:7px 12px;border-radius:20px;border:1px solid #1a3a5c;background:transparent;color:#1a3a5c;font-size:11px;font-weight:700;cursor:pointer;">🔍 Detalhes</button>'
+          +'<button data-mid="'+m.id+'" onclick="reimprMED(this.dataset.mid)" style="padding:7px 12px;border-radius:20px;border:1px solid var(--gold);background:transparent;color:var(--gold);font-size:11px;font-weight:700;cursor:pointer;">📄 MED</button>'
           +'<button data-mid="'+m.id+'" onclick="excluirMedicao(this.dataset.mid)" style="padding:7px 12px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);font-size:11px;font-weight:700;cursor:pointer;">🗑</button>'
           +'</div></div>';
       }).join(''))
@@ -4851,6 +4859,88 @@ function marcarMedicaoPaga(id){
   });
 }
 
+function verDetalhesMED(id){
+  var med=null; for(var i=0;i<medicoes.length;i++) if(medicoes[i].id===id){med=medicoes[i];break;}
+  if(!med) return;
+  // Buscar usuario
+  var u=null; for(var i=0;i<users.length;i++) if(users[i].id===med.usuario_id||(users[i].apelido===med.nome_func)){u=users[i];break;}
+  var uId=u?u.id:null;
+  // Buscar lancamentos do funcionario no periodo
+  var lancsPeriodo=lancs.filter(function(l){
+    if(uId&&l.usuario_id!==uId) return false;
+    if(!uId&&l.usuario_id) return false;
+    return l.data>=med.periodo_ini&&l.data<=med.periodo_fim;
+  });
+  // Buscar marmitas no periodo
+  var marmsPeriodo=uId?marmitas.filter(function(m){
+    return m.usuario_id===uId&&m.data>=med.periodo_ini&&m.data<=med.periodo_fim;
+  }):[];
+  // Buscar despesas vinculadas
+  var despsPeriodo=uId?desps.filter(function(d){
+    return d.usuario_id===uId&&d.data>=med.periodo_ini&&d.data<=med.periodo_fim;
+  }):[];
+
+  var totalBruto=lancsPeriodo.reduce(function(s,l){return s+(parseFloat(l.total)||0);},0);
+  var totalMarms=marmsPeriodo.reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
+  var totalDesps=despsPeriodo.reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
+  var totalDescontos=totalMarms+totalDesps;
+
+  var existing=document.getElementById('modal-det-med'); if(existing) existing.remove();
+
+  var lancHtml=lancsPeriodo.length?lancsPeriodo.map(function(l){
+    var confOk=confs.some(function(c){return c.lancamento_id===l.id&&c.status==='aprovado';});
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">'
+      +'<div><div style="font-size:12px;font-weight:700;">'+(l.apartamento||'--')+' · '+(l.ambiente||'--')+'</div>'
+      +'<div style="font-size:10px;color:var(--sub);">'+fmtD(l.data)+' · '+(l.area_m2||0)+'m²'+(confOk?' · <span style="color:var(--green);">✓ Aprovado</span>':' · <span style="color:#B8860B;">⏳ Pendente</span>')+'</div>'
+      +'</div>'
+      +'<span style="font-size:13px;font-weight:700;color:var(--gold);">'+fmt(l.total)+'</span>'
+      +'</div>';
+  }).join(''):'<div style="font-size:12px;color:var(--sub);padding:8px 0;">Nenhum lancamento encontrado.</div>';
+
+  var descontosHtml='';
+  if(marmsPeriodo.length){
+    descontosHtml+='<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);">'
+      +'<span style="font-size:12px;color:var(--red);">🍱 Marmitas ('+marmsPeriodo.length+'x)</span>'
+      +'<span style="font-size:12px;font-weight:700;color:var(--red);">-'+fmt(totalMarms)+'</span></div>';
+  }
+  despsPeriodo.forEach(function(d){
+    descontosHtml+='<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);">'
+      +'<span style="font-size:12px;color:var(--red);">💸 '+d.categoria+' - '+d.descricao+'</span>'
+      +'<span style="font-size:12px;font-weight:700;color:var(--red);">-'+fmt(d.valor)+'</span></div>';
+  });
+
+  var html='<div class="modal-bg show" id="modal-det-med" style="z-index:9999;align-items:flex-start;padding-top:0;">'
+    +'<div class="modal-sheet" style="max-height:95vh;border-radius:0 0 20px 20px;">'
+    +'<div class="mhdr" style="background:#1e8449;">'
+    +'<span class="mhdr-t" style="color:#fff;">Detalhes · '+med.nome_func+'</span>'
+    +'<button class="mhdr-x" onclick="fecharDetMED()" style="color:#fff;background:transparent;border:none;font-size:20px;cursor:pointer;">✕</button>'
+    +'</div>'
+    +'<div class="mf">'
+    // Periodo e vencimento
+    +'<div style="background:#e8f5e9;border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;">'
+    +'<div><div style="font-size:10px;color:var(--sub);">Periodo</div>'
+    +'<div style="font-size:13px;font-weight:700;">'+fmtD(med.periodo_ini)+' a '+fmtD(med.periodo_fim)+'</div></div>'
+    +'<div style="text-align:right;"><div style="font-size:10px;color:var(--sub);">Vencimento</div>'
+    +'<div style="font-size:13px;font-weight:700;color:#B8860B;">'+fmtD(med.vencimento)+'</div></div>'
+    +'</div>'
+    // Lancamentos
+    +'<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Producao</div>'
+    +lancHtml+'</div>'
+    // Descontos
+    +(descontosHtml?'<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Descontos</div>'+descontosHtml+'</div>':'')
+    // Resumo
+    +'<div style="background:var(--gray);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;">'
+    +'<div style="display:flex;justify-content:space-between;"><span style="font-size:12px;color:var(--sub);">Bruto</span><span style="font-size:13px;font-weight:700;">'+fmt(totalBruto)+'</span></div>'
+    +(totalDescontos>0?'<div style="display:flex;justify-content:space-between;"><span style="font-size:12px;color:var(--red);">Descontos</span><span style="font-size:13px;font-weight:700;color:var(--red);">-'+fmt(totalDescontos)+'</span></div>':'')
+    +'<div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:6px;">'
+    +'<span style="font-size:13px;font-weight:700;color:#1e8449;">Liquido a pagar</span>'
+    +'<span style="font-size:16px;font-weight:700;color:#1e8449;">'+fmt(med.valor)+'</span></div>'
+    +'</div>'
+    +'</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+function fecharDetMED(){var m=document.getElementById('modal-det-med');if(m)m.remove();}
 function reimprMED(id){
   var m=null; for(var i=0;i<medicoes.length;i++) if(medicoes[i].id===id){m=medicoes[i];break;}
   if(m) imprimirMEDIndividual(m);
@@ -5277,6 +5367,75 @@ function renderFinanceiro(){
     S.tabAtual='vales';rebuild();toast('Lancamento salvo!');
   };
   rebuild();
+}
+
+function renderMedicoesFuncionario(){
+  var el=getEl('t-medicoes'); if(!el) return;
+  // Buscar medicoes do funcionario logado
+  var minhas=medicoes.filter(function(m){
+    return m.usuario_id===U.id || m.nome_func===U.apelido;
+  }).sort(function(a,b){return (b.data||'')>(a.data||'')?1:-1;});
+
+  var pendentes=minhas.filter(function(m){return m.status==='pendente';});
+  var pagas=minhas.filter(function(m){return m.status==='pago';});
+  var totalPendente=pendentes.reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
+  var totalPago=pagas.reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
+
+  function cardMed(m){
+    var isPend=m.status==='pendente';
+    var venceu=isPend&&m.vencimento&&m.vencimento<hoje();
+    var cor=isPend?(venceu?'var(--red)':'#B8860B'):'var(--green)';
+    var bg=isPend?(venceu?'rgba(192,57,43,.04)':'rgba(184,134,11,.04)'):'rgba(30,132,73,.04)';
+    var statusLabel=isPend?(venceu?'⚠️ VENCIDO':'⏳ A RECEBER'):'✅ PAGO';
+    return '<div style="padding:14px;border-radius:14px;border:1px solid var(--border);border-left:3px solid '+cor+';background:'+bg+';display:flex;justify-content:space-between;align-items:flex-start;">'
+      +'<div style="flex:1;">'
+      +'<div style="font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">'+statusLabel+'</div>'
+      +'<div style="font-size:15px;font-weight:700;color:'+cor+';">'+fmt(m.valor)+'</div>'
+      +'<div style="font-size:11px;color:var(--sub);margin-top:4px;">'+fmtD(m.periodo_ini)+' a '+fmtD(m.periodo_fim)+'</div>'
+      +(m.area_m2?'<div style="font-size:11px;color:var(--sub);">'+parseFloat(m.area_m2).toFixed(1)+'m²</div>':'')
+      +(isPend?'<div style="font-size:11px;color:'+cor+';font-weight:700;margin-top:4px;">Vence: '+fmtD(m.vencimento)+'</div>':'')
+      +(m.data_pagamento?'<div style="font-size:11px;color:var(--green);margin-top:4px;">Pago em: '+fmtD(m.data_pagamento)+'</div>':'')
+      +(m.observacao?'<div style="font-size:10px;color:var(--sub);margin-top:3px;font-style:italic;">'+m.observacao+'</div>':'')
+      +'</div>'
+      +'<div style="text-align:right;margin-left:12px;">'
+      +'<div style="font-size:10px;color:var(--sub);">'+fmtD(m.data)+'</div>'
+      +'</div>'
+      +'</div>';
+  }
+
+  var html='<div class="hero" style="background:#1a3a5c"><p>Meus pagamentos</p><h2>📋 Medições</h2></div>'
+    +'<div class="pad" style="display:flex;flex-direction:column;gap:14px;">'
+    // Cards resumo
+    +'<div class="stat2">'
+    +'<div class="stat"><div class="sv" style="color:#B8860B;">'+fmt(totalPendente)+'</div><div class="sl">A Receber</div></div>'
+    +'<div class="stat"><div class="sv" style="color:var(--green);">'+fmt(totalPago)+'</div><div class="sl">Ja Recebido</div></div>'
+    +'</div>';
+
+  // Pendentes
+  if(pendentes.length){
+    html+='<div>'
+      +'<div style="font-size:11px;font-weight:700;color:#B8860B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">A Receber ('+pendentes.length+')</div>'
+      +'<div style="display:flex;flex-direction:column;gap:8px;">'
+      +pendentes.map(cardMed).join('')
+      +'</div></div>';
+  }
+
+  // Pagas
+  if(pagas.length){
+    html+='<div>'
+      +'<div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Historico Recebido ('+pagas.length+')</div>'
+      +'<div style="display:flex;flex-direction:column;gap:8px;">'
+      +pagas.map(cardMed).join('')
+      +'</div></div>';
+  }
+
+  if(!minhas.length){
+    html+='<div class="empty"><p>Nenhuma medicao encontrada.</p><p style="font-size:11px;color:var(--sub);margin-top:6px;">Os pagamentos aparecerão aqui quando o financeiro gerar seu MED.</p></div>';
+  }
+
+  html+='<div class="info-box">👁 Somente leitura — pagamentos gerados pelo financeiro.</div>'
+    +'</div>';
+  el.innerHTML=html;
 }
 
 function renderConta(){
