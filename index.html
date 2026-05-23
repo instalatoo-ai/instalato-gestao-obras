@@ -1791,7 +1791,7 @@ function verificarObraFinalizada(oId){
       (apto.ambientes||[]).forEach(function(amb){
         totalAmbs++;
         var ok=confs.find(function(c){
-          return c.obra_id===oId&&c.apartamento===apto.nome&&c.ambiente===amb.nome&&c.status==='aprovado';
+          return c.obra_id===oId&&c.apartamento===apto.nome&&c.status==='aprovado'&&c.ambiente&&(c.ambiente===amb.nome||c.ambiente.indexOf(amb.nome)>=0);
         });
         if(ok) confAmbs++;
       });
@@ -3562,7 +3562,7 @@ function renderAptos(){
         var dataConclusao=null;
         var ambConc=0;
         ambientes.forEach(function(amb){
-          var confOk=confs.find(function(c){return c.obra_id===o.id&&c.apartamento===apto.nome&&c.ambiente===amb.nome&&c.status==='aprovado';});
+          var confOk=confs.find(function(c){return c.obra_id===o.id&&c.apartamento===apto.nome&&c.status==='aprovado'&&c.ambiente&&(c.ambiente===amb.nome||c.ambiente.indexOf(amb.nome)>=0);});
           if(confOk){ambConc++;if(!dataConclusao||confOk.data>dataConclusao)dataConclusao=confOk.data;}
         });
         var ok=(ambConc===ambientes.length);
@@ -5358,7 +5358,7 @@ function renderClienteObras(){
             if(apto.ambientes&&apto.ambientes.length){
               totalAptos++;
               var ok=apto.ambientes.every(function(amb){
-                return confs.find(function(c){return c.obra_id===o.id&&c.apartamento===apto.nome&&c.ambiente===amb.nome&&c.status==='aprovado';});
+                return confs.find(function(c){return c.obra_id===o.id&&c.apartamento===apto.nome&&c.status==='aprovado'&&c.ambiente&&(c.ambiente===amb.nome||c.ambiente.indexOf(amb.nome)>=0);});
               });
               if(ok) aptosOk++;
             }
@@ -5440,7 +5440,7 @@ function renderClienteAptos(){
         var ambsDetalhes=[];
         ambientes.forEach(function(amb){
           var confOk=confs.find(function(c){
-            return c.obra_id===o.id&&c.apartamento===apto.nome&&c.ambiente===amb.nome&&c.status==='aprovado';
+            return c.obra_id===o.id&&c.apartamento===apto.nome&&c.status==='aprovado'&&c.ambiente&&(c.ambiente===amb.nome||c.ambiente.indexOf(amb.nome)>=0);
           });
           // Buscar lancamento com foto
           var lancAmb=lancs.find(function(l){
