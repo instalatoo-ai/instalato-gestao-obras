@@ -2124,7 +2124,7 @@ function renderOcorr(){
       +'</div>';
 
   el.innerHTML='<div class="hero" style="background:#8B0000"><p>'+(isFunc?'Registrar':'Gestao')+'</p><h2>Ocorrencias</h2></div>'
-    +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'+fp
+    +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'
     +alertasHtml
     +'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
     +'<div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;">Registrar ocorrencia</div>'
@@ -3428,7 +3428,7 @@ function renderDash(){
     +'<button onclick="window._dashIni=\'\';window._dashFim=\'\';renderDash()" style="padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:10px;cursor:pointer;">Todos</button>'
     +'</div>';
   el.innerHTML='<div class="hero" style="background:var(--dark)"><p>Visao geral</p><h2>Dashboard Admin</h2></div>'
-    +'<div class="pad">'
+    +'<div class="pad">'+fp
     // Cards resumo
     +'<div class="stat3">'
     +'<div class="stat"><div class="sv" style="color:var(--red);">'+fmtK(totalPagar)+'</div><div class="sl">A Pagar Func.</div></div>'
@@ -3474,7 +3474,7 @@ var _despFiltro={cat:'',desc:'',obra:'',ini:'',fim:''};
 function renderDesp(){
   var el=getEl('t-desp'); if(!el) return;
   var oOpts=obras.map(function(o){return '<option value="'+o.id+'">'+o.nome+'</option>';}).join('');
-  var cats=[{k:'Combustivel',i:'⛽'},{k:'Ferramentas',i:'🔧'},{k:'Insumos',i:'📦'},{k:'Transporte',i:'🚛'},{k:'Alimentacao',i:'🍽'},{k:'Manutencao',i:'⚙'},{k:'EPIs',i:'🦺'},{k:'Outros',i:'📌'}];
+  var cats=[{k:'Combustivel',i:'⛽'},{k:'Ferramentas',i:'🔧'},{k:'Insumos',i:'📦'},{k:'Transporte',i:'🚛'},{k:'Alimentacao',i:'🍽'},{k:'Manutencao',i:'⚙'},{k:'EPIs',i:'🦺'},{k:'Impostos',i:'🏛️'},{k:'Vale',i:'💳'},{k:'Outros',i:'📌'}];
   var catGrid=cats.map(function(c){return '<div class="cat-btn'+(catSel===c.k?' on':'')+'" data-cat="'+c.k+'" onclick="selCat(this.dataset.cat)"><span style="font-size:20px">'+c.i+'</span>'+c.k+'</div>';}).join('');
 
   var lista=desps;
@@ -3716,7 +3716,7 @@ function renderAptos(){
   var pct=totalAptos>0?Math.round((aptosOk/totalAptos)*100):0;
 
   var html='<div class="hero" style="background:var(--green)"><p>Acompanhamento</p><h2>Ambientes</h2></div>'
-    +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'+fp
+    +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'
     +'<select class="sel" id="aptos-filtro-obra" onchange="renderAptos()">'+obraOpts+'</select>';
 
   if(totalAptos>0){
@@ -4100,7 +4100,7 @@ function renderReceber(){
   // HTML
   var html='<div class="hero" style="background:#1a3a5c"><p>Gestao financeira</p><h2>Contas a Receber</h2></div>'
     +'<div style="padding:10px 14px 0;"><button onclick="abrirRelatorioReceber()" style="width:100%;padding:11px;border-radius:12px;border:1.5px solid #1a3a5c;background:transparent;color:#1a3a5c;font-size:13px;font-weight:700;cursor:pointer;">Gerar Relatorio de Contas a Receber</button></div>'
-    +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'+fp
+    +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'
 
     // Filtros
     +'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);padding:12px 14px;display:flex;flex-direction:column;gap:10px;">'
@@ -4286,10 +4286,10 @@ function gerarRelatorioFin(){
   marmsFunc.forEach(function(m){
     var u=null; for(var i=0;i<users.length;i++) if(users[i].id===m.usuario_id){u=users[i];break;}
     var nome=u?u.apelido:'Desconhecido';
-    if(!porFunc[nome]) porFunc[nome]={itens:[],totalM2:0,totalValor:0,descontos:[]};
-    porFunc[nome].descontos=porFunc[nome].descontos||[];
+    if(!porFunc[nome]) porFunc[nome]={itens:[],totalM2:0,totalValor:0};
+    if(!porFunc[nome].descontos) porFunc[nome].descontos=[];
     porFunc[nome].descontos.push({tipo:'Marmita',data:m.data,valor:parseFloat(m.valor)||0,obs:m.obs||''});
-    porFunc[nome].totalValor-=(parseFloat(m.valor)||0); // desconta do liquido
+    porFunc[nome].totalValor-=(parseFloat(m.valor)||0);
   });
 
   // Adicionar despesas vinculadas no agrupamento
@@ -4297,8 +4297,8 @@ function gerarRelatorioFin(){
     var u=null; if(d.usuario_id){for(var i=0;i<users.length;i++) if(users[i].id===d.usuario_id){u=users[i];break;}}
     if(!u) return;
     var nome=u.apelido;
-    if(!porFunc[nome]) porFunc[nome]={itens:[],totalM2:0,totalValor:0,descontos:[]};
-    porFunc[nome].descontos=porFunc[nome].descontos||[];
+    if(!porFunc[nome]) porFunc[nome]={itens:[],totalM2:0,totalValor:0};
+    if(!porFunc[nome].descontos) porFunc[nome].descontos=[];
     porFunc[nome].descontos.push({tipo:d.categoria||'Despesa',data:d.data,valor:parseFloat(d.valor)||0,obs:d.descricao||''});
     porFunc[nome].totalValor-=(parseFloat(d.valor)||0);
   });
