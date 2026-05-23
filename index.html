@@ -842,7 +842,7 @@ function buildNav() {
   tabs.push({id:'ocorr',i:'⚠️',l:'Ocorrências'});
   tabs.push({id:'marmita',i:'🍱',l:'Marmita'});
   tabs.push({id:'aviso',i:'📢',l:'Avisos'});
-  if(T==='admin'||T==='lider'||T==='lider_chefe') tabs.push({id:'aptos',i:'🏁',l:'Aptos'});
+  if(T==='admin'||T==='lider'||T==='lider_chefe') tabs.push({id:'aptos',i:'🏁',l:'Amb.'});
   if(T==='admin') tabs.push({id:'dash',i:'📈',l:'Dashboard'});
   if(T==='admin') tabs.push({id:'desp',i:'💸',l:'Despesas'});
   if(T==='admin') tabs.push({id:'fin',i:'💰',l:'Financeiro'});
@@ -990,7 +990,7 @@ function renderLancar() {
     +'<div id="obra-inf" style="display:none;background:rgba(184,134,11,.08);border-radius:10px;padding:8px 12px;font-size:11px;color:#854F0B;margin-top:6px;"></div></div>'
     +'<div><div class="fl">Funcionário</div><select class="sel" id="l-func" onchange="funcChanged()"><option value="">Selecione</option>'+fOpts+'</select></div>'
     +'<div><div class="fl">Apartamento</div><select class="sel" id="l-apto-sel"><option value="">Selecione a obra primeiro</option></select></div>'
-    +'<div><div class="fl">Ambientes (selecione um ou mais)</div>'
+    +'<div><div class="fl">Ambiente (selecione um por vez)</div>'
     +'<div id="l-amb-lista" style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;padding:4px 0;"></div>'
     +'<input type="hidden" id="l-amb">'
     +'</div>'
@@ -1194,6 +1194,20 @@ function usarTudo(idx, max){
 }
 
 function recalcAmbs(){
+  // Garantir apenas 1 ambiente selecionado por vez
+  var cbs=document.querySelectorAll('#l-amb-lista input[type=checkbox]');
+  var checked=document.querySelectorAll('#l-amb-lista input[type=checkbox]:checked');
+  if(checked.length>1){
+    // Desmarcar todos exceto o ultimo marcado
+    checked.forEach(function(cb,i){
+      if(i<checked.length-1){
+        cb.checked=false;
+        var idx=cb.id.replace('lamb-cb-','');
+        var parcial=document.getElementById('parcial-'+idx);
+        if(parcial) parcial.remove();
+      }
+    });
+  }
   var cbs=document.querySelectorAll('#l-amb-lista input[type=checkbox]:checked');
   var total=0; var nomes=[];
   cbs.forEach(function(cb){
@@ -1763,15 +1777,44 @@ function salvarConf(){
   var lancId=getEl('c-lanc-id')?getEl('c-lanc-id').value:null;
   if(!confSt){toast('⚠️ Selecione o resultado.');return;}
   if(!oId||!pId||!apto||!amb){toast('⚠️ Selecione um lançamento acima.');return;}
-  dbInsert('conferencias',{obra_id:oId,lider_id:U.id,profissional_id:pId,lancamento_id:lancId||null,status:confSt,apartamento:apto,ambiente:amb,checklist:JSON.stringify(chkState),observacao:obs,data:hoje(),hora:horaAgora()})
-  .then(function(r){
-    if(r){
+  // Blindagem: verificar duplicata por ambiente
+  var ambientes=amb.split(', ');
+  var duplicatas=ambientes.filter(function(a){
+    return confs.some(function(c){
+      return c.obra_id===oId && c.apartamento===apto && c.status==='aprovado' &&
+        c.ambiente&&(c.ambiente===a.trim()||c.ambiente.indexOf(a.trim())>=0);
+    });
+  });
+  if(duplicatas.length){
+    toast('⚠️ Ja existe conferencia aprovada para: '+duplicatas.join(', '));
+    return;
+  }
+  // Salvar um registro por ambiente
+  var ambientes=amb.split(', ');
+  var promises=ambientes.map(function(ambUnico){
+    // Calcular e salvar valor_venda no momento da conferencia
+    var oConf=null; for(var i=0;i<obras.length;i++) if(obras[i].id===oId){oConf=obras[i];break;}
+    var lConf=null; if(lancId){for(var i=0;i<lancs.length;i++) if(lancs[i].id===lancId){lConf=lancs[i];break;}}
+    var areaConf=lConf?parseFloat(lConf.area_m2)||0:0;
+    var ambNomeConf=ambUnico.trim();
+    var isRejunteConf=ambNomeConf.toLowerCase().indexOf('rejunte')>=0;
+    var unidadeConf='m2';
+    var valorFixoConf=0;
+    if(oConf&&oConf.estrutura){try{var estC=JSON.parse(oConf.estrutura);estC.andares&&estC.andares.forEach(function(an){an.aptos&&an.aptos.forEach(function(ap){(ap.ambientes||[]).forEach(function(a){if(a.nome===ambNomeConf){unidadeConf=a.unidade||'m2';valorFixoConf=parseFloat(a.valor_fixo)||0;}});});});}catch(e){}}
+    var rVenda=oConf?parseFloat(oConf.rate_venda)||0:0;
+    var rVendaMl=isRejunteConf&&oConf&&oConf.rate_rejunte_venda?parseFloat(oConf.rate_rejunte_venda):oConf?parseFloat(oConf.rate_venda_ml)||0:0;
+    var valorVendaConf=valorFixoConf>0?areaConf*valorFixoConf:(unidadeConf==='ml'||isRejunteConf)?areaConf*rVendaMl:areaConf*rVenda;
+    return dbInsert('conferencias',{obra_id:oId,lider_id:U.id,profissional_id:pId,lancamento_id:lancId||null,status:confSt,apartamento:apto,ambiente:ambNomeConf,checklist:JSON.stringify(chkState),observacao:obs,data:hoje(),hora:horaAgora(),valor_venda:valorVendaConf,area_m2:areaConf});
+  });
+  Promise.all(promises).then(function(results){
+    var validos=results.filter(function(r){return r;});
+    if(validos.length){
       var e={aprovado:'✅',incompleto:'⚠️',reprovado:'❌'};
       toast(e[confSt]+' Conferencia salva!');
-      confs=[r].concat(confs); confSt=''; chkState={};
-      if(r.status==='aprovado'){
-        enviarParaSheets(r, oId, pId, apto, amb, obs);
-        // Verificar se todos os ambientes da obra foram conferidos
+      validos.forEach(function(r){confs=[r].concat(confs);});
+      confSt=''; chkState={};
+      if(confSt==='aprovado'||validos[0].status==='aprovado'){
+        enviarParaSheets(validos[0], oId, pId, apto, amb, obs);
         verificarObraFinalizada(oId);
       }
       renderConf();
@@ -3265,8 +3308,12 @@ function renderDash(){
     totalReceber+=area*rateV;
   });
 
-  var lucro=totalReceber-totalPagar;
+  var totalDespesas=desps.reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
+  var totalMarmitas=marmitas.reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
+  var totalCustos=totalPagar+totalDespesas+totalMarmitas;
+  var lucro=totalReceber-totalCustos;
   var margemPct=totalReceber>0?Math.round((lucro/totalReceber)*100):0;
+  // totalPagar ja definido acima
 
   // Grafico pizza SVG
   function pizzaSVG(pagar,receber,lucroV){
@@ -3320,10 +3367,11 @@ function renderDash(){
     // Cards resumo
     +'<div class="stat3">'
     +'<div class="stat"><div class="sv" style="color:var(--red);">'+fmtK(totalPagar)+'</div><div class="sl">A Pagar Func.</div></div>'
+    +'<div class="stat"><div class="sv" style="color:var(--red);">'+fmtK(totalDespesas+totalMarmitas)+'</div><div class="sl">Despesas+Marm.</div></div>'
     +'<div class="stat"><div class="sv" style="color:#1a3a5c;">'+fmtK(totalReceber)+'</div><div class="sl">A Receber</div></div>'
-    +'<div class="stat"><div class="sv" style="color:var(--green);">'+fmtK(lucro)+'</div><div class="sl">Lucro Bruto</div></div>'
     +'</div>'
     +'<div class="stat2">'
+    +'<div class="stat"><div class="sv" style="color:var(--green);">'+fmtK(lucro)+'</div><div class="sl">Lucro Liquido</div></div>'
     +'<div class="stat"><div class="sv">'+totalM2.toFixed(0)+'m²</div><div class="sl">Producao total</div></div>'
     +'<div class="stat"><div class="sv">'+obras.filter(function(o){return o.status==="ativa";}).length+'</div><div class="sl">Obras ativas</div></div>'
     +'</div>'
@@ -3331,7 +3379,7 @@ function renderDash(){
     +'<div class="card">'
     +'<div class="card-t">Relacao Custo x Receita</div>'
     +'<div style="display:flex;align-items:center;gap:20px;padding:10px 0;">'
-    +pizzaSVG(totalPagar,totalReceber,lucro)
+    +pizzaSVG(totalCustos,totalReceber,lucro)
     +'<div style="display:flex;flex-direction:column;gap:12px;flex:1;">'
     +'<div style="display:flex;align-items:center;gap:8px;">'
     +'<div style="width:14px;height:14px;border-radius:50%;background:#c0392b;flex-shrink:0;"></div>'
@@ -3388,9 +3436,10 @@ function renderDesp(){
   var hist=lista.slice(0,30).map(function(d){
     var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===d.obra_id){o=obras[i];break;}
     var ci=null; for(var i=0;i<cats.length;i++) if(cats[i].k===d.categoria){ci=cats[i];break;}
+    var uDesp=null; if(d.usuario_id){for(var k=0;k<users.length;k++) if(users[k].id===d.usuario_id){uDesp=users[k];break;}}
     return '<div class="hi"><div class="hi-ico">'+(ci?ci.i:'💰')+'</div>'
       +'<div class="hi-b"><div class="hi-t">'+d.descricao+'</div>'
-      +'<div class="hi-s">'+d.categoria+(d.responsavel?' - '+d.responsavel:'')+' - '+(o?o.nome:'Geral')+'</div></div>'
+      +'<div class="hi-s">'+d.categoria+(uDesp?' · '+uDesp.apelido:d.responsavel?' · '+d.responsavel:'')+' · '+(o?o.nome:'Geral')+(d.tipo?' · '+d.tipo:'')+'</div></div>'
       +'<div class="hi-r"><div class="hi-v" style="color:var(--red)">'+fmt(d.valor)+'</div><div class="hi-d">'+fmtD(d.data)+'</div></div></div>';
   }).join('');
 
@@ -3404,7 +3453,15 @@ function renderDesp(){
     +'<div class="row2"><div><div class="fl">Valor R$</div><input class="inp" type="number" id="d-valor" placeholder="0,00"></div>'
     +'<div><div class="fl">Data</div><input class="inp" type="date" id="d-data" value="'+hoje()+'"></div></div>'
     +'<div><div class="fl">Obra</div><select class="sel" id="d-obra"><option value="">Geral</option>'+oOpts+'</select></div>'
-    +'<div><div class="fl">Responsavel</div><input class="inp" type="text" id="d-resp" placeholder="Ex: Leandro"></div>'
+    +'<div><div class="fl">Responsavel (opcional)</div><input class="inp" type="text" id="d-resp" placeholder="Ex: Leandro"></div>'
+    +'<div><div class="fl">Vincular a funcionario (opcional)</div>'
+    +'<select class="sel" id="d-func"><option value="">Nenhum</option>'+users.filter(function(u){return u.ativo;}).map(function(u){return '<option value="'+u.id+'">'+u.apelido+'</option>';}).join('')+'</select></div>'
+    +'<div><div class="fl">Tipo de gasto</div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button type="button" id="d-tipo-var" data-t="variavel" class="tb on" onclick="selDespTipo(this.dataset.t)">Variavel</button>'
+    +'<button type="button" id="d-tipo-imp" data-t="imposto" class="tb" onclick="selDespTipo(this.dataset.t)">Imposto</button>'
+    +'<button type="button" id="d-tipo-fix" data-t="fixo" class="tb" onclick="selDespTipo(this.dataset.t)">Fixo</button>'
+    +'</div></div>'
     +'<button class="btn-gold" type="button" onclick="salvarDesp()">Registrar despesa</button>'
     +'</div></div>'
     +'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
@@ -3450,13 +3507,23 @@ function filtrarDespObra(v){_despFiltro.obra=v;renderDesp();}
 function filtrarDespData(){var i=getEl('df-ini'),f=getEl('df-fim');_despFiltro.ini=i?i.value:'';_despFiltro.fim=f?f.value:'';renderDesp();}
 function limparFiltrosDesp(){_despFiltro={cat:'',desc:'',obra:'',ini:'',fim:''};renderDesp();}
 function selCat(c){catSel=c;renderDesp();}
+var _despTipo='variavel';
+function selDespTipo(t){
+  _despTipo=t;
+  ['var','imp','fix'].forEach(function(x){
+    var b=getEl('d-tipo-'+x); if(b) b.classList.remove('on');
+  });
+  var map={variavel:'var',imposto:'imp',fixo:'fix'};
+  var b=getEl('d-tipo-'+map[t]); if(b) b.classList.add('on');
+}
 
 function salvarDesp(){
   if(!catSel){toast('⚠️ Selecione a categoria.');return;}
   var desc=val('d-desc'), valor=parseFloat(getEl('d-valor')?getEl('d-valor').value:0)||0;
   if(!desc){toast('⚠️ Informe a descrição.');return;}
   if(!valor){toast('⚠️ Informe o valor.');return;}
-  dbInsert('despesas',{obra_id:val('d-obra')||null,categoria:catSel,descricao:desc,valor:valor,responsavel:val('d-resp'),data:getEl('d-data')?getEl('d-data').value:hoje()})
+  var funcDesp=getEl('d-func')?getEl('d-func').value:null;
+  dbInsert('despesas',{obra_id:val('d-obra')||null,categoria:catSel,descricao:desc,valor:valor,responsavel:val('d-resp'),usuario_id:funcDesp||null,tipo:_despTipo||'variavel',data:getEl('d-data')?getEl('d-data').value:hoje()})
   .then(function(r){if(r){toast('✅ Despesa registrada!');desps=[r].concat(desps);catSel='';renderDesp();}});
 }
 
@@ -3549,7 +3616,6 @@ function doLogout(){ if(confirm('Sair do sistema?')) location.reload(); }
 function renderAptos(){
   var el=getEl('t-aptos'); if(!el) return;
 
-  // Montar lista completa de todos os aptos com status
   var todosAptos=[];
   obras.forEach(function(o){
     if(!o.estrutura) return;
@@ -3559,19 +3625,21 @@ function renderAptos(){
       andar.aptos.forEach(function(apto){
         var ambientes=apto.ambientes||[];
         if(!ambientes.length) return;
-        var dataConclusao=null;
-        var ambConc=0;
+        var dataConclusao=null; var ambConc=0;
+        var ambsDetalhes=[];
         ambientes.forEach(function(amb){
           var confOk=confs.find(function(c){return c.obra_id===o.id&&c.apartamento===apto.nome&&c.status==='aprovado'&&c.ambiente&&(c.ambiente===amb.nome||c.ambiente.indexOf(amb.nome)>=0);});
+          var lancAmb=lancs.find(function(l){return l.obra_id===o.id&&l.apartamento===apto.nome&&l.ambiente&&(l.ambiente===amb.nome||l.ambiente.indexOf(amb.nome)>=0);});
+          var foto=lancAmb&&lancAmb.foto?lancAmb.foto:null;
           if(confOk){ambConc++;if(!dataConclusao||confOk.data>dataConclusao)dataConclusao=confOk.data;}
+          ambsDetalhes.push({nome:amb.nome,m2:amb.m2,unidade:amb.unidade||'m2',ok:!!confOk,foto:foto,data:confOk?confOk.data:null});
         });
         var ok=(ambConc===ambientes.length);
-        todosAptos.push({obraId:o.id,obra:o.nome,apto:apto.nome,andarNum:andar.num,andar:andar.num,total:ambientes.length,concluidos:ambConc,data:dataConclusao,ok:ok});
+        todosAptos.push({obraId:o.id,obra:o.nome,apto:apto.nome,andar:andar.num,total:ambientes.length,concluidos:ambConc,data:dataConclusao,ok:ok,ambientes:ambsDetalhes});
       });
     });
   });
 
-  // Filtro de obra
   var obrasMap={};
   todosAptos.forEach(function(a){obrasMap[a.obraId]=a.obra;});
   var obraOpts='<option value="">Todas as obras</option>';
@@ -3580,58 +3648,91 @@ function renderAptos(){
   var filtroId=filtroEl?filtroEl.value:'';
   var listaF=filtroId?todosAptos.filter(function(a){return a.obraId===filtroId;}):todosAptos;
 
-  // Totais
   var totalAptos=listaF.length;
   var aptosOk=listaF.filter(function(a){return a.ok;}).length;
   var pct=totalAptos>0?Math.round((aptosOk/totalAptos)*100):0;
 
-  var html='<div class="hero" style="background:var(--green)"><p>Acompanhamento</p><h2>Aptos Concluidos</h2></div>'
-    +'<div class="pad">'
-    +'<div><select class="sel" id="aptos-filtro-obra" onchange="renderAptos()">'+obraOpts+'</select></div>';
+  var html='<div class="hero" style="background:var(--green)"><p>Acompanhamento</p><h2>Ambientes</h2></div>'
+    +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'
+    +'<select class="sel" id="aptos-filtro-obra" onchange="renderAptos()">'+obraOpts+'</select>';
 
-  // Barra de progresso geral
   if(totalAptos>0){
     html+='<div style="background:#fff;border-radius:14px;padding:14px;border:1px solid var(--border);">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
       +'<span style="font-size:13px;font-weight:700;">Progresso geral</span>'
-      +'<span style="font-size:14px;font-weight:700;color:var(--green);">'+aptosOk+' / '+totalAptos+' aptos</span></div>'
-      +'<div style="height:12px;background:#eee;border-radius:6px;overflow:hidden;">'
-      +'<div style="height:100%;width:'+pct+'%;background:var(--green);border-radius:6px;transition:width .4s;"></div></div>'
+      +'<span style="font-size:14px;font-weight:700;color:var(--green);">'+aptosOk+' / '+totalAptos+'</span></div>'
+      +'<div style="height:10px;background:#eee;border-radius:5px;overflow:hidden;">'
+      +'<div style="height:100%;width:'+pct+'%;background:var(--green);border-radius:5px;"></div></div>'
       +'<div style="font-size:11px;color:var(--sub);margin-top:5px;text-align:right;">'+pct+'% concluido</div>'
       +'</div>';
   }
 
-  // Lista de aptos por obra
   if(!listaF.length){
-    html+='<div class="empty"><div class="ei">🏁</div><p>Nenhum apartamento cadastrado.</p></div>';
+    html+='<div class="empty"><p>Nenhum ambiente cadastrado.</p></div>';
   } else {
     var porObra={};
-    listaF.sort(function(a,b){return a.andar!==b.andar?a.andar-b.andar:parseInt(a.apto)-parseInt(b.apto);});listaF.forEach(function(a){if(!porObra[a.obra])porObra[a.obra]=[];porObra[a.obra].push(a);});
+    listaF.sort(function(a,b){return a.andar!==b.andar?a.andar-b.andar:parseInt(a.apto)-parseInt(b.apto);});
+    listaF.forEach(function(a){if(!porObra[a.obra])porObra[a.obra]=[];porObra[a.obra].push(a);});
     Object.keys(porObra).forEach(function(oNome){
       var items=porObra[oNome];
       var okN=items.filter(function(a){return a.ok;}).length;
       if(!filtroId){
-        html+='<div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;margin-top:4px;">'
-          +oNome+' <span style="color:var(--green);">'+okN+'/'+items.length+'</span></div>';
+        html+='<div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;">'
+          +oNome+' · <span style="color:var(--green);">'+okN+'/'+items.length+'</span></div>';
       }
       items.forEach(function(item){
         var cor=item.ok?'var(--green)':item.concluidos>0?'#B8860B':'#ccc';
-        var bg=item.ok?'rgba(30,132,73,.06)':item.concluidos>0?'rgba(184,134,11,.06)':'var(--gray)';
+        var bg=item.ok?'rgba(30,132,73,.06)':item.concluidos>0?'rgba(184,134,11,.06)':'#fff';
         var pctA=item.total>0?Math.round((item.concluidos/item.total)*100):0;
         var status=item.ok?'Concluido':item.concluidos>0?'Em andamento':'Aguardando';
-        html+='<div style="background:'+bg+';border-radius:12px;padding:12px 14px;margin-bottom:8px;border-left:3px solid '+cor+';">'
+
+        // Lista de ambientes detalhada
+        var ambsHtml='<div style="margin-top:8px;border-top:1px solid #f0f0f0;padding-top:6px;display:flex;flex-direction:column;gap:3px;">'
+          +item.ambientes.map(function(a){
+            var cA=a.ok?'var(--green)':'#ccc';
+            return '<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;">'
+              +'<div style="display:flex;align-items:center;gap:6px;">'
+              +'<span style="width:8px;height:8px;border-radius:50%;background:'+cA+';flex-shrink:0;display:inline-block;"></span>'
+              +'<span style="font-size:12px;">'+(a.foto?'📷 ':'')+a.nome+'</span>'
+              +'</div>'
+              +'<div style="display:flex;align-items:center;gap:6px;">'
+              +(a.m2?'<span style="font-size:10px;color:#888;">'+a.m2+(a.unidade==='ml'?' ml':' m²')+'</span>':'')
+              +'<span style="font-size:11px;font-weight:700;color:'+cA+';">'+(a.ok?'✓':'–')+'</span>'
+              +'</div></div>';
+          }).join('')
+          +'</div>';
+
+        // Fotos
+        var fotos=item.ambientes.filter(function(a){return a.foto;});
+        var fotosHtml=fotos.length?'<div style="margin-top:8px;">'
+          +'<div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:5px;">Fotos</div>'
+          +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:5px;">'
+          +fotos.map(function(a){
+            return '<div style="border-radius:8px;overflow:hidden;position:relative;">'
+              +'<img src="'+a.foto+'" style="width:100%;height:70px;object-fit:cover;display:block;">'
+              +'<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.55);padding:2px 4px;">'
+              +'<div style="font-size:9px;color:#fff;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+a.nome+'</div>'
+              +(a.ok?'<div style="font-size:8px;color:#7dffb3;">✓</div>':'')
+              +'</div></div>';
+          }).join('')
+          +'</div></div>':'' ;
+
+        html+='<div style="background:'+bg+';border-radius:14px;padding:14px;border:1px solid var(--border);border-left:3px solid '+cor+';">'
           +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
-          +'<div><div style="font-size:14px;font-weight:700;">Apto '+item.apto+'</div>'
-          +'<div style="font-size:10px;color:var(--sub);">'+item.andar+'° Andar</div></div>'
+          +'<div><div style="font-size:15px;font-weight:700;">'+item.apto+'</div>'
+          +'<div style="font-size:11px;color:#888;">'+item.andar+'° Andar</div></div>'
           +'<div style="text-align:right;">'
           +'<div style="font-size:11px;font-weight:700;color:'+cor+';">'+status+'</div>'
-          +'<div style="font-size:11px;color:var(--sub);">'+item.concluidos+'/'+item.total+' amb.'+(item.ok?' · '+fmtD(item.data):'')+'</div>'
+          +(item.ok&&item.data?'<div style="font-size:10px;color:#888;">'+fmtD(item.data)+'</div>':'')
           +'</div></div>'
           +'<div style="display:flex;align-items:center;gap:8px;">'
-          +'<div style="flex:1;height:6px;background:#ddd;border-radius:3px;overflow:hidden;">'
+          +'<div style="flex:1;height:6px;background:#eee;border-radius:3px;overflow:hidden;">'
           +'<div style="height:100%;width:'+pctA+'%;background:'+cor+';border-radius:3px;"></div></div>'
-          +'<span style="font-size:10px;color:var(--sub);white-space:nowrap;font-weight:700;">'+pctA+'%</span>'
-          +'</div></div>';
+          +'<span style="font-size:10px;color:#888;font-weight:700;">'+item.concluidos+'/'+item.total+' amb.</span>'
+          +'</div>'
+          +ambsHtml
+          +fotosHtml
+          +'</div>';
       });
     });
   }
@@ -3699,30 +3800,17 @@ function gerarRelatorioReceber(){
     var l=null; if(c.lancamento_id){for(var i=0;i<lancs.length;i++) if(lancs[i].id===c.lancamento_id){l=lancs[i];break;}}
     var ambCad=null; var unidade='m2';
     if(o.estrutura){try{var est=JSON.parse(o.estrutura);est.andares&&est.andares.forEach(function(andar){andar.aptos&&andar.aptos.forEach(function(apto){(apto.ambientes||[]).forEach(function(a){if(a.nome===c.ambiente||(c.ambiente&&c.ambiente.indexOf(a.nome)>=0)){ambCad=a;unidade=a.unidade||'m2';}});});});}catch(e){}}
-    var areaTotal=l?parseFloat(l.area_m2)||0:0;
-    // Buscar metragem real do ambiente no cadastro da obra
-    var area=areaTotal;
-    if(o.estrutura){
-      try{
-        var est2=JSON.parse(o.estrutura);
-        var ambFound=null;
-        est2.andares&&est2.andares.forEach(function(andar){
-          andar.aptos&&andar.aptos.forEach(function(apto){
-            (apto.ambientes||[]).forEach(function(a){
-              if(c.ambiente&&(c.ambiente===a.nome||c.ambiente.indexOf(a.nome)>=0)&&!ambFound){
-                ambFound=a;
-              }
-            });
-          });
-        });
-        if(ambFound&&ambFound.m2) area=parseFloat(ambFound.m2)||areaTotal;
-      }catch(e){}
+    var area=c.area_m2?parseFloat(c.area_m2):l?parseFloat(l.area_m2)||0:0;
+    var valor=0;
+    if(c.valor_venda&&parseFloat(c.valor_venda)>0){
+      valor=parseFloat(c.valor_venda);
+    } else {
+      var valorFixo=ambCad&&ambCad.valor_fixo?parseFloat(ambCad.valor_fixo):0;
+      var isRejunte2=c.ambiente&&c.ambiente.toLowerCase().indexOf('rejunte')>=0;
+      var rateVenda=parseFloat(o.rate_venda)||0;
+      var rateVendaMl=isRejunte2&&o.rate_rejunte_venda?parseFloat(o.rate_rejunte_venda):parseFloat(o.rate_venda_ml)||0;
+      valor=valorFixo>0?area*valorFixo:(unidade==='ml'||isRejunte2)?area*rateVendaMl:area*rateVenda;
     }
-    var valorFixo=ambCad&&ambCad.valor_fixo?parseFloat(ambCad.valor_fixo):0;
-    var isRejunte2=c.ambiente&&c.ambiente.toLowerCase().indexOf('rejunte')>=0;
-    var rateVenda=parseFloat(o.rate_venda)||0;
-    var rateVendaMl=isRejunte2&&o.rate_rejunte_venda?parseFloat(o.rate_rejunte_venda):parseFloat(o.rate_venda_ml)||0;
-    var valor=valorFixo>0?area*valorFixo:(unidade==='ml'||isRejunte2)?area*rateVendaMl:area*rateVenda;
     var jaRecebido=recebimentos.some(function(r){return r.conf_id===c.id;});
     itensRel.push({confId:c.id,obra:o.nome,apto:c.apartamento,amb:c.ambiente,area:area,unidade:unidade,valor:valor,data:c.data,recebido:jaRecebido});
   });
@@ -3765,11 +3853,13 @@ function gerarRelatorioReceber(){
       +'<span>Data</span><span>Apto</span><span>Ambiente</span><span style="text-align:right;">Qtd</span><span style="text-align:right;">Valor</span>'
       +'</div>';
     fo.itens.sort(function(a,b){return a.data>b.data?1:-1;}).forEach(function(it){
-      html2+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 80px;padding:6px 14px;border-bottom:1px solid var(--border);font-size:11px;background:'+(it.recebido?'rgba(30,132,73,.04)':'#fff')+';">'
+      var rateUnitRec=it.area>0?(it.valor/it.area):0;
+      html2+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr auto auto auto;padding:6px 14px;border-bottom:1px solid var(--border);font-size:11px;background:'+(it.recebido?'rgba(30,132,73,.04)':'#fff')+';">'
         +'<span>'+fmtD(it.data)+'</span>'
         +'<span>'+(it.apto||'')+'</span>'
         +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(it.amb||'')+'</span>'
-        +'<span style="text-align:right;">'+it.area.toFixed(1)+(it.unidade==='ml'?' ml':' m²')+'</span>'
+        +'<span style="text-align:right;">'+it.area.toFixed(1)+(it.isRejunte||it.unidade==='ml'?' ml':' m²')+'</span>'
+        +'<span style="text-align:right;color:var(--sub);">'+fmt(rateUnitRec)+'</span>'
         +'<span style="text-align:right;font-weight:700;color:'+(it.recebido?'var(--green)':'#1a3a5c')+';">'+fmt(it.valor)+'</span>'
         +'</div>';
     });
@@ -3830,8 +3920,8 @@ function imprimirRelReceber(){
     +conteudo.innerHTML
     +'</div>'
     +'<div class="footer-doc">'
-    +'<span>GESTOR INSTALATO &copy; '+agora.getFullYear()+' - Documento confidencial</span>'
-    +'<span>Contas a Receber | Gerado em '+dataHoraGeracao+' por '+nomeGerador+'</span>'
+    +'<span>GESTOR INSTALATO &copy; 2021 - Documento confidencial</span>'
+    +'<span>Contas a Receber | Gerado em '+dataHoraGeracao+' por '+nomeGerador+' | Gestora Financeira Responsavel - Inae Ramos Custodio</span>'
     +'</div>'
     +'</body></html>');
   w.document.close();
@@ -4087,10 +4177,24 @@ function gerarRelatorioFin(){
   var fim=document.getElementById('rel-fim').value;
   if(!ini||!fim){toast('Informe o periodo.');return;}
 
-  // Filtrar lancamentos
+  // Filtrar lancamentos COM conferencia aprovada
   var lista=lancs.filter(function(l){
     var dentroData=l.data>=ini&&l.data<=fim;
     var funcOk=!funcId||l.usuario_id===funcId;
+    if(!dentroData||!funcOk) return false;
+    var temConf=confs.some(function(c){return c.lancamento_id===l.id&&c.status==='aprovado';});
+    return temConf;
+  });
+  // Buscar despesas vinculadas ao funcionario no periodo
+  var despsFunc=desps.filter(function(d){
+    var dentroData=d.data>=ini&&d.data<=fim;
+    var funcOk=funcId?d.usuario_id===funcId:d.usuario_id;
+    return dentroData&&funcOk;
+  });
+  // Buscar marmitas no periodo
+  var marmsFunc=marmitas.filter(function(m){
+    var dentroData=m.data>=ini&&m.data<=fim;
+    var funcOk=!funcId||m.usuario_id===funcId;
     return dentroData&&funcOk;
   });
 
@@ -4112,6 +4216,8 @@ function gerarRelatorioFin(){
 
   var totalGeralM2=lista.reduce(function(s,l){return s+(parseFloat(l.area_m2)||0);},0);
   var totalGeralValor=lista.reduce(function(s,l){return s+(parseFloat(l.total)||0);},0);
+  var totalGeralDesps=despsFunc.reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
+  var totalGeralMarms=marmsFunc.reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
 
   var html='<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;">'
     +'<div style="padding:10px 14px;background:#1a3a5c;display:flex;justify-content:space-between;align-items:center;">'
