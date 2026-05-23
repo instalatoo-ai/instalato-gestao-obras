@@ -5387,20 +5387,30 @@ function renderMedicoesFuncionario(){
     var cor=isPend?(venceu?'var(--red)':'#B8860B'):'var(--green)';
     var bg=isPend?(venceu?'rgba(192,57,43,.04)':'rgba(184,134,11,.04)'):'rgba(30,132,73,.04)';
     var statusLabel=isPend?(venceu?'⚠️ VENCIDO':'⏳ A RECEBER'):'✅ PAGO';
-    return '<div style="padding:14px;border-radius:14px;border:1px solid var(--border);border-left:3px solid '+cor+';background:'+bg+';display:flex;justify-content:space-between;align-items:flex-start;">'
+    // Buscar lancamentos do funcionario no periodo para mostrar obras e ambientes
+    var lancsPer=lancs.filter(function(l){
+      return l.usuario_id===U.id&&l.data>=m.periodo_ini&&l.data<=m.periodo_fim;
+    });
+    var obrasNomes=[]; lancsPer.forEach(function(l){var o=null;for(var i=0;i<obras.length;i++)if(obras[i].id===l.obra_id){o=obras[i];break;}if(o&&obrasNomes.indexOf(o.nome)<0)obrasNomes.push(o.nome);});
+    var marmsPer=marmitas.filter(function(mx){return mx.usuario_id===U.id&&mx.data>=m.periodo_ini&&mx.data<=m.periodo_fim;});
+    var totalMarmsPer=marmsPer.reduce(function(s,mx){return s+(parseFloat(mx.valor)||0);},0);
+    return '<div style="background:'+bg+';border-radius:14px;border:1px solid var(--border);border-left:3px solid '+cor+';overflow:hidden;">'
+      +'<div style="padding:14px;">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
       +'<div style="flex:1;">'
-      +'<div style="font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">'+statusLabel+'</div>'
-      +'<div style="font-size:15px;font-weight:700;color:'+cor+';">'+fmt(m.valor)+'</div>'
-      +'<div style="font-size:11px;color:var(--sub);margin-top:4px;">'+fmtD(m.periodo_ini)+' a '+fmtD(m.periodo_fim)+'</div>'
-      +(m.area_m2?'<div style="font-size:11px;color:var(--sub);">'+parseFloat(m.area_m2).toFixed(1)+'m²</div>':'')
-      +(isPend?'<div style="font-size:11px;color:'+cor+';font-weight:700;margin-top:4px;">Vence: '+fmtD(m.vencimento)+'</div>':'')
-      +(m.data_pagamento?'<div style="font-size:11px;color:var(--green);margin-top:4px;">Pago em: '+fmtD(m.data_pagamento)+'</div>':'')
+      +'<div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:3px;">'+statusLabel+'</div>'
+      +'<div style="font-size:18px;font-weight:700;color:'+cor+';">'+fmt(m.valor)+'</div>'
+      +(obrasNomes.length?'<div style="font-size:11px;color:#1a3a5c;font-weight:700;margin-top:3px;">🏗 '+obrasNomes.join(', ')+'</div>':'')
+      +'<div style="font-size:11px;color:var(--sub);margin-top:3px;">'+fmtD(m.periodo_ini)+' a '+fmtD(m.periodo_fim)+(m.area_m2?' · '+parseFloat(m.area_m2).toFixed(1)+'m²':'')+'</div>'
+      +(isPend?'<div style="font-size:11px;color:'+cor+';font-weight:700;margin-top:3px;">Vence: '+fmtD(m.vencimento)+'</div>':'')
+      +(m.data_pagamento?'<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:3px;">Pago em: '+fmtD(m.data_pagamento)+'</div>':'')
       +(m.observacao?'<div style="font-size:10px;color:var(--sub);margin-top:3px;font-style:italic;">'+m.observacao+'</div>':'')
       +'</div>'
-      +'<div style="text-align:right;margin-left:12px;">'
-      +'<div style="font-size:10px;color:var(--sub);">'+fmtD(m.data)+'</div>'
+      +'<div style="font-size:10px;color:var(--sub);margin-left:8px;">'+fmtD(m.data)+'</div>'
       +'</div>'
-      +'</div>';
+      // Botao detalhes
+      +'<button data-mid="'+m.id+'" onclick="verDetalhesMEDFunc(this.dataset.mid)" style="width:100%;padding:7px;border-radius:20px;border:1px solid '+cor+';background:transparent;color:'+cor+';font-size:11px;font-weight:700;cursor:pointer;">🔍 Ver detalhes</button>'
+      +'</div></div>';
   }
 
   var html='<div class="hero" style="background:#1a3a5c"><p>Meus pagamentos</p><h2>📋 Medições</h2></div>'
@@ -5437,6 +5447,54 @@ function renderMedicoesFuncionario(){
     +'</div>';
   el.innerHTML=html;
 }
+
+function verDetalhesMEDFunc(id){
+  var med=null; for(var i=0;i<medicoes.length;i++) if(medicoes[i].id===id){med=medicoes[i];break;}
+  if(!med) return;
+  var lancsPer=lancs.filter(function(l){return l.usuario_id===U.id&&l.data>=med.periodo_ini&&l.data<=med.periodo_fim;});
+  var marmsPer=marmitas.filter(function(m){return m.usuario_id===U.id&&m.data>=med.periodo_ini&&m.data<=med.periodo_fim;});
+  var totalBruto=lancsPer.reduce(function(s,l){return s+(parseFloat(l.total)||0);},0);
+  var totalMarms=marmsPer.reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
+  var existing=document.getElementById('modal-det-med-func'); if(existing) existing.remove();
+  var lancHtml=lancsPer.length?lancsPer.map(function(l){
+    var o=null;for(var i=0;i<obras.length;i++)if(obras[i].id===l.obra_id){o=obras[i];break;}
+    var confOk=confs.some(function(c){return c.lancamento_id===l.id&&c.status==='aprovado';});
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">'
+      +'<div><div style="font-size:12px;font-weight:700;">'+(o?o.nome:'--')+' · '+(l.apartamento||'')+'</div>'
+      +'<div style="font-size:10px;color:var(--sub);">'+(l.ambiente||'')+(confOk?' · <span style="color:var(--green);">✓ Aprovado</span>':' · <span style="color:#B8860B;">Pendente</span>')+'</div></div>'
+      +'<div style="text-align:right;"><div style="font-size:12px;font-weight:700;color:var(--gold);">'+fmt(l.total)+'</div>'
+      +'<div style="font-size:10px;color:var(--sub);">'+parseFloat(l.area_m2||0).toFixed(1)+'m²</div></div>'
+      +'</div>';
+  }).join(''):'<div style="font-size:12px;color:var(--sub);padding:8px 0;">Nenhum lancamento.</div>';
+  var descontosHtml=totalMarms>0?'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);">'
+    +'<span style="font-size:12px;color:var(--red);">🍱 Marmitas ('+marmsPer.length+'x)</span>'
+    +'<span style="font-size:12px;font-weight:700;color:var(--red);">-'+fmt(totalMarms)+'</span></div>':'';
+  var html='<div class="modal-bg show" id="modal-det-med-func" style="z-index:9999;align-items:flex-start;padding-top:0;">'
+    +'<div class="modal-sheet" style="max-height:95vh;border-radius:0 0 20px 20px;">'
+    +'<div class="mhdr" style="background:#1a3a5c;">'
+    +'<span class="mhdr-t" style="color:#fff;">Detalhes da Medicao</span>'
+    +'<button class="mhdr-x" onclick="fecharDetMEDFunc()" style="color:#fff;background:transparent;border:none;font-size:20px;cursor:pointer;">✕</button>'
+    +'</div>'
+    +'<div class="mf">'
+    +'<div style="background:#e8f5e9;border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;">'
+    +'<div><div style="font-size:10px;color:var(--sub);">Periodo</div>'
+    +'<div style="font-size:13px;font-weight:700;">'+fmtD(med.periodo_ini)+' a '+fmtD(med.periodo_fim)+'</div></div>'
+    +'<div style="text-align:right;"><div style="font-size:10px;color:var(--sub);">'+(med.status==='pago'?'Pago em':'Vencimento')+'</div>'
+    +'<div style="font-size:13px;font-weight:700;color:'+(med.status==='pago'?'var(--green)':'#B8860B')+';">'+fmtD(med.status==='pago'?med.data_pagamento:med.vencimento)+'</div></div>'
+    +'</div>'
+    +'<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Ambientes produzidos</div>'+lancHtml+'</div>'
+    +(descontosHtml?'<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Descontos</div>'+descontosHtml+'</div>':'')
+    +'<div style="background:var(--gray);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;">'
+    +'<div style="display:flex;justify-content:space-between;"><span style="font-size:12px;color:var(--sub);">Bruto</span><span style="font-size:13px;font-weight:700;">'+fmt(totalBruto)+'</span></div>'
+    +(totalMarms>0?'<div style="display:flex;justify-content:space-between;"><span style="font-size:12px;color:var(--red);">Descontos</span><span style="font-size:13px;font-weight:700;color:var(--red);">-'+fmt(totalMarms)+'</span></div>':'')
+    +'<div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:6px;">'
+    +'<span style="font-size:13px;font-weight:700;color:#1e8449;">Liquido</span>'
+    +'<span style="font-size:16px;font-weight:700;color:#1e8449;">'+fmt(med.valor)+'</span></div>'
+    +'</div>'
+    +'</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+function fecharDetMEDFunc(){var m=document.getElementById('modal-det-med-func');if(m)m.remove();}
 
 function renderConta(){
   var el=getEl('t-conta'); if(!el) return;
