@@ -3699,7 +3699,25 @@ function gerarRelatorioReceber(){
     var l=null; if(c.lancamento_id){for(var i=0;i<lancs.length;i++) if(lancs[i].id===c.lancamento_id){l=lancs[i];break;}}
     var ambCad=null; var unidade='m2';
     if(o.estrutura){try{var est=JSON.parse(o.estrutura);est.andares&&est.andares.forEach(function(andar){andar.aptos&&andar.aptos.forEach(function(apto){(apto.ambientes||[]).forEach(function(a){if(a.nome===c.ambiente||(c.ambiente&&c.ambiente.indexOf(a.nome)>=0)){ambCad=a;unidade=a.unidade||'m2';}});});});}catch(e){}}
-    var area=l?parseFloat(l.area_m2)||0:0;
+    var areaTotal=l?parseFloat(l.area_m2)||0:0;
+    // Buscar metragem real do ambiente no cadastro da obra
+    var area=areaTotal;
+    if(o.estrutura){
+      try{
+        var est2=JSON.parse(o.estrutura);
+        var ambFound=null;
+        est2.andares&&est2.andares.forEach(function(andar){
+          andar.aptos&&andar.aptos.forEach(function(apto){
+            (apto.ambientes||[]).forEach(function(a){
+              if(c.ambiente&&(c.ambiente===a.nome||c.ambiente.indexOf(a.nome)>=0)&&!ambFound){
+                ambFound=a;
+              }
+            });
+          });
+        });
+        if(ambFound&&ambFound.m2) area=parseFloat(ambFound.m2)||areaTotal;
+      }catch(e){}
+    }
     var valorFixo=ambCad&&ambCad.valor_fixo?parseFloat(ambCad.valor_fixo):0;
     var isRejunte2=c.ambiente&&c.ambiente.toLowerCase().indexOf('rejunte')>=0;
     var rateVenda=parseFloat(o.rate_venda)||0;
@@ -3777,13 +3795,47 @@ function gerarRelatorioReceber(){
 
 function imprimirRelReceber(){
   var conteudo=document.getElementById('relr-print');
-  if(!conteudo) return;
+  if(!conteudo){toast('Gere o relatorio primeiro.');return;}
+  var ini=document.getElementById('relr-ini')?document.getElementById('relr-ini').value:'';
+  var fim=document.getElementById('relr-fim')?document.getElementById('relr-fim').value:'';
+  var agora=new Date();
+  var dataHoraGeracao=agora.toLocaleDateString('pt-BR')+' '+agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  var nomeGerador=U?U.apelido:'Admin';
   var w=window.open('','_blank');
-  w.document.write('<html><head><title>Contas a Receber</title>'
-    +'<style>body{font-family:sans-serif;font-size:12px;margin:20px;}*{box-sizing:border-box;}</style>'
-    +'</head><body>'+conteudo.innerHTML+'</body></html>');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Contas a Receber</title><style>'
+    +'*{box-sizing:border-box;margin:0;padding:0;}'
+    +'@page{size:A4;margin:15mm;}'
+    +'body{font-family:Arial,sans-serif;font-size:11px;color:#222;}'
+    +'.watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);opacity:0.045;pointer-events:none;z-index:0;text-align:center;}'
+    +'.watermark-txt{font-size:80px;font-weight:900;color:#1a3a5c;letter-spacing:4px;white-space:nowrap;}'
+    +'.watermark-sub{font-size:22px;color:#1a3a5c;letter-spacing:8px;}'
+    +'.content{position:relative;z-index:1;}'
+    +'.footer-doc{position:fixed;bottom:5mm;left:15mm;right:15mm;border-top:1px solid #ddd;padding-top:4px;display:flex;justify-content:space-between;font-size:9px;color:#aaa;}'
+    +'@media print{button{display:none!important;}}'
+    +'</style></head><body>'
+    +'<div class="watermark"><div class="watermark-txt">INSTALATO</div><div class="watermark-sub">GESTOR</div></div>'
+    +'<div class="content">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;border-bottom:2px solid #1a3a5c;padding-bottom:10px;">'
+    +'<div>'
+    +'<div style="font-size:18px;font-weight:900;color:#1a3a5c;letter-spacing:1px;">GESTOR INSTALATO</div>'
+    +'<div style="font-size:14px;font-weight:700;color:#333;margin-top:4px;">Contas a Receber</div>'
+    +'<div style="font-size:10px;color:#888;margin-top:2px;">Periodo: '+(ini?fmtD(ini)+' a '+fmtD(fim):'Todos os periodos')+'</div>'
+    +'</div>'
+    +'<div style="text-align:right;font-size:10px;color:#666;line-height:1.8;">'
+    +'<div><strong>Gerado em:</strong> '+dataHoraGeracao+'</div>'
+    +'<div><strong>Gerado por:</strong> '+nomeGerador+'</div>'
+    +'<div><strong>Documento:</strong> Confidencial</div>'
+    +'</div>'
+    +'</div>'
+    +conteudo.innerHTML
+    +'</div>'
+    +'<div class="footer-doc">'
+    +'<span>GESTOR INSTALATO &copy; '+agora.getFullYear()+' - Documento confidencial</span>'
+    +'<span>Contas a Receber | Gerado em '+dataHoraGeracao+' por '+nomeGerador+'</span>'
+    +'</div>'
+    +'</body></html>');
   w.document.close();
-  w.print();
+  setTimeout(function(){w.print();},600);
 }
 
 function enviarRelReceberWhats(){
@@ -4172,13 +4224,51 @@ function enviarRelWhats(){
 
 function imprimirRelFin(){
   var conteudo=document.getElementById('rel-fin-resultado');
-  if(!conteudo) return;
+  if(!conteudo){toast('Gere o relatorio primeiro.');return;}
+  var funcId=document.getElementById('rel-func')?document.getElementById('rel-func').value:'';
+  var ini=document.getElementById('rel-ini')?document.getElementById('rel-ini').value:'';
+  var fim=document.getElementById('rel-fim')?document.getElementById('rel-fim').value:'';
+  var u=funcId?users.find(function(x){return x.id===funcId;}):null;
+  var titulo='Relatorio de Producao'+(u?' - '+u.apelido:'');
+  var agora=new Date();
+  var dataHoraGeracao=agora.toLocaleDateString('pt-BR')+' '+agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  var nomeGerador=U?U.apelido:'Admin';
   var w=window.open('','_blank');
-  w.document.write('<html><head><title>Relatorio de Producao</title>'
-    +'<style>body{font-family:sans-serif;font-size:12px;margin:20px;}table{width:100%;border-collapse:collapse;}*{box-sizing:border-box;}</style>'
-    +'</head><body>'+conteudo.innerHTML+'</body></html>');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+titulo+'</title><style>'
+    +'*{box-sizing:border-box;margin:0;padding:0;}'
+    +'@page{size:A4;margin:15mm;}'
+    +'body{font-family:Arial,sans-serif;font-size:11px;color:#222;}'
+    +'.watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);opacity:0.045;pointer-events:none;z-index:0;text-align:center;}'
+    +'.watermark-txt{font-size:80px;font-weight:900;color:#1a3a5c;letter-spacing:4px;white-space:nowrap;}'
+    +'.watermark-sub{font-size:22px;color:#1a3a5c;letter-spacing:8px;}'
+    +'.content{position:relative;z-index:1;}'
+    +'.header-doc{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;border-bottom:2px solid #1a3a5c;padding-bottom:10px;}'
+    +'.footer-doc{position:fixed;bottom:5mm;left:15mm;right:15mm;border-top:1px solid #ddd;padding-top:4px;display:flex;justify-content:space-between;font-size:9px;color:#aaa;}'
+    +'@media print{button{display:none!important;}}'
+    +'</style></head><body>'
+    +'<div class="watermark"><div class="watermark-txt">INSTALATO</div><div class="watermark-sub">GESTOR</div></div>'
+    +'<div class="content">'
+    +'<div class="header-doc">'
+    +'<div>'
+    +'<div style="font-size:18px;font-weight:900;color:#1a3a5c;letter-spacing:1px;">GESTOR INSTALATO</div>'
+    +'<div style="font-size:14px;font-weight:700;color:#333;margin-top:4px;">'+titulo+'</div>'
+    +'<div style="font-size:10px;color:#888;margin-top:2px;">Periodo: '+fmtD(ini)+' a '+fmtD(fim)+'</div>'
+    +'</div>'
+    +'<div style="text-align:right;font-size:10px;color:#666;line-height:1.8;">'
+    +'<div><strong>Gerado em:</strong> '+dataHoraGeracao+'</div>'
+    +'<div><strong>Gerado por:</strong> '+nomeGerador+'</div>'
+    +'<div><strong>Documento:</strong> Confidencial</div>'
+    +'</div>'
+    +'</div>'
+    +conteudo.innerHTML
+    +'</div>'
+    +'<div class="footer-doc">'
+    +'<span>GESTOR INSTALATO &copy; '+agora.getFullYear()+' - Documento confidencial</span>'
+    +'<span>'+titulo+' | Gerado em '+dataHoraGeracao+' por '+nomeGerador+'</span>'
+    +'</div>'
+    +'</body></html>');
   w.document.close();
-  w.print();
+  setTimeout(function(){w.print();},600);
 }
 
 function renderFinanceiro(){
