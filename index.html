@@ -4000,44 +4000,97 @@ function gerarRelatorioReceber(){
 }
 
 function imprimirRelReceber(){
-  var conteudo=document.getElementById('relr-print');
-  if(!conteudo){toast('Gere o relatorio primeiro.');return;}
-  var ini=document.getElementById('relr-ini')?document.getElementById('relr-ini').value:'';
-  var fim=document.getElementById('relr-fim')?document.getElementById('relr-fim').value:'';
+  var d=window._relReceberData;
+  if(!d){toast('Gere o relatorio primeiro.');return;}
+  var ini=d.ini||'';var fim=d.fim||'';
   var agora=new Date();
   var dataHoraGeracao=agora.toLocaleDateString('pt-BR')+' '+agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   var nomeGerador=U?U.apelido:'Admin';
+
+  // Montar tabela HTML limpa para impressao
+  var tabelas='';
+  Object.keys(d.porObra).forEach(function(nomeObra){
+    var fo=d.porObra[nomeObra];
+    tabelas+='<div style="margin-bottom:20px;">'
+      +'<div style="background:#1a3a5c;color:#fff;padding:7px 10px;border-radius:4px 4px 0 0;display:flex;justify-content:space-between;">'
+      +'<strong style="font-size:12px;">'+nomeObra+'</strong>'
+      +'<span style="font-size:11px;">'+fo.itens.length+' ambiente(s)</span>'
+      +'</div>'
+      +'<table style="width:100%;border-collapse:collapse;font-size:11px;">'
+      +'<thead><tr style="background:#f0f4f8;">'
+      +'<th style="padding:6px 8px;text-align:left;border-bottom:1px solid #ddd;width:70px;">Data</th>'
+      +'<th style="padding:6px 8px;text-align:left;border-bottom:1px solid #ddd;width:60px;">Apto</th>'
+      +'<th style="padding:6px 8px;text-align:left;border-bottom:1px solid #ddd;">Ambiente</th>'
+      +'<th style="padding:6px 8px;text-align:right;border-bottom:1px solid #ddd;width:80px;">Qtd</th>'
+      +'<th style="padding:6px 8px;text-align:right;border-bottom:1px solid #ddd;width:70px;">R$/unit</th>'
+      +'<th style="padding:6px 8px;text-align:right;border-bottom:1px solid #ddd;width:90px;">Valor</th>'
+      +'</tr></thead><tbody>';
+    fo.itens.sort(function(a,b){return a.data>b.data?1:-1;}).forEach(function(it,idx){
+      var rateUnit=it.area>0?(it.valor/it.area):0;
+      tabelas+='<tr style="background:'+(it.recebido?'#f0fff4':(idx%2===0?'#fff':'#fafafa'))+';">'
+        +'<td style="padding:5px 8px;border-bottom:1px solid #eee;">'+fmtD(it.data)+'</td>'
+        +'<td style="padding:5px 8px;border-bottom:1px solid #eee;font-weight:700;">'+(it.apto||'')+'</td>'
+        +'<td style="padding:5px 8px;border-bottom:1px solid #eee;">'+(it.amb||'')+'</td>'
+        +'<td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:right;">'+it.area.toFixed(1)+(it.isRejunte||it.unidade==='ml'?' ml':' m²')+'</td>'
+        +'<td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:right;color:#666;">R$'+rateUnit.toFixed(2)+'</td>'
+        +'<td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:'+(it.recebido?'#1e8449':'#1a3a5c')+';">R$'+it.valor.toFixed(2)+(it.recebido?' ✓':'')+'</td>'
+        +'</tr>';
+    });
+    tabelas+='<tr style="background:#f0f4f8;">'
+      +'<td colspan="5" style="padding:6px 8px;font-weight:700;font-size:12px;border-top:2px solid #1a3a5c;">Subtotal</td>'
+      +'<td style="padding:6px 8px;text-align:right;font-weight:700;font-size:12px;border-top:2px solid #1a3a5c;">R$'+fo.total.toFixed(2)+'</td>'
+      +'</tr>'
+      +'</tbody></table></div>';
+  });
+
+  // Totais finais
+  tabelas+='<table style="width:100%;border-collapse:collapse;margin-top:10px;">'
+    +'<tr style="background:#1a3a5c;">'
+    +'<td style="padding:8px 10px;color:#fff;font-weight:700;font-size:13px;">Total Geral</td>'
+    +'<td style="padding:8px 10px;text-align:right;color:#fff;font-weight:700;font-size:13px;">R$'+d.totalGeral.toFixed(2)+'</td>'
+    +'</tr>'
+    +'<tr style="background:#e8f5e9;">'
+    +'<td style="padding:6px 10px;color:#1e8449;font-weight:700;">Recebido</td>'
+    +'<td style="padding:6px 10px;text-align:right;color:#1e8449;font-weight:700;">R$'+d.totalRecebido.toFixed(2)+'</td>'
+    +'</tr>'
+    +'<tr style="background:#fff0f0;">'
+    +'<td style="padding:6px 10px;color:#c0392b;font-weight:700;">Pendente</td>'
+    +'<td style="padding:6px 10px;text-align:right;color:#c0392b;font-weight:700;">R$'+d.totalPendente.toFixed(2)+'</td>'
+    +'</tr>'
+    +'</table>';
+
   var w=window.open('','_blank');
   w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Contas a Receber</title><style>'
     +'*{box-sizing:border-box;margin:0;padding:0;}'
-    +'@page{size:A4;margin:15mm;}'
+    +'@page{size:A4;margin:12mm 15mm 18mm;}'
     +'body{font-family:Arial,sans-serif;font-size:11px;color:#222;}'
-    +'.watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);opacity:0.045;pointer-events:none;z-index:0;text-align:center;}'
-    +'.watermark-txt{font-size:80px;font-weight:900;color:#1a3a5c;letter-spacing:4px;white-space:nowrap;}'
-    +'.watermark-sub{font-size:22px;color:#1a3a5c;letter-spacing:8px;}'
+    +'.watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);opacity:0.04;pointer-events:none;z-index:0;text-align:center;}'
+    +'.watermark-txt{font-size:90px;font-weight:900;color:#1a3a5c;letter-spacing:4px;white-space:nowrap;}'
+    +'.watermark-sub{font-size:24px;color:#1a3a5c;letter-spacing:8px;}'
     +'.content{position:relative;z-index:1;}'
-    +'.footer-doc{position:fixed;bottom:5mm;left:15mm;right:15mm;border-top:1px solid #ddd;padding-top:4px;display:flex;justify-content:space-between;font-size:9px;color:#aaa;}'
-    +'@media print{button{display:none!important;}}'
+    +'.footer{position:fixed;bottom:5mm;left:12mm;right:12mm;border-top:1px solid #ddd;padding-top:4px;font-size:9px;color:#aaa;display:flex;justify-content:space-between;}'
+    +'@media print{button{display:none!important;}.footer{display:flex;}}'
     +'</style></head><body>'
     +'<div class="watermark"><div class="watermark-txt">INSTALATO</div><div class="watermark-sub">GESTOR</div></div>'
     +'<div class="content">'
+    // Header
     +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;border-bottom:2px solid #1a3a5c;padding-bottom:10px;">'
     +'<div>'
-    +'<div style="font-size:18px;font-weight:900;color:#1a3a5c;letter-spacing:1px;">GESTOR INSTALATO</div>'
-    +'<div style="font-size:14px;font-weight:700;color:#333;margin-top:4px;">Contas a Receber</div>'
-    +'<div style="font-size:10px;color:#888;margin-top:2px;">Periodo: '+(ini?fmtD(ini)+' a '+fmtD(fim):'Todos os periodos')+'</div>'
+    +'<div style="font-size:20px;font-weight:900;color:#1a3a5c;letter-spacing:1px;">GESTOR INSTALATO</div>'
+    +'<div style="font-size:14px;font-weight:700;color:#333;margin-top:3px;">Contas a Receber</div>'
+    +'<div style="font-size:10px;color:#888;margin-top:3px;">Periodo: '+(ini?fmtD(ini)+' a '+fmtD(fim):'Todos os periodos')+'</div>'
     +'</div>'
-    +'<div style="text-align:right;font-size:10px;color:#666;line-height:1.8;">'
+    +'<div style="text-align:right;font-size:10px;color:#555;line-height:1.9;">'
     +'<div><strong>Gerado em:</strong> '+dataHoraGeracao+'</div>'
     +'<div><strong>Gerado por:</strong> '+nomeGerador+'</div>'
-    +'<div><strong>Documento:</strong> Confidencial</div>'
+    +'<div><strong>Doc.:</strong> Confidencial</div>'
     +'</div>'
     +'</div>'
-    +conteudo.innerHTML
+    +tabelas
     +'</div>'
-    +'<div class="footer-doc">'
+    +'<div class="footer">'
     +'<span>GESTOR INSTALATO &copy; 2021 - Documento confidencial</span>'
-    +'<span>Contas a Receber | Gerado em '+dataHoraGeracao+' por '+nomeGerador+' | Gestora Financeira Responsavel - Inae Ramos Custodio</span>'
+    +'<span>Contas a Receber | '+dataHoraGeracao+' | '+nomeGerador+' | Gestora Financeira - Inae Ramos Custodio</span>'
     +'</div>'
     +'</body></html>');
   w.document.close();
