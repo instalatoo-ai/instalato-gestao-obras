@@ -2124,7 +2124,7 @@ function renderOcorr(){
       +'</div>';
 
   el.innerHTML='<div class="hero" style="background:#8B0000"><p>'+(isFunc?'Registrar':'Gestao')+'</p><h2>Ocorrencias</h2></div>'
-    +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'
+    +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'+fp
     +alertasHtml
     +'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
     +'<div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;">Registrar ocorrencia</div>'
@@ -2919,9 +2919,40 @@ function renderPonto(){
       : '')
     +'</div>'
     +(T==='admin'||T==='lider_chefe'?'<button class="btn-sec" type="button" onclick="showRelPonto()">📄 Relatório de ponto</button>':'')
-    +(pontos.length?'<div><div class="fl">Histórico de pontos</div>'
-    +(T==='admin'||T==='lider_chefe'?'<div class="fil-row"><select id="pf-func" onchange="renderPontoFiltro()"><option value="">Todos</option>'+fOpts+'</select><select id="pf-obra" onchange="renderPontoFiltro()"><option value="">Todas as obras</option>'+oOpts+'</select></div>':'')
-    +'<div id="ponto-hist">'+hist+'</div></div>':'<div class="empty"><p>Nenhum registro de ponto ainda.</p></div>')
+    // Quem esta online agora (para lider e lider_chefe)
+    +(function(){
+      if(T!=='lider'&&T!=='lider_chefe'&&T!=='admin') return '';
+      var hojeStr=hoje();
+      var online=users.filter(function(u){
+        return u.ativo && u.tipo==='func' && pontos.some(function(p){
+          return p.usuario_id===u.id && (p.data===hojeStr||(p.created_at&&p.created_at.startsWith(hojeStr))) && !p.saida_hora;
+        });
+      });
+      if(!online.length) return '<div style="background:#fff;border-radius:14px;border:1px solid var(--border);padding:12px 14px;font-size:12px;color:var(--sub);text-align:center;">Nenhum funcionario em servico agora.</div>';
+      return '<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
+        +'<div style="padding:10px 14px;background:var(--green);display:flex;justify-content:space-between;align-items:center;">'
+        +'<span style="font-size:13px;font-weight:700;color:#fff;">Em servico agora</span>'
+        +'<span style="font-size:12px;background:rgba(255,255,255,.25);color:#fff;padding:2px 10px;border-radius:20px;font-weight:700;">'+online.length+' online</span>'
+        +'</div>'
+        +online.map(function(u){
+          var pt=pontos.find(function(p){return p.usuario_id===u.id&&(p.data===hojeStr||(p.created_at&&p.created_at.startsWith(hojeStr)))&&!p.saida_hora;});
+          var o=null; if(pt&&pt.obra_id){for(var i=0;i<obras.length;i++) if(obras[i].id===pt.obra_id){o=obras[i];break;}}
+          return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);">'
+            +'<div style="width:36px;height:36px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:16px;position:relative;">👷'
+            +'<span style="position:absolute;bottom:0;right:0;width:12px;height:12px;background:#25D366;border-radius:50%;border:2px solid #fff;"></span>'
+            +'</div>'
+            +'<div style="flex:1;">'
+            +'<div style="font-size:13px;font-weight:700;">'+u.apelido+'</div>'
+            +'<div style="font-size:11px;color:var(--sub);">'+(o?o.nome:'--')+' · Entrada: '+(pt?pt.entrada_hora||pt.hora||'--':'--')+'</div>'
+            +'</div>'
+            +'<div style="width:10px;height:10px;border-radius:50%;background:var(--green);"></div>'
+            +'</div>';
+        }).join('')
+        +'</div>';
+    })()
+    +(T==='admin'||T==='lider_chefe'?(pontos.length?'<div><div class="fl">Historico de pontos</div>'
+    +'<div class="fil-row"><select id="pf-func" onchange="renderPontoFiltro()"><option value="">Todos</option>'+fOpts+'</select><select id="pf-obra" onchange="renderPontoFiltro()"><option value="">Todas as obras</option>'+oOpts+'</select></div>'
+    +'<div id="ponto-hist">'+hist+'</div></div>':'<div class="empty"><p>Nenhum registro de ponto ainda.</p></div>'):'')
     +'</div>';
 }
 
@@ -3290,15 +3321,29 @@ function enviarParaSheets(conf, obraId, profId, apto, amb, obs){
 // ── DASHBOARD ──
 function renderDash(){
   var el=getEl('t-dash'); if(!el) return;
+  var _dIni=window._dashIni||''; var _dFim=window._dashFim||'';
+  function dentroFiltro(d){ return (!_dIni||d>=_dIni)&&(!_dFim||d<=_dFim); }
 
-  // Totais producao (a pagar func)
-  var totalPagar=lancs.reduce(function(s,l){return s+(parseFloat(l.total)||0);},0);
-  var totalM2=lancs.reduce(function(s,l){return s+(parseFloat(l.area_m2)||0);},0);
-  var totalDesp=desps.reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
+  // Lancamentos com conferencia aprovada no periodo
+  var lancsConf=lancs.filter(function(l){
+    if(!dentroFiltro(l.data||'')) return false;
+    return confs.some(function(c){return c.lancamento_id===l.id&&c.status==='aprovado';});
+  });
+  var totalPagar=lancsConf.reduce(function(s,l){return s+(parseFloat(l.total)||0);},0);
+  var totalM2=lancsConf.reduce(function(s,l){return s+(parseFloat(l.area_m2)||0);},0);
 
-  // Calcular a receber (apenas conferidos aprovados)
+  // Todas as despesas no periodo
+  var despsF=desps.filter(function(d){return dentroFiltro(d.data||'');});
+  var totalDespesas=despsF.reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
+
+  // Marmitas no periodo
+  var marmsF=marmitas.filter(function(m){return dentroFiltro(m.data||'');});
+  var totalMarmitas=marmsF.reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
+
+  // A receber - conferidos aprovados no periodo
   var totalReceber=0;
-  confs.filter(function(c){return c.status==='aprovado';}).forEach(function(c){
+  confs.filter(function(c){return c.status==='aprovado'&&dentroFiltro(c.data||'');}).forEach(function(c){
+    if(c.valor_venda&&parseFloat(c.valor_venda)>0){totalReceber+=parseFloat(c.valor_venda);return;}
     var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===c.obra_id){o=obras[i];break;}
     if(!o) return;
     var l=null; if(c.lancamento_id){for(var i=0;i<lancs.length;i++) if(lancs[i].id===c.lancamento_id){l=lancs[i];break;}}
@@ -3316,33 +3361,46 @@ function renderDash(){
   // totalPagar ja definido acima
 
   // Grafico pizza SVG
-  function pizzaSVG(pagar,receber,lucroV){
-    var total=receber>0?receber:1;
-    var pPct=Math.min(100,Math.round((pagar/total)*100));
-    var lPct=Math.max(0,100-pPct);
-    // Calcular arcos SVG
+  // Separar despesas por tipo
+  var totalCombustivel=despsF.filter(function(d){return d.categoria==='Combustivel';}).reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
+  var totalImposto=despsF.filter(function(d){return d.tipo==='imposto';}).reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
+  var totalOutrasDesps=totalDespesas-totalCombustivel-totalImposto;
+
+  // Grafico pizza multi-segmentos
+  function pizzaMulti(segmentos, totalReceberV){
+    var total=totalReceberV>0?totalReceberV:1;
     function polar(cx,cy,r,angleDeg){
       var rad=(angleDeg-90)*Math.PI/180;
       return {x:cx+r*Math.cos(rad),y:cy+r*Math.sin(rad)};
     }
     var cx=100,cy=100,r=85;
-    var angle1=pPct*3.6;
-    var p1=polar(cx,cy,r,0);
-    var p2=polar(cx,cy,r,angle1);
-    var large=angle1>180?1:0;
-    var pathPagar='M '+cx+' '+cy+' L '+p1.x+' '+p1.y+' A '+r+' '+r+' 0 '+large+' 1 '+p2.x+' '+p2.y+' Z';
-    var p3=polar(cx,cy,r,angle1);
-    var p4=polar(cx,cy,r,360);
-    var large2=(360-angle1)>180?1:0;
-    var pathLucro='M '+cx+' '+cy+' L '+p3.x+' '+p3.y+' A '+r+' '+r+' 0 '+large2+' 1 '+p4.x+' '+p4.y+' Z';
-    return '<svg viewBox="0 0 200 200" style="width:180px;height:180px;">'
-      +'<path d="'+pathPagar+'" fill="#c0392b" opacity="0.85"/>'
-      +'<path d="'+pathLucro+'" fill="#1e8449" opacity="0.85"/>'
-      +'<circle cx="100" cy="100" r="50" fill="#fff"/>'
-      +'<text x="100" y="95" text-anchor="middle" font-size="18" font-weight="bold" fill="#1a3a5c">'+margemPct+'%</text>'
-      +'<text x="100" y="113" text-anchor="middle" font-size="10" fill="#888">margem</text>'
+    var paths=''; var angle=0;
+    segmentos.forEach(function(seg){
+      var pct=Math.min(100,(seg.valor/total)*100);
+      var sweep=pct*3.6;
+      if(sweep<0.5) return;
+      var p1=polar(cx,cy,r,angle);
+      var p2=polar(cx,cy,r,angle+sweep);
+      var large=sweep>180?1:0;
+      paths+='<path d="M '+cx+' '+cy+' L '+p1.x.toFixed(2)+' '+p1.y.toFixed(2)+' A '+r+' '+r+' 0 '+large+' 1 '+p2.x.toFixed(2)+' '+p2.y.toFixed(2)+' Z" fill="'+seg.cor+'" opacity="0.9"/>';
+      angle+=sweep;
+    });
+    return '<svg viewBox="0 0 200 200" style="width:180px;height:180px;flex-shrink:0;">'
+      +paths
+      +'<circle cx="100" cy="100" r="48" fill="#fff"/>'
+      +'<text x="100" y="94" text-anchor="middle" font-size="17" font-weight="bold" fill="#1a3a5c">'+margemPct+'%</text>'
+      +'<text x="100" y="110" text-anchor="middle" font-size="9" fill="#888">margem</text>'
       +'</svg>';
   }
+
+  var segmentos=[
+    {label:'A Pagar Func.',valor:totalPagar,cor:'#c0392b'},
+    {label:'Combustivel',valor:totalCombustivel,cor:'#e67e22'},
+    {label:'Marmitas',valor:totalMarmitas,cor:'#B8860B'},
+    {label:'Impostos',valor:totalImposto,cor:'#8e44ad'},
+    {label:'Outros gastos',valor:Math.max(0,totalOutrasDesps),cor:'#7f8c8d'},
+    {label:'Lucro',valor:Math.max(0,lucro),cor:'#1e8449'}
+  ];
 
   // Barras por obra
   var obraFat={};
@@ -3362,6 +3420,13 @@ function renderDash(){
     return '<div class="bar-row"><div class="bar-lbl">'+u.apelido+'</div><div class="bar-track"><div class="bar-fill" style="width:'+Math.round((v/maxU)*100)+'%"></div></div><div class="bar-val">'+fmtK(v)+'</div></div>';
   }).join('');
 
+  var fp='<div style="padding:10px 14px;background:#fff;border-radius:14px;border:1px solid var(--border);display:flex;flex-wrap:wrap;gap:8px;align-items:center;">'
+    +'<span style="font-size:11px;font-weight:700;color:var(--sub);">Periodo:</span>'
+    +'<input type="date" id="dash-ini" value="'+_dIni+'" onchange="window._dashIni=this.value;renderDash()" style="border:1px solid var(--border);border-radius:8px;padding:5px 8px;font-size:11px;">'
+    +'<span style="font-size:11px;color:var(--sub);">ate</span>'
+    +'<input type="date" id="dash-fim" value="'+_dFim+'" onchange="window._dashFim=this.value;renderDash()" style="border:1px solid var(--border);border-radius:8px;padding:5px 8px;font-size:11px;">'
+    +'<button onclick="window._dashIni=\'\';window._dashFim=\'\';renderDash()" style="padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:10px;cursor:pointer;">Todos</button>'
+    +'</div>';
   el.innerHTML='<div class="hero" style="background:var(--dark)"><p>Visao geral</p><h2>Dashboard Admin</h2></div>'
     +'<div class="pad">'
     // Cards resumo
@@ -3377,27 +3442,25 @@ function renderDash(){
     +'</div>'
     // Grafico lucro x custo
     +'<div class="card">'
-    +'<div class="card-t">Relacao Custo x Receita</div>'
-    +'<div style="display:flex;align-items:center;gap:20px;padding:10px 0;">'
-    +pizzaSVG(totalCustos,totalReceber,lucro)
-    +'<div style="display:flex;flex-direction:column;gap:12px;flex:1;">'
-    +'<div style="display:flex;align-items:center;gap:8px;">'
-    +'<div style="width:14px;height:14px;border-radius:50%;background:#c0392b;flex-shrink:0;"></div>'
-    +'<div><div style="font-size:11px;color:var(--sub);">A Pagar Funcionarios</div>'
-    +'<div style="font-size:14px;font-weight:700;color:var(--red);">'+fmt(totalPagar)+'</div>'
-    +'<div style="font-size:10px;color:var(--sub);">'+Math.round(totalReceber>0?(totalPagar/totalReceber)*100:0)+'% da receita</div>'
-    +'</div></div>'
-    +'<div style="display:flex;align-items:center;gap:8px;">'
-    +'<div style="width:14px;height:14px;border-radius:50%;background:#1e8449;flex-shrink:0;"></div>'
-    +'<div><div style="font-size:11px;color:var(--sub);">Lucro Bruto</div>'
-    +'<div style="font-size:14px;font-weight:700;color:var(--green);">'+fmt(lucro)+'</div>'
-    +'<div style="font-size:10px;color:var(--sub);">'+margemPct+'% de margem</div>'
-    +'</div></div>'
-    +'<div style="display:flex;align-items:center;gap:8px;">'
-    +'<div style="width:14px;height:14px;border-radius:3px;background:#1a3a5c;flex-shrink:0;"></div>'
-    +'<div><div style="font-size:11px;color:var(--sub);">Total a Receber</div>'
-    +'<div style="font-size:14px;font-weight:700;color:#1a3a5c;">'+fmt(totalReceber)+'</div>'
-    +'</div></div>'
+    +'<div class="card-t">Composicao de Custos x Receita</div>'
+    +'<div style="display:flex;align-items:flex-start;gap:16px;padding:10px 0;flex-wrap:wrap;">'
+    +pizzaMulti(segmentos,totalReceber)
+    +'<div style="display:flex;flex-direction:column;gap:8px;flex:1;min-width:140px;">'
+    +segmentos.map(function(s){
+      var pct=totalReceber>0?Math.round((s.valor/totalReceber)*100):0;
+      return '<div style="display:flex;align-items:center;gap:6px;">'
+        +'<div style="width:12px;height:12px;border-radius:3px;background:'+s.cor+';flex-shrink:0;"></div>'
+        +'<div style="flex:1;">'
+        +'<div style="font-size:10px;color:var(--sub);">'+s.label+'</div>'
+        +'<div style="font-size:12px;font-weight:700;color:'+s.cor+';">'+fmt(s.valor)+'</div>'
+        +'</div>'
+        +'<div style="font-size:10px;color:var(--sub);">'+pct+'%</div>'
+        +'</div>';
+    }).join('')
+    +'<div style="border-top:1px solid var(--border);padding-top:6px;margin-top:2px;">'
+    +'<div style="font-size:10px;color:var(--sub);">A Receber</div>'
+    +'<div style="font-size:13px;font-weight:700;color:#1a3a5c;">'+fmt(totalReceber)+'</div>'
+    +'</div>'
     +'</div></div></div>'
     // Barras
     +'<div class="card"><div class="card-t">Custo por obra</div><div class="bar-wrap">'+(obrasBars||'<p style="font-size:12px;color:var(--sub)">Nenhum dado.</p>')+'</div></div>'
@@ -3653,7 +3716,7 @@ function renderAptos(){
   var pct=totalAptos>0?Math.round((aptosOk/totalAptos)*100):0;
 
   var html='<div class="hero" style="background:var(--green)"><p>Acompanhamento</p><h2>Ambientes</h2></div>'
-    +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'
+    +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'+fp
     +'<select class="sel" id="aptos-filtro-obra" onchange="renderAptos()">'+obraOpts+'</select>';
 
   if(totalAptos>0){
@@ -4037,7 +4100,7 @@ function renderReceber(){
   // HTML
   var html='<div class="hero" style="background:#1a3a5c"><p>Gestao financeira</p><h2>Contas a Receber</h2></div>'
     +'<div style="padding:10px 14px 0;"><button onclick="abrirRelatorioReceber()" style="width:100%;padding:11px;border-radius:12px;border:1.5px solid #1a3a5c;background:transparent;color:#1a3a5c;font-size:13px;font-weight:700;cursor:pointer;">Gerar Relatorio de Contas a Receber</button></div>'
-    +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'
+    +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'+fp
 
     // Filtros
     +'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);padding:12px 14px;display:flex;flex-direction:column;gap:10px;">'
@@ -4219,6 +4282,27 @@ function gerarRelatorioFin(){
   var totalGeralDesps=despsFunc.reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
   var totalGeralMarms=marmsFunc.reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
 
+  // Adicionar marmitas no agrupamento por funcionario
+  marmsFunc.forEach(function(m){
+    var u=null; for(var i=0;i<users.length;i++) if(users[i].id===m.usuario_id){u=users[i];break;}
+    var nome=u?u.apelido:'Desconhecido';
+    if(!porFunc[nome]) porFunc[nome]={itens:[],totalM2:0,totalValor:0,descontos:[]};
+    porFunc[nome].descontos=porFunc[nome].descontos||[];
+    porFunc[nome].descontos.push({tipo:'Marmita',data:m.data,valor:parseFloat(m.valor)||0,obs:m.obs||''});
+    porFunc[nome].totalValor-=(parseFloat(m.valor)||0); // desconta do liquido
+  });
+
+  // Adicionar despesas vinculadas no agrupamento
+  despsFunc.forEach(function(d){
+    var u=null; if(d.usuario_id){for(var i=0;i<users.length;i++) if(users[i].id===d.usuario_id){u=users[i];break;}}
+    if(!u) return;
+    var nome=u.apelido;
+    if(!porFunc[nome]) porFunc[nome]={itens:[],totalM2:0,totalValor:0,descontos:[]};
+    porFunc[nome].descontos=porFunc[nome].descontos||[];
+    porFunc[nome].descontos.push({tipo:d.categoria||'Despesa',data:d.data,valor:parseFloat(d.valor)||0,obs:d.descricao||''});
+    porFunc[nome].totalValor-=(parseFloat(d.valor)||0);
+  });
+
   var html='<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;">'
     +'<div style="padding:10px 14px;background:#1a3a5c;display:flex;justify-content:space-between;align-items:center;">'
     +'<div><div style="font-size:13px;font-weight:700;color:#fff;">Relatorio de Producao</div>'
@@ -4249,11 +4333,29 @@ function gerarRelatorioFin(){
         +'</div>';
     });
 
+    var descontos=f.descontos||[];
+    var totalDesconto=descontos.reduce(function(s,d){return s+(d.valor||0);},0);
+    var bruto=f.totalValor+totalDesconto;
+    if(descontos.length){
+      html+='<div style="padding:4px 14px;background:#fff8f8;">'
+        +descontos.map(function(d){
+          return '<div style="display:flex;justify-content:space-between;font-size:10px;padding:2px 0;color:var(--red);">'
+            +'<span>- '+d.tipo+(d.obs?' ('+d.obs+')':'')+' | '+fmtD(d.data)+'</span>'
+            +'<span style="font-weight:700;">-'+fmt(d.valor)+'</span></div>';
+        }).join('')
+        +'</div>';
+    }
     html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;padding:8px 14px;background:#f0f4f8;border-bottom:2px solid #1a3a5c;font-size:11px;font-weight:700;">'
-      +'<span style="color:var(--sub);">Subtotal</span><span></span>'
+      +'<span style="color:var(--sub);">'+(descontos.length?'Bruto':'Subtotal')+'</span><span></span>'
       +'<span style="text-align:right;">'+f.totalM2.toFixed(1)+'</span>'
-      +'<span style="text-align:right;color:var(--gold);">'+fmt(f.totalValor)+'</span>'
+      +'<span style="text-align:right;color:var(--gold);">'+fmt(bruto)+'</span>'
       +'</div>';
+    if(descontos.length){
+      html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;padding:6px 14px;background:#e8f5e9;border-bottom:2px solid #1e8449;font-size:12px;font-weight:700;color:#1e8449;">'
+        +'<span>Liquido a pagar</span><span></span><span></span>'
+        +'<span style="text-align:right;">'+fmt(f.totalValor)+'</span>'
+        +'</div>';
+    }
   });
 
   html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;padding:10px 14px;background:#1a3a5c;font-size:12px;font-weight:700;">'
