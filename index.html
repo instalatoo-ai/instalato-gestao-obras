@@ -4672,7 +4672,23 @@ function renderFinanceiro(){
   function fmtM(v){return 'R$ '+Math.round(parseFloat(v)||0).toLocaleString('pt-BR');}
   function fmtDs(d){if(!d)return '--';var p=d.split('-');return p[2]+'/'+p[1];}
   function getProd(){return lancs.filter(function(l){return S.funcSel&&l.usuario_id===S.funcSel.id&&l.data>=S.fIni&&l.data<=S.fFim;});}
-  function getLanc(){return window._finLancs.filter(function(l){return S.funcSel&&l.funcId===S.funcSel.id&&l.data>=S.fIni&&l.data<=S.fFim;});}
+  function getLanc(){
+    // Marmitas reais do Supabase
+    var marmsReais=marmitas.filter(function(m){
+      return S.funcSel&&m.usuario_id===S.funcSel.id&&m.data>=S.fIni&&m.data<=S.fFim;
+    }).map(function(m){
+      return {id:'marm_'+m.id,funcId:m.usuario_id,tipo:'Marmita',descricao:'Marmita '+(m.obs||m.data),valor:parseFloat(m.valor)||0,data:m.data,_real:true};
+    });
+    // Despesas vinculadas ao funcionario
+    var despsReais=desps.filter(function(d){
+      return S.funcSel&&d.usuario_id===S.funcSel.id&&d.data>=S.fIni&&d.data<=S.fFim;
+    }).map(function(d){
+      return {id:'desp_'+d.id,funcId:d.usuario_id,tipo:d.categoria||'Despesa',descricao:d.descricao||d.categoria,valor:parseFloat(d.valor)||0,data:d.data,_real:true};
+    });
+    // Lancamentos manuais em memoria
+    var manuais=window._finLancs.filter(function(l){return S.funcSel&&l.funcId===S.funcSel.id&&l.data>=S.fIni&&l.data<=S.fFim;});
+    return marmsReais.concat(despsReais).concat(manuais);
+  }
   function renderResumo(){
     var prod=getProd(), lncs2=getLanc();
     var prodIncl=prod.filter(function(p){return !S.excluidos[p.id];});
