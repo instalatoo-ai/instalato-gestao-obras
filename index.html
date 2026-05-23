@@ -4295,6 +4295,70 @@ function limparFiltrosReceber(){
   renderReceber();
 }
 
+function abrirMEDReceber(btn){
+  var obraId=btn.getAttribute('data-obra');
+  var apto=btn.getAttribute('data-apto');
+  var amb=btn.getAttribute('data-amb');
+  var valor=parseFloat(btn.getAttribute('data-valor'))||0;
+  var area=btn.getAttribute('data-area');
+  var dataMed=btn.getAttribute('data-data');
+  var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===obraId){o=obras[i];break;}
+  var lancItem=lancs.find(function(l){return l.obra_id===obraId&&l.apartamento===apto&&l.ambiente&&l.ambiente.indexOf(amb)>=0;});
+  var uPre=null; if(lancItem){for(var i=0;i<users.length;i++) if(users[i].id===lancItem.usuario_id){uPre=users[i];break;}}
+  var existing=document.getElementById('modal-med'); if(existing) existing.remove();
+  var venc=new Date(); venc.setDate(venc.getDate()+10);
+  var vencStr=venc.toISOString().split('T')[0];
+  var fOpts=users.filter(function(ux){return ux.ativo&&ux.tipo!=='admin';}).map(function(ux){
+    return '<option value="'+ux.id+'|'+ux.apelido+'"'+(uPre&&uPre.id===ux.id?' selected':'')+'>'+ux.apelido+'</option>';
+  }).join('');
+  var html='<div class="modal-bg show" id="modal-med" style="z-index:9999;align-items:center;padding:20px;">'
+    +'<div style="background:#fff;border-radius:16px;width:100%;max-width:400px;overflow:hidden;">'
+    +'<div style="background:#1e8449;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<span style="font-size:15px;font-weight:700;color:#fff;">MED - '+(o?o.nome:'Obra')+'</span>'
+    +'<button onclick="fecharMED()" style="background:transparent;border:none;color:#fff;font-size:18px;cursor:pointer;">✕</button>'
+    +'</div>'
+    +'<div style="padding:16px;display:flex;flex-direction:column;gap:12px;">'
+    +'<div style="background:#e8f5e9;border-radius:10px;padding:12px;text-align:center;">'
+    +'<div style="font-size:12px;color:var(--sub);">'+(o?o.nome:'')+' · Apto '+apto+' · '+amb+'</div>'
+    +'<div style="font-size:24px;font-weight:700;color:#1e8449;">'+fmt(valor)+'</div>'
+    +'<div style="font-size:11px;color:var(--sub);">'+area+'m² · '+fmtD(dataMed)+'</div>'
+    +'</div>'
+    +'<div><div class="fl">Funcionario</div><select class="sel" id="med-func-sel">'+fOpts+'</select></div>'
+    +'<div><div class="fl">Vencimento</div><input class="inp" type="date" id="med-venc" value="'+vencStr+'"></div>'
+    +'<div><div class="fl">Observacao (opcional)</div><input class="inp" type="text" id="med-obs" placeholder="Ex: Apto '+apto+' - '+amb+'"></div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button onclick="fecharMED()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>'
+    +'<button data-valor="'+valor.toFixed(2)+'" data-area="'+area+'" data-ini="'+dataMed+'" data-fim="'+dataMed+'" onclick="confirmarMEDReceber(this)" style="flex:2;padding:12px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Gerar e Enviar para A Pagar</button>'
+    +'</div></div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+function confirmarMEDReceber(btn){
+  var valor=parseFloat(btn.getAttribute('data-valor'))||0;
+  var area=parseFloat(btn.getAttribute('data-area'))||0;
+  var ini=btn.getAttribute('data-ini');
+  var fim=btn.getAttribute('data-fim');
+  var venc=document.getElementById('med-venc')?document.getElementById('med-venc').value:'';
+  var obs=(document.getElementById('med-obs')?document.getElementById('med-obs').value||'':'').trim();
+  var funcSel=document.getElementById('med-func-sel')?document.getElementById('med-func-sel').value:'';
+  var parts=funcSel.split('|'); var uId=parts[0]; var uNome=parts[1]||funcSel;
+  var u=null; for(var i=0;i<users.length;i++) if(users[i].id===uId){u=users[i];break;}
+  var nome=u?u.apelido:uNome;
+  if(!venc){toast('Informe o vencimento.');return;}
+  var medicaoExistente=medicoes.find(function(m){
+    if(m.nome_func!==nome) return false;
+    var mI=m.periodo_ini||''; var mF=m.periodo_fim||'';
+    return !(fim<mI||ini>mF);
+  });
+  if(medicaoExistente){
+    if(!confirm('JA EXISTE fechamento para '+nome+' neste periodo! Continuar pode gerar PAGAMENTO DUPLICADO!')) return;
+  }
+  var obj={usuario_id:uId,nome_func:nome,valor:valor,area_m2:area,periodo_ini:ini,periodo_fim:fim,vencimento:venc,observacao:obs,status:'pendente',criado_por:U.id,data:hoje()};
+  dbInsert('medicoes',obj).then(function(r){
+    if(r){medicoes=[r].concat(medicoes);fecharMED();toast('MED gerado! Enviado para A Pagar.');imprimirMEDIndividual(r);renderAPagar();}
+  });
+}
+
 function toggleReceber(confId){
   var jaRec=recebimentos.find(function(r){return r.conf_id===confId;});
   if(jaRec){
