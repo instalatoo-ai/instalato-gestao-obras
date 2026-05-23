@@ -615,7 +615,7 @@ var H = {'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY, 'Content-Type': 'app
 
 // STATE
 var U = null;
-var obras = [], users = [], lancs = [], confs = [], mats = [], desps = [], avs = [], ocorrs = [], pontos = [], clientes = [], marmitas = [], recebimentos = [], medicoes = [];
+var obras = [], users = [], lancs = [], confs = [], mats = [], desps = [], avs = [], ocorrs = [], pontos = [], clientes = [], marmitas = [], recebimentos = [], medicoes = [], faturamentos = [];
 var editObraId = null, editFuncId = null, editAvId = null;
 var novoTipo = 'func';
 function getOcorrLidas(){
@@ -821,6 +821,7 @@ function startApp() {
     dbGet('marmitas').then(function(d) { marmitas = d||[]; }),
     dbGet('recebimentos').then(function(d) { recebimentos = d||[]; }),
     dbGet('medicoes').then(function(d) { medicoes = d||[]; }).catch(function(){ medicoes=[]; }),
+    dbGet('faturamentos').then(function(d) { faturamentos = d||[]; }).catch(function(){ faturamentos=[]; }),
     dbGet('clientes').then(function(d) { clientes = d||[]; })
   ]).then(function() {
     renderAll();
@@ -4274,12 +4275,54 @@ function renderReceber(){
           +'</div>'
           +'<div style="text-align:right;">'
           +'<div style="font-size:14px;font-weight:700;color:'+cor+';">'+fmt(item.valor)+'</div>'
-          +'<button data-cid="'+item.confId+'" onclick="toggleReceber(this.dataset.cid)" style="margin-top:4px;padding:3px 10px;border-radius:20px;border:1px solid '+(item.recebido?'var(--green)':'#1a3a5c')+';background:'+(item.recebido?'var(--green)':'transparent')+';color:'+(item.recebido?'#fff':'#1a3a5c')+';font-size:10px;font-weight:700;cursor:pointer;">'+(item.recebido?'✓ Recebido':'Marcar recebido')+'</button>'
+          +'<div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;">'
+          +'<button data-cid="'+item.confId+'" onclick="toggleReceber(this.dataset.cid)" style="padding:3px 10px;border-radius:20px;border:1px solid '+(item.recebido?'var(--green)':'#1a3a5c')+';background:'+(item.recebido?'var(--green)':'transparent')+';color:'+(item.recebido?'#fff':'#1a3a5c')+';font-size:10px;font-weight:700;cursor:pointer;">'+(item.recebido?'✓ Recebido':'Marcar recebido')+'</button>'
+          +'<button data-cid="'+item.confId+'" data-obra="'+item.obra+'" data-apto="'+item.apto+'" data-amb="'+item.amb+'" data-valor="'+item.valor.toFixed(2)+'" data-area="'+item.area.toFixed(1)+'" data-data="'+item.data+'" onclick="abrirFaturamento(this)" style="padding:3px 10px;border-radius:20px;border:1px solid #1a3a5c;background:transparent;color:#1a3a5c;font-size:10px;font-weight:700;cursor:pointer;">📋 Faturar</button>'
+          +'</div>'
           +'</div></div>';
       }).join(''))
     +'</div>'
     +'</div>';
 
+  // Adicionar secao faturamentos
+  var fatObra=faturamentos.filter(function(f){
+    if(_fObra&&f.obra_id!==_fObra) return false;
+    if(_fIni&&f.data<_fIni) return false;
+    if(_fFim&&f.data>_fFim) return false;
+    return true;
+  });
+  if(fatObra.length){
+    var totalFatPend=fatObra.filter(function(f){return f.status==='pendente';}).reduce(function(s,f){return s+(parseFloat(f.valor)||0);},0);
+    var totalFatPago=fatObra.filter(function(f){return f.status==='pago';}).reduce(function(s,f){return s+(parseFloat(f.valor)||0);},0);
+    html+='<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
+      +'<div style="padding:10px 14px;background:#1a3a5c;display:flex;justify-content:space-between;align-items:center;">'
+      +'<span style="font-size:13px;font-weight:700;color:#fff;">Faturamentos</span>'
+      +'<span style="font-size:11px;color:rgba(255,255,255,.7);">'+fatObra.length+' registro(s)</span>'
+      +'</div>'
+      +'<div style="padding:10px 14px;display:grid;grid-template-columns:1fr 1fr;gap:8px;border-bottom:1px solid var(--border);">'
+      +'<div style="text-align:center;"><div style="font-size:11px;color:var(--red);">Pendente</div><div style="font-size:14px;font-weight:700;color:var(--red);">'+fmt(totalFatPend)+'</div></div>'
+      +'<div style="text-align:center;"><div style="font-size:11px;color:var(--green);">Recebido</div><div style="font-size:14px;font-weight:700;color:var(--green);">'+fmt(totalFatPago)+'</div></div>'
+      +'</div>'
+      +fatObra.map(function(f){
+        var isPend=f.status==='pendente';
+        var venceu=isPend&&f.vencimento&&f.vencimento<hoje();
+        var cor=isPend?(venceu?'var(--red)':'#B8860B'):'var(--green)';
+        return '<div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;">'
+          +'<div>'
+          +'<div style="font-size:12px;font-weight:700;">'+f.obra+' · Apto '+(f.apto||'--')+'</div>'
+          +'<div style="font-size:11px;color:var(--sub);">'+(f.ambiente||'')+'</div>'
+          +'<div style="font-size:10px;color:'+cor+';font-weight:700;">'+(isPend?(venceu?'⚠️ Vencido: ':'Vence: ')+fmtD(f.vencimento):'✓ Pago em '+fmtD(f.data_recebimento))+'</div>'
+          +(f.observacao?'<div style="font-size:10px;color:var(--sub);font-style:italic;">'+f.observacao+'</div>':'')
+          +'</div>'
+          +'<div style="text-align:right;">'
+          +'<div style="font-size:14px;font-weight:700;color:'+cor+';">'+fmt(f.valor)+'</div>'
+          +'<div style="display:flex;gap:4px;margin-top:4px;flex-direction:column;">'
+          +(isPend?'<button data-fid="'+f.id+'" onclick="marcarFaturamentoPago(this.dataset.fid)" style="padding:3px 8px;border-radius:20px;border:none;background:var(--green);color:#fff;font-size:10px;font-weight:700;cursor:pointer;">✓ Recebido</button>':'')
+          +'<button data-fid="'+f.id+'" onclick="excluirFaturamento(this.dataset.fid)" style="padding:3px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);font-size:10px;cursor:pointer;">🗑</button>'
+          +'</div></div></div>';
+      }).join('')
+      +'</div>';
+  }
   el.innerHTML=html;
 }
 
@@ -4356,6 +4399,87 @@ function confirmarMEDReceber(btn){
   var obj={usuario_id:uId,nome_func:nome,valor:valor,area_m2:area,periodo_ini:ini,periodo_fim:fim,vencimento:venc,observacao:obs,status:'pendente',criado_por:U.id,data:hoje()};
   dbInsert('medicoes',obj).then(function(r){
     if(r){medicoes=[r].concat(medicoes);fecharMED();toast('MED gerado! Enviado para A Pagar.');imprimirMEDIndividual(r);renderAPagar();}
+  });
+}
+
+function abrirFaturamento(btn){
+  var confId=btn.getAttribute('data-cid');
+  var obra=btn.getAttribute('data-obra');
+  var apto=btn.getAttribute('data-apto');
+  var amb=btn.getAttribute('data-amb');
+  var valor=parseFloat(btn.getAttribute('data-valor'))||0;
+  var area=btn.getAttribute('data-area');
+  var dataMed=btn.getAttribute('data-data');
+  // Verificar se ja existe faturamento para esse conf
+  var jaFat=faturamentos.find(function(f){return f.conf_id===confId;});
+  if(jaFat){
+    if(!confirm('Ja existe faturamento para este ambiente! Criar outro pode gerar duplicidade. Continuar?')) return;
+  }
+  var existing=document.getElementById('modal-faturamento'); if(existing) existing.remove();
+  var venc=new Date(); venc.setDate(venc.getDate()+30);
+  var vencStr=venc.toISOString().split('T')[0];
+  var html='<div class="modal-bg show" id="modal-faturamento" style="z-index:9999;align-items:center;padding:20px;">'
+    +'<div style="background:#fff;border-radius:16px;width:100%;max-width:400px;overflow:hidden;">'
+    +'<div style="background:#1a3a5c;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<span style="font-size:15px;font-weight:700;color:#fff;">Gerar Faturamento</span>'
+    +'<button onclick="fecharFaturamento()" style="background:transparent;border:none;color:#fff;font-size:18px;cursor:pointer;">✕</button>'
+    +'</div>'
+    +'<div style="padding:16px;display:flex;flex-direction:column;gap:12px;">'
+    +'<div style="background:#e8f0fb;border-radius:10px;padding:12px;text-align:center;">'
+    +'<div style="font-size:12px;color:var(--sub);">'+obra+' · Apto '+apto+'</div>'
+    +'<div style="font-size:11px;color:var(--sub);">'+amb+'</div>'
+    +'<div style="font-size:24px;font-weight:700;color:#1a3a5c;">'+fmt(valor)+'</div>'
+    +'<div style="font-size:11px;color:var(--sub);">'+area+'m² · '+fmtD(dataMed)+'</div>'
+    +'</div>'
+    +'<div><div class="fl">Vencimento</div><input class="inp" type="date" id="fat-venc" value="'+vencStr+'"></div>'
+    +'<div><div class="fl">Observacao (opcional)</div><input class="inp" type="text" id="fat-obs" placeholder="Ex: NF 001, Boleto..."></div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button onclick="fecharFaturamento()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>'
+    +'<button data-cid="'+confId+'" data-obra="'+obra+'" data-apto="'+apto+'" data-amb="'+amb+'" data-valor="'+valor.toFixed(2)+'" data-area="'+area+'" data-data="'+dataMed+'" onclick="confirmarFaturamento(this)" style="flex:2;padding:12px;border-radius:10px;border:none;background:#1a3a5c;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Registrar Faturamento</button>'
+    +'</div></div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+function fecharFaturamento(){var m=document.getElementById('modal-faturamento');if(m)m.remove();}
+
+function confirmarFaturamento(btn){
+  var confId=btn.getAttribute('data-cid');
+  var obra=btn.getAttribute('data-obra');
+  var apto=btn.getAttribute('data-apto');
+  var amb=btn.getAttribute('data-amb');
+  var valor=parseFloat(btn.getAttribute('data-valor'))||0;
+  var area=parseFloat(btn.getAttribute('data-area'))||0;
+  var dataMed=btn.getAttribute('data-data');
+  var venc=document.getElementById('fat-venc')?document.getElementById('fat-venc').value:'';
+  var obs=(document.getElementById('fat-obs')?document.getElementById('fat-obs').value||'':'').trim();
+  if(!venc){toast('Informe o vencimento.');return;}
+  // Buscar obra_id
+  var obraObj=null; for(var i=0;i<obras.length;i++) if(obras[i].nome===obra){obraObj=obras[i];break;}
+  var obj={conf_id:confId,obra_id:obraObj?obraObj.id:null,obra:obra,apto:apto,ambiente:amb,valor:valor,area_m2:area,data:dataMed,vencimento:venc,observacao:obs,status:'pendente',criado_por:U.id};
+  dbInsert('faturamentos',obj).then(function(r){
+    if(r){faturamentos=[r].concat(faturamentos);fecharFaturamento();toast('Faturamento registrado!');renderReceber();}
+  }).catch(function(){
+    var r=Object.assign({},obj,{id:'local_'+Date.now()});
+    faturamentos=[r].concat(faturamentos);fecharFaturamento();toast('Faturamento registrado!');renderReceber();
+  });
+}
+
+function marcarFaturamentoPago(id){
+  dbUpdate('faturamentos',id,{status:'pago',data_recebimento:hoje()}).then(function(ok){
+    for(var i=0;i<faturamentos.length;i++) if(faturamentos[i].id===id){faturamentos[i].status='pago';faturamentos[i].data_recebimento=hoje();break;}
+    toast('Marcado como recebido!');renderReceber();
+  }).catch(function(){
+    for(var i=0;i<faturamentos.length;i++) if(faturamentos[i].id===id){faturamentos[i].status='pago';faturamentos[i].data_recebimento=hoje();break;}
+    toast('Marcado como recebido!');renderReceber();
+  });
+}
+
+function excluirFaturamento(id){
+  if(!confirm('Excluir este faturamento?')) return;
+  dbDelete('faturamentos',id).then(function(){
+    faturamentos=faturamentos.filter(function(f){return f.id!==id;});toast('Excluido!');renderReceber();
+  }).catch(function(){
+    faturamentos=faturamentos.filter(function(f){return f.id!==id;});toast('Excluido!');renderReceber();
   });
 }
 
