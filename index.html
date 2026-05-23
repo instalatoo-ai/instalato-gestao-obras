@@ -1428,27 +1428,80 @@ function salvarLanc() {
 // ── MEU RESULTADO ──
 function renderMeu() {
   var el=getEl('t-meu'); if(!el) return;
-  var meus=lancs.filter(function(l){return l.usuario_id===U.id;});
-  var total=meus.reduce(function(s,l){return s+(parseFloat(l.total)||0);},0);
+  var _mIni=window._meuIni||''; var _mFim=window._meuFim||'';
+
+  // Marmitas do funcionario
+  var minhasMarms=marmitas.filter(function(m){
+    if(m.usuario_id!==U.id) return false;
+    if(_mIni&&m.data<_mIni) return false;
+    if(_mFim&&m.data>_mFim) return false;
+    return true;
+  });
+  var totalMarms=minhasMarms.reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
+
+  var meusTodos=lancs.filter(function(l){return l.usuario_id===U.id;});
+  var meus=meusTodos.filter(function(l){
+    if(_mIni&&l.data<_mIni) return false;
+    if(_mFim&&l.data>_mFim) return false;
+    return true;
+  });
+
+  // Verificar quais foram pagos (conferencia aprovada + marcado no financeiro)
+  var totalBruto=meus.reduce(function(s,l){return s+(parseFloat(l.total)||0);},0);
+  var totalDescontos=totalMarms; // marmitas sao descontadas
+  var totalLiquido=totalBruto-totalDescontos;
+
+  // Separar pago x a receber
+  var totalPago=meus.filter(function(l){
+    return confs.some(function(c){return c.lancamento_id===l.id&&c.status==='aprovado';})
+      && fin_lancamentos&&fin_lancamentos.some&&fin_lancamentos.some(function(f){return f.usuario_id===U.id&&f.lancamento_id===l.id&&f.pago;});
+  }).reduce(function(s,l){return s+(parseFloat(l.total)||0);},0);
+  var totalAReceber=totalLiquido-totalPago;
+
   var m2=meus.reduce(function(s,l){return s+(parseFloat(l.area_m2)||0);},0);
   var meta=parseFloat(U.meta_mensal)||0;
-  var pct=meta>0?Math.min(Math.round((total/meta)*100),100):0;
+  var pct=meta>0?Math.min(Math.round((totalBruto/meta)*100),100):0;
   var bonMedia=meus.length?Math.round(meus.reduce(function(s,l){return s+(l.bonus_pct||0);},0)/meus.length):0;
-  var hist=meus.slice(0,5).map(function(l){
+
+  // Filtro periodo
+  var filtroPeriodo='<div style="background:#fff;border-radius:14px;border:1px solid var(--border);padding:12px 14px;">'
+    +'<div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:8px;">Filtrar por periodo</div>'
+    +'<div class="row2">'
+    +'<div><div class="fl">De</div><input class="inp" type="date" id="meu-ini" value="'+_mIni+'" onchange="window._meuIni=this.value;renderMeu()" style="margin:0;"></div>'
+    +'<div><div class="fl">Ate</div><input class="inp" type="date" id="meu-fim" value="'+_mFim+'" onchange="window._meuFim=this.value;renderMeu()" style="margin:0;"></div>'
+    +'</div>'
+    +'<button onclick="window._meuIni=String();window._meuFim=String();renderMeu()" style="margin-top:8px;padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:10px;cursor:pointer;">Limpar filtro</button>'
+    +'</div>';
+
+  var hist=meus.slice(0,10).map(function(l){
     var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===l.obra_id){o=obras[i];break;}
-    return '<div class="hi"><div class="hi-ico">🪵</div><div class="hi-b"><div class="hi-t">'+(l.ambiente||'--')+' · Apto '+(l.apartamento||'--')+'</div>'
-      +'<div class="hi-s">'+(o?o.nome:'--')+' · '+l.area_m2+'m²</div></div>'
+    var confOk=confs.some(function(c){return c.lancamento_id===l.id&&c.status==='aprovado';});
+    return '<div class="hi" style="border-left:3px solid '+(confOk?'var(--green)':'var(--gold)')+';"><div class="hi-ico">🪵</div><div class="hi-b"><div class="hi-t">'+(l.ambiente||'--')+' · Apto '+(l.apartamento||'--')+'</div>'
+      +'<div class="hi-s">'+(o?o.nome:'--')+' · '+l.area_m2+'m²</div>'
+      +'<div style="font-size:10px;color:'+(confOk?'var(--green)':'#B8860B')+';font-weight:700;">'+(confOk?'✓ Aprovado':'⏳ Aguardando conferencia')+'</div>'
+      +'</div>'
       +'<div class="hi-r"><div class="hi-v">'+fmt(l.total)+'</div><div class="hi-d">'+fmtD(l.data)+'</div></div></div>';
   }).join('');
-  el.innerHTML='<div class="hero" style="background:var(--gold)"><p>Visualização · somente leitura</p><h2>Meu resultado</h2></div>'
-    +'<div class="pad"><div class="stat2">'
-    +'<div class="stat"><div class="sv">'+fmtK(total)+'</div><div class="sl">Acumulado mês</div></div>'
-    +'<div class="stat"><div class="sv">'+m2.toFixed(0)+'m²</div><div class="sl">Produção total</div></div>'
-    +'<div class="stat"><div class="sv">'+pct+'%</div><div class="sl">Meta do mês</div></div>'
-    +'<div class="stat"><div class="sv">'+bonMedia+'%</div><div class="sl">Bônus médio</div></div></div>'
-    +'<div class="card"><div class="prog-lbl"><span>Meta mensal</span><span style="color:var(--gold);font-weight:700">'+pct+'%</span></div>'
-    +'<div class="prog"><div class="prog-f" style="width:'+pct+'%"></div></div></div>'
-    +(hist?'<div><div class="fl">Últimos lançamentos</div>'+hist+'</div>':'<div class="empty"><p>Nenhum lançamento ainda.</p></div>')
+
+  el.innerHTML='<div class="hero" style="background:var(--gold)"><p>Visualizacao · somente leitura</p><h2>Meu resultado</h2></div>'
+    +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'
+    +filtroPeriodo
+    +'<div class="stat3">'
+    +'<div class="stat"><div class="sv">'+fmtK(totalBruto)+'</div><div class="sl">Bruto</div></div>'
+    +'<div class="stat"><div class="sv" style="color:var(--red);">'+fmtK(totalDescontos)+'</div><div class="sl">Descontos</div></div>'
+    +'<div class="stat"><div class="sv" style="color:var(--green);">'+fmtK(totalLiquido)+'</div><div class="sl">Liquido</div></div>'
+    +'</div>'
+    +'<div class="stat2">'
+    +'<div class="stat"><div class="sv">'+m2.toFixed(0)+'m²</div><div class="sl">Producao</div></div>'
+    +'<div class="stat"><div class="sv">'+bonMedia+'%</div><div class="sl">Bonus medio</div></div>'
+    +'</div>'
+    +(meta>0?'<div class="card"><div class="prog-lbl"><span>Meta mensal</span><span style="color:var(--gold);font-weight:700">'+pct+'%</span></div>'
+    +'<div class="prog"><div class="prog-f" style="width:'+pct+'%"></div></div></div>':'')
+    +(totalMarms>0?'<div style="background:#fff8f8;border-radius:14px;padding:12px 14px;border:1px solid var(--red);">'
+    +'<div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:4px;">Descontos de marmita</div>'
+    +'<div style="font-size:11px;color:var(--sub);">'+minhasMarms.length+' pedido(s) · <span style="color:var(--red);font-weight:700;">-'+fmt(totalMarms)+'</span></div>'
+    +'</div>':'')
+    +(hist?'<div><div class="fl">Lancamentos</div>'+hist+'</div>':'<div class="empty"><p>Nenhum lancamento no periodo.</p></div>')
     +'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
     +'<div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;">Bonus de desempenho</div>'
     +'<div style="padding:10px 14px;display:flex;flex-direction:column;gap:8px;">'
@@ -4364,7 +4417,131 @@ function gerarRelatorioFin(){
     +'<span style="text-align:right;color:#B8860B;">'+fmt(totalGeralValor)+'</span>'
     +'</div></div>';
 
+  // Proximas conferencias pendentes (lancados mas nao conferidos no periodo)
+  var proxConfs=lancs.filter(function(l){
+    var funcOk=!funcId||l.usuario_id===funcId;
+    if(!funcOk) return false;
+    // Tem lancamento mas SEM conferencia aprovada ainda
+    return !confs.some(function(c){return c.lancamento_id===l.id&&c.status==='aprovado';});
+  });
+  if(proxConfs.length){
+    html+='<div style="margin-top:10px;border:1px solid #B8860B;border-radius:12px;overflow:hidden;">'
+      +'<div style="padding:8px 14px;background:#B8860B;display:flex;justify-content:space-between;align-items:center;">'
+      +'<span style="font-size:13px;font-weight:700;color:#fff;">Aguardando Conferencia</span>'
+      +'<span style="font-size:11px;background:rgba(255,255,255,.2);color:#fff;padding:2px 8px;border-radius:20px;">'+proxConfs.length+' lançamento(s)</span>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;padding:6px 14px;font-size:10px;font-weight:700;color:var(--sub);background:#fdf9f0;border-bottom:1px solid var(--border);">'
+      +'<span>Data</span><span>Func.</span><span>Apto/Amb.</span><span style="text-align:right;">Valor</span>'
+      +'</div>'
+      +proxConfs.slice(0,10).map(function(l){
+        var u2=null;for(var i=0;i<users.length;i++)if(users[i].id===l.usuario_id){u2=users[i];break;}
+        return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;padding:6px 14px;border-bottom:1px solid var(--border);font-size:11px;background:#fffdf5;">'
+          +'<span>'+fmtD(l.data)+'</span>'
+          +'<span>'+(u2?u2.apelido:'--')+'</span>'
+          +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(l.apartamento||'')+' '+(l.ambiente||'')+'</span>'
+          +'<span style="text-align:right;font-weight:700;color:#B8860B;">'+fmt(l.total)+'</span>'
+          +'</div>';
+      }).join('')
+      +(proxConfs.length>10?'<div style="padding:6px 14px;font-size:10px;color:var(--sub);background:#fffdf5;">... e mais '+(proxConfs.length-10)+' lançamento(s)</div>':'')
+      +'</div>';
+  }
+
+  // Botao MED no final
+  var totalLiquidoGeral=Object.keys(porFunc).reduce(function(s,nome){return s+porFunc[nome].totalValor;},0);
+  html+='<div style="margin-top:10px;background:#e8f5e9;border-radius:12px;padding:12px 14px;border:1px solid #1e8449;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;">'
+    +'<div>'
+    +'<div style="font-size:12px;font-weight:700;color:#1e8449;">Total Liquido a Pagar</div>'
+    +'<div style="font-size:11px;color:var(--sub);">Producao - Descontos</div>'
+    +'</div>'
+    +'<div style="font-size:18px;font-weight:700;color:#1e8449;">'+fmt(totalLiquidoGeral)+'</div>'
+    +'</div>'
+    +'<button onclick="gerarMED()" style="width:100%;margin-top:10px;padding:11px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Gerar MED para Pagamento</button>'
+    +'</div>';
+
   document.getElementById('rel-fin-resultado').innerHTML=html;
+
+  // Salvar dados para MED
+  window._relFinData={porFunc:porFunc,ini:ini,fim:fim,totalLiquido:totalLiquidoGeral};
+}
+
+function gerarMED(){
+  var d=window._relFinData;
+  if(!d){toast('Gere o relatorio primeiro.');return;}
+  var agora=new Date();
+  var dataHora=agora.toLocaleDateString('pt-BR')+' '+agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  var nomeGerador=U?U.apelido:'Admin';
+  var w=window.open('','_blank');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>MED - Memorando de Pagamento</title><style>'
+    +'*{box-sizing:border-box;margin:0;padding:0;}'
+    +'@page{size:A4;margin:15mm;}'
+    +'body{font-family:Arial,sans-serif;font-size:11px;color:#222;}'
+    +'.watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);opacity:0.045;pointer-events:none;z-index:0;text-align:center;}'
+    +'.watermark-txt{font-size:80px;font-weight:900;color:#1a3a5c;letter-spacing:4px;white-space:nowrap;}'
+    +'.watermark-sub{font-size:22px;color:#1a3a5c;letter-spacing:8px;}'
+    +'.content{position:relative;z-index:1;}'
+    +'.footer-doc{position:fixed;bottom:5mm;left:15mm;right:15mm;border-top:1px solid #ddd;padding-top:4px;display:flex;justify-content:space-between;font-size:9px;color:#aaa;}'
+    +'table{width:100%;border-collapse:collapse;margin-top:12px;}'
+    +'th{background:#1e8449;color:#fff;padding:7px 10px;text-align:left;font-size:11px;}'
+    +'td{padding:7px 10px;border-bottom:1px solid #eee;font-size:11px;}'
+    +'tr:nth-child(even) td{background:#f9f9f9;}'
+    +'.total-row td{background:#e8f5e9;font-weight:700;border-top:2px solid #1e8449;}'
+    +'@media print{button{display:none!important;}}'
+    +'</style></head><body>'
+    +'<div class="watermark"><div class="watermark-txt">INSTALATO</div><div class="watermark-sub">GESTOR</div></div>'
+    +'<div class="content">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;border-bottom:2px solid #1e8449;padding-bottom:12px;">'
+    +'<div>'
+    +'<div style="font-size:18px;font-weight:900;color:#1a3a5c;letter-spacing:1px;">GESTOR INSTALATO</div>'
+    +'<div style="font-size:16px;font-weight:700;color:#1e8449;margin-top:4px;">MED - Memorando de Pagamento</div>'
+    +'<div style="font-size:10px;color:#888;margin-top:2px;">Periodo: '+fmtD(d.ini)+' a '+fmtD(d.fim)+'</div>'
+    +'</div>'
+    +'<div style="text-align:right;font-size:10px;color:#666;line-height:1.8;">'
+    +'<div><strong>Gerado em:</strong> '+dataHora+'</div>'
+    +'<div><strong>Gerado por:</strong> '+nomeGerador+'</div>'
+    +'<div><strong>Documento:</strong> Confidencial</div>'
+    +'</div>'
+    +'</div>'
+    +'<div style="background:#e8f5e9;border-radius:8px;padding:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<div><div style="font-size:12px;color:var(--sub);">Total a Pagar neste periodo</div>'
+    +'<div style="font-size:24px;font-weight:700;color:#1e8449;">'+fmt(d.totalLiquido)+'</div></div>'
+    +'<div style="font-size:10px;color:#888;text-align:right;">'+Object.keys(d.porFunc).length+' funcionario(s)</div>'
+    +'</div>'
+    +'<table>'
+    +'<thead><tr><th>Funcionario</th><th style="text-align:right;">Producao (m²)</th><th style="text-align:right;">Bruto</th><th style="text-align:right;">Descontos</th><th style="text-align:right;">Liquido a Pagar</th><th>Assinatura</th></tr></thead>'
+    +'<tbody>'
+    +Object.keys(d.porFunc).map(function(nome){
+      var f=d.porFunc[nome];
+      var descontos=f.descontos||[];
+      var totalDesc=descontos.reduce(function(s,x){return s+(x.valor||0);},0);
+      var bruto=f.totalValor+totalDesc;
+      return '<tr>'
+        +'<td><strong>'+nome+'</strong></td>'
+        +'<td style="text-align:right;">'+f.totalM2.toFixed(1)+' m²</td>'
+        +'<td style="text-align:right;">'+fmt(bruto)+'</td>'
+        +'<td style="text-align:right;color:#c0392b;">'+(totalDesc>0?'-'+fmt(totalDesc):'—')+'</td>'
+        +'<td style="text-align:right;font-weight:700;color:#1e8449;">'+fmt(f.totalValor)+'</td>'
+        +'<td style="border-bottom:1px solid #999;min-width:120px;"> </td>'
+        +'</tr>';
+    }).join('')
+    +'<tr class="total-row">'
+    +'<td colspan="4">TOTAL GERAL A PAGAR</td>'
+    +'<td style="text-align:right;font-size:13px;color:#1e8449;">'+fmt(d.totalLiquido)+'</td>'
+    +'<td></td>'
+    +'</tr>'
+    +'</tbody></table>'
+    +'<div style="margin-top:30px;display:grid;grid-template-columns:1fr 1fr;gap:40px;">'
+    +'<div style="border-top:1px solid #333;padding-top:6px;text-align:center;font-size:10px;color:#666;">Responsavel pelo Pagamento</div>'
+    +'<div style="border-top:1px solid #333;padding-top:6px;text-align:center;font-size:10px;color:#666;">Gestora Financeira - Inae Ramos Custodio</div>'
+    +'</div>'
+    +'</div>'
+    +'<div class="footer-doc">'
+    +'<span>GESTOR INSTALATO &copy; 2021 - Documento confidencial</span>'
+    +'<span>MED | Gerado em '+dataHora+' por '+nomeGerador+'</span>'
+    +'</div>'
+    +'</body></html>');
+  w.document.close();
+  setTimeout(function(){w.print();},600);
 }
 
 function salvarNumRelatorio(){
@@ -4548,22 +4725,35 @@ function renderFinanceiro(){
   function renderProdTab(){
     var prod=getProd();
     if(!prod.length) return '<div style="text-align:center;padding:30px;color:var(--sub);">Nenhuma producao neste periodo.</div>';
+    if(!S.pagos) S.pagos={};
     var rows=prod.map(function(p){
       var excl=S.excluidos[p.id];
+      var pago=S.pagos[p.id];
       var o=null;for(var i=0;i<obras.length;i++)if(obras[i].id===p.obra_id){o=obras[i];break;}
       var badge=excl?'<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(192,57,43,.1);color:var(--red);display:inline-block;margin-top:3px;">Excluido</span>'
-        :'<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(30,132,73,.1);color:var(--green);display:inline-block;margin-top:3px;">Incluido</span>';
-      var btn=excl?'<button onclick="window._finTP(\''+p.id+'\')" style="font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid var(--green);background:var(--green);color:#fff;cursor:pointer;margin-top:4px;display:block;">Incluir</button>'
-        :'<button onclick="window._finTP(\''+p.id+'\')" style="font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;margin-top:4px;display:block;">Excluir</button>';
-      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--lg);opacity:'+(excl?'0.45':'1')+'">'
+        :pago?'<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(30,132,73,.1);color:var(--green);display:inline-block;margin-top:3px;">Pago</span>'
+        :'<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(184,134,11,.1);color:#854F0B;display:inline-block;margin-top:3px;">A pagar</span>';
+      var btnExcl=excl
+        ?'<button onclick="window._finTP(\'' +p.id+ '\')" style="font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid var(--green);background:var(--green);color:#fff;cursor:pointer;margin-top:4px;display:block;">Incluir</button>'
+        :'<button onclick="window._finTP(\'' +p.id+ '\')" style="font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;margin-top:4px;display:block;">Excluir</button>';
+      var btnPago=!excl?(pago
+        ?'<button onclick="window._finPG(\'' +p.id+ '\')" style="font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid var(--green);background:var(--green);color:#fff;cursor:pointer;margin-top:4px;display:block;">&#10003; Pago</button>'
+        :'<button onclick="window._finPG(\'' +p.id+ '\')" style="font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;margin-top:4px;display:block;">Marcar pago</button>'):'';
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--lg);opacity:'+(excl?'0.45':'1')+';background:'+(pago?'rgba(30,132,73,.04)':'#fff')+'">'
         +'<div><div style="font-size:13px;font-weight:700;">'+(o?o.nome:'?')+' - Apto '+(p.apartamento||'?')+'</div>'
         +'<div style="font-size:10px;color:var(--sub);">'+fmtDs(p.data)+' - '+(p.area_m2||0)+'m2</div>'+badge+'</div>'
-        +'<div style="text-align:right;"><div style="font-size:13px;font-weight:700;'+(excl?'text-decoration:line-through;color:var(--sub);':'color:var(--gold);')+'">'+fmtM(p.total)+'</div>'+btn+'</div></div>';
+        +'<div style="text-align:right;"><div style="font-size:13px;font-weight:700;'+(excl?'text-decoration:line-through;color:var(--sub);':pago?'color:var(--green);':'color:var(--gold);')+'">'+fmtM(p.total)+'</div>'
+        +btnExcl+btnPago+'</div></div>';
     }).join('');
     var totIncl=prod.filter(function(p){return !S.excluidos[p.id];}).reduce(function(s,p){return s+(parseFloat(p.total)||0);},0);
+    var totPago=prod.filter(function(p){return S.pagos[p.id];}).reduce(function(s,p){return s+(parseFloat(p.total)||0);},0);
+    var totAPagar=prod.filter(function(p){return !S.excluidos[p.id]&&!S.pagos[p.id];}).reduce(function(s,p){return s+(parseFloat(p.total)||0);},0);
     return '<div style="background:#fff;border-radius:14px;border:1px solid var(--lg);overflow:hidden;">'+rows
-      +'<div style="display:flex;justify-content:space-between;padding:11px 14px;background:var(--lg);">'
-      +'<span style="font-size:12px;color:var(--sub);">Total incluido</span><span style="font-size:14px;font-weight:700;color:var(--gold);">'+fmtM(totIncl)+'</span></div></div>';
+      +'<div style="padding:11px 14px;background:var(--lg);display:flex;flex-direction:column;gap:6px;">'
+      +'<div style="display:flex;justify-content:space-between;"><span style="font-size:12px;color:var(--sub);">Total</span><span style="font-size:13px;font-weight:700;color:var(--gold);">'+fmtM(totIncl)+'</span></div>'
+      +(totPago>0?'<div style="display:flex;justify-content:space-between;"><span style="font-size:12px;color:var(--green);">Ja pago</span><span style="font-size:13px;font-weight:700;color:var(--green);">'+fmtM(totPago)+'</span></div>':'')
+      +(totPago>0?'<div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:6px;"><span style="font-size:12px;color:var(--red);">Ainda a pagar</span><span style="font-size:14px;font-weight:700;color:var(--red);">'+fmtM(totAPagar)+'</span></div>':'')
+      +'</div></div>';
   }
   function renderValesTab(){
     var lncs2=getLanc();
@@ -4630,6 +4820,8 @@ function renderFinanceiro(){
       +'<div style="display:flex;gap:6px;">'+tHtml+'</div>'
       +conteudo+'</div>';
   }
+  if(!S.pagos) S.pagos={};
+  window._finPG=function(id){S.pagos[id]=!S.pagos[id];rebuild();};
   window._finSF=function(id){var u=null;for(var i=0;i<users.length;i++)if(users[i].id===id){u=users[i];break;}S.funcSel=u;S.tabAtual='prod';rebuild();};
   window._finPD=function(p){
     S.periodo=p;var hj2=new Date(),ini,fim;
