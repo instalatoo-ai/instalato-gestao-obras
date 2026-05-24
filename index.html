@@ -4178,8 +4178,9 @@ function renderReceber(){
 
     var area=l?parseFloat(l.area_m2)||0:0;
     var valorFixo=ambCad&&ambCad.valor_fixo?parseFloat(ambCad.valor_fixo):0;
-    var rateVenda=parseFloat(o.rate_venda)||0;
-    var rateVendaMl=parseFloat(o.rate_venda_ml)||0;
+    var valorVendaAmb=ambCad&&ambCad.valor_venda?parseFloat(ambCad.valor_venda):0;
+    var rateVenda=valorVendaAmb>0?valorVendaAmb:(parseFloat(o.rate_venda)||0);
+    var rateVendaMl=valorVendaAmb>0?valorVendaAmb:(parseFloat(o.rate_venda_ml)||0);
     // Rejunte usa taxa propria
     var isRejunte=c.ambiente&&c.ambiente.toLowerCase().indexOf('rejunte')>=0;
     if(isRejunte&&o.rate_rejunte_venda) rateVendaMl=parseFloat(o.rate_rejunte_venda)||rateVendaMl;
@@ -5828,7 +5829,7 @@ function renderObrasCfg(){
       +(o.tipo?'<span class="chip chip-g" style="margin-top:4px">📋 '+o.tipo+'</span>':'')+'</div>'
       +'<span class="chip '+(o.status==='ativa'?'chip-ap':'chip-g')+'">'+(o.status==='ativa'?'Ativa':'Concluída')+'</span></div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">'
-      +'<div style="background:#fff;border-radius:8px;padding:7px 9px"><div style="font-size:9px;color:var(--sub)">Contrato</div><div style="font-size:12px;font-weight:700">'+fmtK(o.contrato)+'</div></div>'
+      +'<div style="background:#fff;border-radius:8px;padding:7px 9px"><div style="font-size:9px;color:var(--sub)">Metragem</div><div style="font-size:12px;font-weight:700">'+o.contrato+'m²</div></div>'
       +'<div style="background:#fff;border-radius:8px;padding:7px 9px"><div style="font-size:9px;color:var(--sub)">Faturado</div><div style="font-size:12px;font-weight:700">'+fmtK(o.faturado||0)+'</div></div></div>'
       +'<div class="prog-lbl"><span>Progresso de obra</span><span style="color:var(--gold);font-weight:700">'+pct+'%</span></div>'
       +'<div class="prog" style="margin-bottom:8px"><div class="prog-f" style="width:'+pct+'%"></div></div>'
@@ -5947,7 +5948,7 @@ function addMarmAmb(){
     +'<button class="btn-rem" type="button" onclick="this.parentElement.remove()">X</button>'
     +'</div>'
     +'<div style="display:flex;align-items:center;gap:6px;padding-left:24px;">'
-    +'<input class="inp" type="number" placeholder="Valor" style="margin:0;flex:1;text-align:center;">'
+    +'<input class="inp" type="number" placeholder="m2/ml" style="margin:0;flex:1;text-align:center;">'
     +'<div style="display:flex;gap:4px;">'
     +'<button type="button" data-unit="m2" onclick="toggleUnitAmb(this)" style="padding:4px 10px;border-radius:20px;border:1px solid #6a0dad;background:#6a0dad;color:#fff;font-size:10px;font-weight:700;cursor:pointer;">m²</button>'
     +'<button type="button" data-unit="ml" onclick="toggleUnitAmb(this)" style="padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:#fff;color:var(--sub);font-size:10px;font-weight:700;cursor:pointer;">ml</button>'
@@ -6048,7 +6049,9 @@ function gerarAndaresPreview(){
         var unit=unitBtn?unitBtn.getAttribute('data-unit'):'m2';
         var nomeVal=nomeInp?nomeInp.value.trim():'';
         if(cb&&cb.checked&&nomeVal){
-          ambsMarm.push({nome:nomeVal,m2:parseFloat(valInp?valInp.value:0)||0,unidade:unit});
+          var vfMarm=rows[ri].querySelector('input[data-vf]');
+          var vvMarm=rows[ri].querySelector('input[data-vv]');
+          ambsMarm.push({nome:nomeVal,m2:parseFloat(valInp?valInp.value:0)||0,unidade:unit,valor_fixo:parseFloat(vfMarm?vfMarm.value:0)||null,valor_venda:parseFloat(vvMarm?vvMarm.value:0)||null});
         }
       }
     }
@@ -6103,31 +6106,42 @@ function abrirAmbientes(el){
   var apto=_obraAndares[oId].andares[ai].aptos[pi];
   getEl('ma-apto-nome').textContent=apto.nome;
   var lista=getEl('ambientes-lista'); lista.innerHTML='';
-  (apto.ambientes||[]).forEach(function(a){adicionarLinhaAmb(a.nome,a.m2,a.unidade||'m2',a.valor_fixo||'');});
+  (apto.ambientes||[]).forEach(function(a){adicionarLinhaAmb(a.nome,a.m2,a.unidade||'m2',a.valor_fixo||'',a.valor_venda||'');});
   getEl('modal-ambientes').classList.add('show');
 }
 
-function adicionarLinhaAmb(nome,m2,unidade,valorFixo){
+function adicionarLinhaAmb(nome,m2,unidade,valorFixo,valorVenda){
   var lista=getEl('ambientes-lista');
   var un=unidade||'m2';
   var d=document.createElement('div');
   d.className='amb-linha'; d.style.cssText='background:var(--gray);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:6px;';
-  var vf=valorFixo||'';
+  var vf=valorFixo||''; var vv=valorVenda||'';
   d.innerHTML='<div style="display:grid;grid-template-columns:1fr 80px 32px;gap:6px;align-items:center;">'
     +'<input class="inp" type="text" placeholder="Ex: WC 01, Suite..." value="'+(nome||'')+'" style="margin:0">'
     +'<input class="inp" type="number" placeholder="m2/ml" value="'+(m2||'')+'" data-unit="'+un+'" style="margin:0;text-align:center;">'
     +'<button type="button" class="btn-rem" onclick="this.parentElement.remove()">✕</button>'
     +'</div>'
+    // Unidade
     +'<div style="display:flex;align-items:center;gap:6px;">'
     +'<span style="font-size:10px;color:var(--sub);font-weight:700;">Unidade:</span>'
     +'<button type="button" data-unit="m2" onclick="toggleUnitLinhaAmb(this)" style="padding:3px 10px;border-radius:20px;border:1px solid '+(un==='m2'?'var(--gold);background:var(--gold);color:#fff':'var(--border);background:#fff;color:var(--sub)')+';font-size:10px;font-weight:700;cursor:pointer;">m²</button>'
     +'<button type="button" data-unit="ml" onclick="toggleUnitLinhaAmb(this)" style="padding:3px 10px;border-radius:20px;border:1px solid '+(un==='ml'?'var(--gold);background:var(--gold);color:#fff':'var(--border);background:#fff;color:var(--sub)')+';font-size:10px;font-weight:700;cursor:pointer;">ml</button>'
     +'<span class="unit-desc" style="font-size:10px;color:var(--sub);">'+(un==='m2'?'metro quadrado':'metro linear')+'</span>'
     +'</div>'
-    +'<div style="display:flex;align-items:center;gap:6px;margin-top:2px;">'
-    +'<span style="font-size:10px;color:var(--sub);font-weight:700;">Valor fixo R$/unit (opcional):</span>'
-    +'<input class="inp" type="number" placeholder="Ex: 25.00" value="'+vf+'" data-vf="1" style="margin:0;width:90px;font-size:11px;" title="Se preenchido, ignora a taxa do funcionario">'
-    +'<span style="font-size:9px;color:var(--sub);">deixe vazio para usar taxa padrao</span>'
+    // Valores pre-definidos
+    +'<div style="background:#fdf3e3;border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:6px;border-left:3px solid var(--gold);">'
+    +'<div style="font-size:10px;font-weight:700;color:var(--gold);">Valor pre-definido por unidade (opcional)</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+    +'<div>'
+    +'<div style="font-size:9px;color:var(--sub);margin-bottom:3px;">Valor Func R$/unit</div>'
+    +'<input class="inp" type="number" placeholder="Ex: 35.00" value="'+vf+'" data-vf="1" style="margin:0;font-size:11px;" title="Valor pago ao funcionario por unidade">'
+    +'</div>'
+    +'<div>'
+    +'<div style="font-size:9px;color:var(--sub);margin-bottom:3px;">Valor Venda R$/unit</div>'
+    +'<input class="inp" type="number" placeholder="Ex: 70.00" value="'+vv+'" data-vv="1" style="margin:0;font-size:11px;" title="Valor cobrado do cliente por unidade">'
+    +'</div>'
+    +'</div>'
+    +'<div style="font-size:9px;color:var(--sub);">Se preenchido, ignora as taxas gerais da obra. Deixe vazio para usar as taxas padrao.</div>'
     +'</div>';
   lista.appendChild(d);
 }
@@ -6295,8 +6309,10 @@ function salvarAmbientesApto(){
     var m2=parseFloat(valInp?valInp.value:0)||0;
     var unit=valInp?valInp.getAttribute('data-unit')||'m2':'m2';
     var vfInp=linhas[i].querySelector('input[data-vf]');
+    var vvInp=linhas[i].querySelector('input[data-vv]');
     var vf=parseFloat(vfInp?vfInp.value:0)||0;
-    if(nm) ambientes.push({nome:nm,m2:m2,unidade:unit,valor_fixo:vf||null});
+    var vv=parseFloat(vvInp?vvInp.value:0)||0;
+    if(nm) ambientes.push({nome:nm,m2:m2,unidade:unit,valor_fixo:vf||null,valor_venda:vv||null});
   }
   var ref=_editAptoRef;
   _obraAndares[ref.oId].andares[ref.ai].aptos[ref.pi].ambientes=ambientes;
