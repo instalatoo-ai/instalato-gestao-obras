@@ -875,16 +875,17 @@ function goTab(id) {
 }
 
 function atualizarBadgeAvisos(){
-  try {
-    avisosLidos = JSON.parse(localStorage.getItem('instalato_avisos_lidos_'+(U?U.id:'')) || '{}');
-  } catch(e) {}
-  var naoLidos = avs.filter(function(a){ return !avisosLidos[a.id]; }).length;
-  var navEl = getEl('n-aviso');
-  if(!navEl) return;
-  if(naoLidos > 0){
-    navEl.innerHTML = '<span class="ni">📢</span>Avisos<span style="background:var(--red);color:#fff;font-size:9px;padding:1px 5px;border-radius:20px;margin-left:2px;">'+naoLidos+'</span>';
+  try{avisosLidos=JSON.parse(localStorage.getItem('instalato_avisos_lidos_'+(U?U.id:''))||'{}');}catch(e){}
+  var naoLidos=avs.filter(function(a){return !avisosLidos[a.id];}).length;
+  var navEl=getEl('n-aviso'); if(!navEl) return;
+  if(naoLidos>0){
+    navEl.innerHTML='<span class="ni" style="position:relative;display:inline-block;">📢'
+      +'<span style="position:absolute;top:-4px;right:-6px;background:var(--red);color:#fff;font-size:8px;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;padding:0 3px;font-weight:700;">'+naoLidos+'</span>'
+      +'</span>Avisos';
+    navEl.style.color='var(--red)';
   } else {
-    navEl.innerHTML = '<span class="ni">📢</span>Avisos';
+    navEl.innerHTML='<span class="ni">📢</span>Avisos';
+    navEl.style.color='';
   }
 }
 
@@ -920,19 +921,19 @@ function marcarMarmitasLidas(){
 
 function atualizarBadgeOcorr(){
   var navEl=getEl('n-ocorr'); if(!navEl) return;
-  var T=U?U.tipo:'';
-  // Funcionarios nao veem badge (apenas gestao)
-  if(T==='func'){navEl.innerHTML='<span class="ni">⚠️</span>Ocorrencias';return;}
   try{
     var lidas=getOcorrLidas();
-    var novas=ocorrs.filter(function(o){return !lidas[o.id];}).length;
+    // Funcionario ve apenas ocorrencias proprias nao lidas
+    var T=U?U.tipo:'';
+    var minhas=T==='func'?ocorrs.filter(function(o){return o.usuario_id===U.id;}):ocorrs;
+    var novas=minhas.filter(function(o){return !lidas[o.id];}).length;
     if(novas>0){
       navEl.innerHTML='<span class="ni" style="position:relative;display:inline-block;">⚠️'
         +'<span style="position:absolute;top:-4px;right:-6px;background:var(--red);color:#fff;font-size:8px;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;padding:0 3px;font-weight:700;">'+novas+'</span>'
-        +'</span>Ocorrencias';
+        +'</span>Ocorrências';
       navEl.style.color='var(--red)';
     } else {
-      navEl.innerHTML='<span class="ni">⚠️</span>Ocorrencias';
+      navEl.innerHTML='<span class="ni">⚠️</span>Ocorrências';
       navEl.style.color='';
     }
   }catch(e){}
@@ -2523,6 +2524,19 @@ function renderMarmita(){
       +'<button onclick="lancarMarmitaManual()" style="width:100%;padding:10px;border-radius:10px;border:none;background:#1a3a5c;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">Lancar marmita manual</button>'
       +'<button onclick="lancarMarmitaManualEEnviar()" style="width:100%;padding:10px;border-radius:10px;border:none;background:#25D366;color:#fff;font-size:12px;font-weight:700;cursor:pointer;margin-top:6px;">Lancar e enviar WhatsApp</button>'
       +'</div></div>'
+      // Relatorio
+      +'<div style="border-top:1px solid var(--border);padding:12px 14px;">'
+      +'<div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:8px;">Relatorio de Marmitas</div>'
+      +'<div class="row2" style="margin-bottom:8px;">'
+      +'<div><div class="fl">De</div><input class="inp" type="date" id="marm-rel-ini" style="margin:0;"></div>'
+      +'<div><div class="fl">Ate</div><input class="inp" type="date" id="marm-rel-fim" style="margin:0;"></div>'
+      +'</div>'
+      +'<div style="display:flex;gap:8px;">'
+      +'<button onclick="gerarRelMarmita()" style="flex:1;padding:9px;border-radius:10px;border:none;background:#1a3a5c;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">Gerar Relatório</button>'
+      +'<button onclick="imprimirRelMarmita()" style="padding:9px 14px;border-radius:10px;border:1px solid #1a3a5c;background:transparent;color:#1a3a5c;font-size:12px;font-weight:700;cursor:pointer;">🖨 Imprimir</button>'
+      +'</div>'
+      +'<div id="marm-rel-resultado" style="margin-top:10px;"></div>'
+      +'</div>'
       +'</div></div>';
   }
 
@@ -2670,6 +2684,127 @@ function salvarEditMarmita(id){
       renderMarmita();
     }
   });
+}
+
+function gerarRelMarmita(){
+  var ini=document.getElementById('marm-rel-ini')?document.getElementById('marm-rel-ini').value:'';
+  var fim=document.getElementById('marm-rel-fim')?document.getElementById('marm-rel-fim').value:'';
+  var lista=marmitas.filter(function(m){
+    if(ini&&m.data<ini) return false;
+    if(fim&&m.data>fim) return false;
+    return true;
+  });
+  // Agrupar por funcionario
+  var porFunc={};
+  lista.forEach(function(m){
+    var u=null; for(var i=0;i<users.length;i++) if(users[i].id===m.usuario_id){u=users[i];break;}
+    var nome=u?u.apelido:(m.nome||'--');
+    if(!porFunc[nome]) porFunc[nome]={qtd:0,total:0,itens:[]};
+    porFunc[nome].qtd++;
+    porFunc[nome].total+=parseFloat(m.valor)||0;
+    porFunc[nome].itens.push(m);
+  });
+  var totalGeral=lista.reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
+  var el=document.getElementById('marm-rel-resultado'); if(!el) return;
+  if(!lista.length){el.innerHTML='<div class="empty"><p>Nenhuma marmita no periodo.</p></div>';return;}
+  var html='';
+  // Por funcionario
+  Object.keys(porFunc).sort().forEach(function(nome){
+    var f=porFunc[nome];
+    html+='<div style="background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden;margin-bottom:8px;">'
+      +'<div style="background:#1a3a5c;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;">'
+      +'<span style="font-size:13px;font-weight:700;color:#fff;">'+nome+'</span>'
+      +'<span style="font-size:11px;color:rgba(255,255,255,.7);">'+f.qtd+'x · '+fmt(f.total)+'</span>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;padding:6px 12px;font-size:10px;font-weight:700;color:var(--sub);border-bottom:1px solid var(--border);">'
+      +'<span>Data</span><span style="text-align:center;">Valor</span><span style="text-align:right;">Obs</span>'
+      +'</div>'
+      +f.itens.sort(function(a,b){return a.data>b.data?1:-1;}).map(function(m){
+        return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;padding:6px 12px;border-bottom:1px solid var(--border);font-size:11px;">'
+          +'<span>'+fmtD(m.data)+'</span>'
+          +'<span style="text-align:center;font-weight:700;color:#1a3a5c;">'+fmt(parseFloat(m.valor)||0)+'</span>'
+          +'<span style="text-align:right;color:var(--sub);">'+(m.obs||'--')+'</span>'
+          +'</div>';
+      }).join('')
+      +'<div style="display:flex;justify-content:space-between;padding:7px 12px;background:#f5f5f5;">'
+      +'<span style="font-size:11px;color:var(--sub);">Subtotal</span>'
+      +'<span style="font-size:12px;font-weight:700;color:#1a3a5c;">'+fmt(f.total)+'</span>'
+      +'</div></div>';
+  });
+  // Total geral
+  html+='<div style="background:#1a3a5c;border-radius:12px;padding:12px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<div><div style="font-size:11px;color:rgba(255,255,255,.7);">Total Geral · '+lista.length+' marmita(s)</div>'
+    +'<div style="font-size:10px;color:rgba(255,255,255,.5);">'+(ini?fmtD(ini)+' a '+fmtD(fim):'Todos os periodos')+'</div></div>'
+    +'<div style="font-size:18px;font-weight:700;color:#fff;">'+fmt(totalGeral)+'</div>'
+    +'</div>';
+  el.innerHTML=html;
+  window._relMarmData={porFunc:porFunc,totalGeral:totalGeral,ini:ini,fim:fim,lista:lista};
+}
+
+function imprimirRelMarmita(){
+  var d=window._relMarmData;
+  if(!d){toast('Gere o relatorio primeiro.');return;}
+  var agora=new Date();
+  var dataHora=agora.toLocaleDateString('pt-BR')+' '+agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  var nomeGerador=U?U.apelido:'Admin';
+  var tabelas='';
+  Object.keys(d.porFunc).sort().forEach(function(nome){
+    var f=d.porFunc[nome];
+    tabelas+='<div style="margin-bottom:20px;">'
+      +'<div style="background:#1a3a5c;color:#fff;padding:7px 10px;border-radius:4px 4px 0 0;display:flex;justify-content:space-between;">'
+      +'<strong>'+nome+'</strong><span>'+f.qtd+'x · R$ '+f.total.toFixed(2).replace('.',',')+'</span>'
+      +'</div>'
+      +'<table style="width:100%;border-collapse:collapse;font-size:11px;">'
+      +'<thead><tr style="background:#f0f4f8;">'
+      +'<th style="padding:6px 8px;text-align:left;border-bottom:1px solid #ddd;">Data</th>'
+      +'<th style="padding:6px 8px;text-align:right;border-bottom:1px solid #ddd;width:100px;">Valor</th>'
+      +'<th style="padding:6px 8px;text-align:left;border-bottom:1px solid #ddd;">Observacao</th>'
+      +'</tr></thead><tbody>'
+      +f.itens.sort(function(a,b){return a.data>b.data?1:-1;}).map(function(m,idx){
+        return '<tr style="background:'+(idx%2===0?'#fff':'#fafafa')+'">'
+          +'<td style="padding:5px 8px;border-bottom:1px solid #eee;">'+fmtD(m.data)+'</td>'
+          +'<td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:right;font-weight:700;">R$ '+(parseFloat(m.valor)||0).toFixed(2).replace('.',',')+'</td>'
+          +'<td style="padding:5px 8px;border-bottom:1px solid #eee;color:#666;">'+(m.obs||'--')+'</td>'
+          +'</tr>';
+      }).join('')
+      +'<tr style="background:#f0f4f8;">'
+      +'<td style="padding:6px 8px;font-weight:700;border-top:2px solid #1a3a5c;">Subtotal</td>'
+      +'<td style="padding:6px 8px;font-weight:700;text-align:right;border-top:2px solid #1a3a5c;">R$ '+f.total.toFixed(2).replace('.',',')+'</td>'
+      +'<td style="border-top:2px solid #1a3a5c;"></td>'
+      +'</tr></tbody></table></div>';
+  });
+  tabelas+='<table style="width:100%;border-collapse:collapse;margin-top:10px;">'
+    +'<tr style="background:#1a3a5c;">'
+    +'<td style="padding:8px 10px;color:#fff;font-weight:700;font-size:13px;">Total Geral · '+d.lista.length+' marmita(s)</td>'
+    +'<td style="padding:8px 10px;text-align:right;color:#fff;font-weight:700;font-size:13px;">R$ '+d.totalGeral.toFixed(2).replace('.',',')+'</td>'
+    +'</tr></table>';
+  var w=window.open('','_blank');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatorio de Marmitas</title><style>'
+    +'*{box-sizing:border-box;margin:0;padding:0;}@page{size:A4;margin:12mm 15mm 18mm;}body{font-family:Arial,sans-serif;font-size:11px;color:#222;}'
+    +'.watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);opacity:0.04;pointer-events:none;z-index:0;text-align:center;}'
+    +'.watermark-txt{font-size:90px;font-weight:900;color:#1a3a5c;letter-spacing:4px;white-space:nowrap;}'
+    +'.watermark-sub{font-size:24px;color:#1a3a5c;letter-spacing:8px;}'
+    +'.content{position:relative;z-index:1;}'
+    +'.footer{position:fixed;bottom:5mm;left:12mm;right:12mm;border-top:1px solid #ddd;padding-top:4px;font-size:9px;color:#aaa;display:flex;justify-content:space-between;}'
+    +'@media print{button{display:none!important;}}'
+    +'</style></head><body>'
+    +'<div class="watermark"><div class="watermark-txt">INSTALATO</div><div class="watermark-sub">GESTOR</div></div>'
+    +'<div class="content">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;border-bottom:2px solid #1a3a5c;padding-bottom:10px;">'
+    +'<div><div style="font-size:20px;font-weight:900;color:#1a3a5c;">GESTOR INSTALATO</div>'
+    +'<div style="font-size:14px;font-weight:700;color:#333;margin-top:3px;">Relatório de Marmitas</div>'
+    +'<div style="font-size:10px;color:#888;margin-top:3px;">Periodo: '+(d.ini?fmtD(d.ini)+' a '+fmtD(d.fim):'Todos os periodos')+'</div></div>'
+    +'<div style="text-align:right;font-size:10px;color:#555;line-height:1.9;">'
+    +'<div><strong>Gerado em:</strong> '+dataHora+'</div>'
+    +'<div><strong>Gerado por:</strong> '+nomeGerador+'</div>'
+    +'</div></div>'
+    +tabelas
+    +'</div>'
+    +'<div class="footer"><span>GESTOR INSTALATO &copy; 2021 - Documento confidencial</span>'
+    +'<span>Marmitas | '+dataHora+' | '+nomeGerador+' | Gestora Financeira - Inae Ramos Custodio</span></div>'
+    +'</body></html>');
+  w.document.close();
+  setTimeout(function(){w.print();},600);
 }
 
 function lancarMarmitaManual(){
@@ -2844,6 +2979,31 @@ function pedirMarmita(){
 function renderPonto(){
   var el=getEl('t-ponto'); if(!el) return;
   var T=U.tipo;
+  // Aviso marmita no primeiro acesso do dia
+  var chaveHoje='marm_aviso_'+U.id+'_'+hoje();
+  var jaAvistou=false; try{jaAvistou=localStorage.getItem(chaveHoje)==='1';}catch(e){}
+  var jaFezPedido=marmitas.some(function(m){return m.usuario_id===U.id&&m.data===hoje();});
+  if(!jaAvistou&&!jaFezPedido){
+    try{localStorage.setItem(chaveHoje,'1');}catch(e){}
+    setTimeout(function(){
+      var hora=new Date().getHours();
+      var saudacao=hora<12?'Bom dia':hora<18?'Boa tarde':'Boa noite';
+      var existing=document.getElementById('modal-marmita-aviso'); if(existing) existing.remove();
+      var html='<div class="modal-bg show" id="modal-marmita-aviso" style="z-index:9999;align-items:center;padding:24px;">'
+        +'<div style="background:#fff;border-radius:20px;width:100%;max-width:360px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.15);">'
+        +'<div style="background:#B8860B;padding:20px;text-align:center;">'
+        +'<div style="font-size:40px;margin-bottom:6px;">🍱</div>'
+        +'<div style="font-size:18px;font-weight:700;color:#fff;">'+saudacao+', '+U.apelido+'!</div>'
+        +'</div>'
+        +'<div style="padding:20px;text-align:center;">'
+        +'<div style="font-size:14px;color:var(--sub);margin-bottom:16px;">Deseja fazer o pedido da sua marmita hoje?</div>'
+        +'<div style="display:flex;gap:10px;">'
+        +'<button onclick="recusarMarmitaAviso()" style="flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:13px;font-weight:700;cursor:pointer;">Agora não</button>'
+        +'<button onclick="pedirMarmitaAviso()" style="flex:1;padding:12px;border-radius:12px;border:none;background:#B8860B;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Pedir Marmita</button>'
+        +'</div></div></div></div>';
+      document.body.insertAdjacentHTML('beforeend',html);
+    },800);
+  }
   var meusPontos=pontos.filter(function(p){return p.usuario_id===U.id;});
   var ultimoPonto=meusPontos[0]||null;
   var statusAtual='livre';
@@ -3071,6 +3231,14 @@ function obterLocalizacao(){
   );
 }
 
+function recusarMarmitaAviso(){
+  var m=document.getElementById('modal-marmita-aviso'); if(m) m.remove();
+}
+function pedirMarmitaAviso(){
+  var m=document.getElementById('modal-marmita-aviso'); if(m) m.remove();
+  // Navegar para aba marmita
+  goTab('marmita');
+}
 function renderPontoFiltro(){
   var fId=getEl('pf-func')?getEl('pf-func').value:'';
   var oId=getEl('pf-obra')?getEl('pf-obra').value:'';
@@ -4002,11 +4170,80 @@ function gerarRelatorioReceber(){
     +'<span style="color:rgba(255,255,255,.7);">Recebido</span><span style="color:#7dffb3;">'+fmt(totalRecebido2)+'</span></div>'
     +'<div style="display:flex;justify-content:space-between;font-size:11px;">'
     +'<span style="color:rgba(255,255,255,.7);">Pendente</span><span style="color:#ff9999;">'+fmt(totalPendente2)+'</span></div>'
+    +'</div>'
+    +'<div style="padding:12px 14px;background:#fffdf0;border-top:2px solid #B8860B;display:flex;align-items:center;justify-content:space-between;gap:10px;">'
+    +'<div>'
+    +'<div style="font-size:12px;font-weight:700;color:#B8860B;">Faturar este periodo</div>'
+    +'<div style="font-size:10px;color:var(--sub);">Agrupa todos os ambientes em um unico faturamento</div>'
+    +'</div>'
+    +'<button onclick="abrirFaturamentoPeriodo()" style="padding:9px 16px;border-radius:20px;border:none;background:#B8860B;color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Faturar Periodo</button>'
     +'</div></div>';
 
   document.getElementById('relr-resultado').innerHTML=html2;
-  // Salvar dados para WhatsApp
   window._relReceberData={itensRel:itensRel,porObra:porObra2,totalGeral:totalGeral2,totalRecebido:totalRecebido2,totalPendente:totalPendente2,ini:ini,fim:fim};
+}
+
+function abrirFaturamentoPeriodo(){
+  var d=window._relReceberData;
+  if(!d){toast('Gere o relatorio primeiro.');return;}
+  var jaFat=faturamentos.find(function(f){
+    return d.ini&&f.data>=d.ini&&(!d.fim||f.data<=d.fim);
+  });
+  if(jaFat){
+    if(!confirm('Ja existe faturamento neste periodo! Criar outro pode gerar duplicidade. Continuar?')) return;
+  }
+  var existing=document.getElementById('modal-fat-periodo'); if(existing) existing.remove();
+  var venc=new Date(); venc.setDate(venc.getDate()+30);
+  var vencStr=venc.toISOString().split('T')[0];
+  var obrasList=Object.keys(d.porObra).join(', ');
+  var html='<div class="modal-bg show" id="modal-fat-periodo" style="z-index:9999;align-items:center;padding:20px;">'
+    +'<div style="background:#fff;border-radius:16px;width:100%;max-width:420px;overflow:hidden;">'
+    +'<div style="background:#B8860B;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<span style="font-size:15px;font-weight:700;color:#fff;">Faturamento do Periodo</span>'
+    +'<button onclick="fecharFatPeriodo()" style="background:transparent;border:none;color:#fff;font-size:18px;cursor:pointer;">✕</button>'
+    +'</div>'
+    +'<div style="padding:16px;display:flex;flex-direction:column;gap:12px;">'
+    // Resumo
+    +'<div style="background:#fffdf0;border-radius:10px;padding:12px;border:1px solid #B8860B;">'
+    +'<div style="font-size:10px;color:var(--sub);margin-bottom:4px;">Periodo: '+(d.ini?fmtD(d.ini)+' a '+fmtD(d.fim):'Todos')+'</div>'
+    +'<div style="font-size:10px;color:var(--sub);margin-bottom:6px;">Obras: '+obrasList+'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;">'
+    +'<div><div style="font-size:9px;color:var(--sub);">Total</div><div style="font-size:14px;font-weight:700;color:#1a3a5c;">'+fmt(d.totalGeral)+'</div></div>'
+    +'<div><div style="font-size:9px;color:var(--green);">Recebido</div><div style="font-size:14px;font-weight:700;color:var(--green);">'+fmt(d.totalRecebido)+'</div></div>'
+    +'<div><div style="font-size:9px;color:var(--red);">Pendente</div><div style="font-size:14px;font-weight:700;color:var(--red);">'+fmt(d.totalPendente)+'</div></div>'
+    +'</div></div>'
+    // Valor editavel
+    +'<div><div class="fl">Valor do Faturamento</div>'
+    +'<input class="inp" type="number" id="fatp-valor" value="'+d.totalGeral.toFixed(2)+'"></div>'
+    +'<div><div class="fl">Vencimento</div>'
+    +'<input class="inp" type="date" id="fatp-venc" value="'+vencStr+'"></div>'
+    +'<div><div class="fl">Observacao (opcional)</div>'
+    +'<input class="inp" type="text" id="fatp-obs" placeholder="Ex: NF 001, referente a maio..."></div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button onclick="fecharFatPeriodo()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>'
+    +'<button onclick="confirmarFatPeriodo()" style="flex:2;padding:12px;border-radius:10px;border:none;background:#B8860B;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Registrar Faturamento</button>'
+    +'</div></div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+function fecharFatPeriodo(){var m=document.getElementById('modal-fat-periodo');if(m)m.remove();}
+
+function confirmarFatPeriodo(){
+  var d=window._relReceberData;
+  var valor=parseFloat(document.getElementById('fatp-valor')?document.getElementById('fatp-valor').value:0)||0;
+  var venc=document.getElementById('fatp-venc')?document.getElementById('fatp-venc').value:'';
+  var obs=(document.getElementById('fatp-obs')?document.getElementById('fatp-obs').value||'':'').trim();
+  if(!valor){toast('Informe o valor.');return;}
+  if(!venc){toast('Informe o vencimento.');return;}
+  var obrasList=Object.keys(d.porObra).join(', ');
+  var totalM2=d.itensRel.reduce(function(s,i){return s+(i.area||0);},0);
+  var obj={conf_id:null,obra_id:null,obra:obrasList,apto:'Periodo',ambiente:Object.keys(d.porObra).length+' obra(s)',valor:valor,area_m2:totalM2,data:d.ini||hoje(),vencimento:venc,observacao:obs||('Periodo '+fmtD(d.ini)+' a '+fmtD(d.fim)),status:'pendente',criado_por:U.id};
+  dbInsert('faturamentos',obj).then(function(r){
+    if(r){faturamentos=[r].concat(faturamentos);fecharFatPeriodo();toast('Faturamento registrado!');renderReceber();}
+  }).catch(function(){
+    var r=Object.assign({},obj,{id:'local_'+Date.now()});
+    faturamentos=[r].concat(faturamentos);fecharFatPeriodo();toast('Faturamento registrado!');renderReceber();
+  });
 }
 
 function imprimirRelReceber(){
@@ -5921,44 +6158,54 @@ function tipoObraChanged(){
       +'<div id="andares-preview" style="margin-top:10px;"></div>'
       +'</div>';
   } else if(tipo==='Marmoraria'){
-    wrap.innerHTML='<div style="background:#f5eef8;border-radius:12px;padding:13px;border-left:3px solid #6a0dad;margin-top:4px;">'
-      +'<div style="font-size:12px;font-weight:700;color:#6a0dad;margin-bottom:10px;">Estrutura - Marmoraria</div>'
-      +'<div style="font-size:11px;color:var(--sub);margin-bottom:10px;">Adicione os ambientes desta obra (ex: Pia cozinha, Ilha, Escada...).</div>'
-      +'<input type="hidden" id="mo-andares" value="1">'
-      +'<input type="hidden" id="mo-aptos-andar" value="1">'
-      +'<input type="hidden" id="mo-num-inicio" value="1">'
-      +'<div id="andares-preview"></div>'
+    wrap.innerHTML='';
+    ['mo-andares','mo-aptos-andar','mo-num-inicio'].forEach(function(id){
+      var h=document.createElement('input');h.type='hidden';h.id=id;h.value='1';wrap.appendChild(h);
+    });
+    var prev=document.createElement('div');prev.id='andares-preview';wrap.appendChild(prev);
+    var box=document.createElement('div');
+    box.style.cssText='background:#f5eef8;border-radius:12px;padding:13px;border-left:3px solid #6a0dad;margin-top:4px;';
+    box.innerHTML='<div style="font-size:12px;font-weight:700;color:#6a0dad;margin-bottom:6px;">🪨 Estrutura - Marmoraria</div>'
+      +'<div style="font-size:11px;color:var(--sub);margin-bottom:10px;">Adicione os itens desta obra (ex: Pia cozinha, Bancada, Escada...).</div>'
       +'<div style="background:#fff;border-radius:8px;padding:10px;">'
-      +'<div style="font-size:13px;font-weight:700;margin-bottom:8px;">Ambientes</div>'
-      +'<div id="marm-amb-lista" style="display:flex;flex-direction:column;gap:6px;"></div>'
-      +'<button type="button" class="btn-sec" onclick="addMarmAmb()" style="margin-top:8px;width:100%;">+ Adicionar ambiente</button>'
-      +'</div></div>';
-  } else if(tipo==='Comercial'){
-    wrap.innerHTML='<div style="background:#fff3e0;border-radius:12px;padding:13px;border-left:3px solid #e65100;margin-top:4px;">'
-      +'<div style="font-size:12px;font-weight:700;color:#e65100;margin-bottom:10px;">Estrutura - Comercial</div>'
-      +'<div style="font-size:11px;color:var(--sub);margin-bottom:10px;">Adicione as salas, lojas ou ambientes desta obra.</div>'
-      +'<input type="hidden" id="mo-andares" value="1">'
-      +'<input type="hidden" id="mo-aptos-andar" value="1">'
-      +'<input type="hidden" id="mo-num-inicio" value="1">'
-      +'<div id="andares-preview"></div>'
-      +'<div style="background:#fff;border-radius:8px;padding:10px;">'
-      +'<div style="font-size:13px;font-weight:700;margin-bottom:8px;">Ambientes / Salas</div>'
-      +'<div id="com-amb-lista" style="display:flex;flex-direction:column;gap:6px;"></div>'
-      +'<button type="button" class="btn-sec" onclick="addComAmb()" style="margin-top:8px;width:100%;border-color:#e65100;color:#e65100;">+ Adicionar ambiente</button>'
-      +'</div></div>';
-  } else if(tipo==='Outro'){
-    wrap.innerHTML='<div style="background:#f5f5f5;border-radius:12px;padding:13px;border-left:3px solid #888;margin-top:4px;">'
-      +'<div style="font-size:12px;font-weight:700;color:#555;margin-bottom:10px;">Estrutura - Outro</div>'
+      +'<div style="font-size:12px;font-weight:700;color:#6a0dad;margin-bottom:8px;">Itens</div>'
+      +'<div id="marm-amb-lista" style="display:flex;flex-direction:column;gap:8px;"></div>'
+      +'</div>';
+    wrap.appendChild(box);
+    var btnAdd=document.createElement('button');
+    btnAdd.type='button';btnAdd.className='btn-sec';
+    btnAdd.style.cssText='margin-top:8px;width:100%;border-color:#6a0dad;color:#6a0dad;';
+    btnAdd.textContent='+ Adicionar Item';
+    btnAdd.onclick=addMarmAmb;
+    box.querySelector('#marm-amb-lista').parentElement.appendChild(btnAdd);
+  } else if(tipo==='Comercial'||tipo==='Outro'){
+    var isC=tipo==='Comercial';
+    var corT=isC?'#e65100':'#888';
+    var bgT=isC?'#fff3e0':'#f5f5f5';
+    var lblT=isC?'Comercial':'Outro';
+    var listaT=isC?'com-amb-lista':'out-amb-lista';
+    var fnT=isC?'addComAmb()':'addOutAmb()';
+    wrap.innerHTML='';
+    // hidden fields
+    ['mo-andares','mo-aptos-andar','mo-num-inicio'].forEach(function(id,i){
+      var h=document.createElement('input');h.type='hidden';h.id=id;h.value=i===2?'1':'1';wrap.appendChild(h);
+    });
+    var preview=document.createElement('div');preview.id='andares-preview';wrap.appendChild(preview);
+    var box=document.createElement('div');
+    box.style.cssText='background:'+bgT+';border-radius:12px;padding:13px;border-left:3px solid '+corT+';margin-top:4px;';
+    box.innerHTML='<div style="font-size:12px;font-weight:700;color:'+corT+';margin-bottom:6px;">Estrutura - '+lblT+'</div>'
       +'<div style="font-size:11px;color:var(--sub);margin-bottom:10px;">Adicione os ambientes desta obra.</div>'
-      +'<input type="hidden" id="mo-andares" value="1">'
-      +'<input type="hidden" id="mo-aptos-andar" value="1">'
-      +'<input type="hidden" id="mo-num-inicio" value="1">'
-      +'<div id="andares-preview"></div>'
       +'<div style="background:#fff;border-radius:8px;padding:10px;">'
       +'<div style="font-size:13px;font-weight:700;margin-bottom:8px;">Ambientes</div>'
-      +'<div id="out-amb-lista" style="display:flex;flex-direction:column;gap:6px;"></div>'
-      +'<button type="button" class="btn-sec" onclick="addOutAmb()" style="margin-top:8px;width:100%;">+ Adicionar ambiente</button>'
-      +'</div></div>';
+      +'<div id="'+listaT+'" style="display:flex;flex-direction:column;gap:6px;"></div>'
+      +'</div>';
+    wrap.appendChild(box);
+    var btnAdd=document.createElement('button');
+    btnAdd.type='button';btnAdd.className='btn-sec';
+    btnAdd.style.cssText='margin-top:8px;width:100%;border-color:'+corT+';color:'+corT+';';
+    btnAdd.textContent='+ Adicionar ambiente';
+    btnAdd.onclick=isC?addComAmb:addOutAmb;
+    box.querySelector('[id$="-lista"]').parentElement.appendChild(btnAdd);
   } else {
     wrap.innerHTML='<input type="hidden" id="mo-andares" value="0"><input type="hidden" id="mo-aptos-andar" value="0"><input type="hidden" id="mo-num-inicio" value="1"><div id="andares-preview"></div>';
   }
@@ -5989,23 +6236,40 @@ function _addAmbGenerico(listaId, cor){
 function addComAmb(){ _addAmbGenerico('com-amb-lista','#e65100'); }
 function addOutAmb(){ _addAmbGenerico('out-amb-lista','#888'); }
 
-function addMarmAmb(){
+function addMarmAmb(dadosItem){
   var lista=document.getElementById('marm-amb-lista'); if(!lista) return;
   var d=document.createElement('div');
-  d.style.cssText='background:#fff;border-radius:8px;padding:9px 12px;display:flex;flex-direction:column;gap:6px;';
-  d.innerHTML='<div style="display:flex;align-items:center;gap:8px;">'
-    +'<input type="checkbox" checked style="width:16px;height:16px;cursor:pointer;accent-color:#6a0dad;flex-shrink:0;">'
-    +'<input class="inp" type="text" placeholder="Nome do ambiente" style="margin:0;flex:1;">'
-    +'<button class="btn-rem" type="button" onclick="this.parentElement.remove()">X</button>'
+  d.style.cssText='background:#f9f4ff;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;border:1px solid #d9b3ff;';
+  var nome=(dadosItem&&dadosItem.nome)||'';
+  var m2=(dadosItem&&dadosItem.m2)||'';
+  var un=(dadosItem&&dadosItem.unidade)||'m2';
+  var vf=(dadosItem&&dadosItem.valor_fixo)||'';
+  var vv=(dadosItem&&dadosItem.valor_venda)||'';
+  d.innerHTML=
+    '<div style="display:grid;grid-template-columns:1fr 32px;gap:6px;align-items:center;">'
+    +'<input class="inp" type="text" placeholder="Nome do item (ex: Pia cozinha, Bancada...)" value="'+nome+'" style="margin:0;font-weight:700;">'
+    +'<button class="btn-rem" type="button" onclick="this.parentElement.parentElement.remove()" style="background:#6a0dad;color:#fff;border:none;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:14px;">✕</button>'
     +'</div>'
-    +'<div style="display:flex;align-items:center;gap:6px;padding-left:24px;">'
-    +'<input class="inp" type="number" placeholder="m2/ml" style="margin:0;flex:1;text-align:center;">'
+    +'<div style="display:flex;align-items:flex-end;gap:8px;">'
+    +'<div style="flex:1;">'
+    +'<div style="font-size:9px;color:#6a0dad;font-weight:700;margin-bottom:3px;">Quantidade</div>'
+    +'<input class="inp" type="number" placeholder="Ex: 2.50" value="'+m2+'" data-unit="'+un+'" style="margin:0;text-align:center;">'
+    +'</div>'
+    +'<div>'
+    +'<div style="font-size:9px;color:#6a0dad;font-weight:700;margin-bottom:3px;">Unidade</div>'
     +'<div style="display:flex;gap:4px;">'
-    +'<button type="button" data-unit="m2" onclick="toggleUnitAmb(this)" style="padding:4px 10px;border-radius:20px;border:1px solid #6a0dad;background:#6a0dad;color:#fff;font-size:10px;font-weight:700;cursor:pointer;">m²</button>'
-    +'<button type="button" data-unit="ml" onclick="toggleUnitAmb(this)" style="padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:#fff;color:var(--sub);font-size:10px;font-weight:700;cursor:pointer;">ml</button>'
+    +'<button type="button" data-unit="m2" onclick="toggleUnitAmb(this)" style="padding:6px 12px;border-radius:20px;border:1px solid '+(un==='m2'?'#6a0dad;background:#6a0dad;color:#fff':'var(--border);background:#fff;color:var(--sub)')+';font-size:11px;font-weight:700;cursor:pointer;">m²</button>'
+    +'<button type="button" data-unit="ml" onclick="toggleUnitAmb(this)" style="padding:6px 12px;border-radius:20px;border:1px solid '+(un==='ml'?'#6a0dad;background:#6a0dad;color:#fff':'var(--border);background:#fff;color:var(--sub)')+';font-size:11px;font-weight:700;cursor:pointer;">ml</button>'
+    +'</div></div></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#ede0ff;border-radius:8px;padding:8px;">'
+    +'<div>'
+    +'<div style="font-size:9px;color:#6a0dad;font-weight:700;margin-bottom:3px;">Valor Funcionario R$/unit</div>'
+    +'<input class="inp" type="number" placeholder="Ex: 35,00" value="'+vf+'" data-vf="1" style="margin:0;font-size:12px;">'
     +'</div>'
-    +'<span style="font-size:11px;color:#6a0dad;font-weight:700;min-width:24px;">m²</span>'
-    +'</div>';
+    +'<div>'
+    +'<div style="font-size:9px;color:#1a3a5c;font-weight:700;margin-bottom:3px;">Valor Cliente R$/unit</div>'
+    +'<input class="inp" type="number" placeholder="Ex: 70,00" value="'+vv+'" data-vv="1" style="margin:0;font-size:12px;">'
+    +'</div></div>';
   lista.appendChild(d);
 }
 
