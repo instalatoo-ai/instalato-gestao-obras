@@ -5933,10 +5933,61 @@ function tipoObraChanged(){
       +'<div id="marm-amb-lista" style="display:flex;flex-direction:column;gap:6px;"></div>'
       +'<button type="button" class="btn-sec" onclick="addMarmAmb()" style="margin-top:8px;width:100%;">+ Adicionar ambiente</button>'
       +'</div></div>';
+  } else if(tipo==='Comercial'){
+    wrap.innerHTML='<div style="background:#fff3e0;border-radius:12px;padding:13px;border-left:3px solid #e65100;margin-top:4px;">'
+      +'<div style="font-size:12px;font-weight:700;color:#e65100;margin-bottom:10px;">Estrutura - Comercial</div>'
+      +'<div style="font-size:11px;color:var(--sub);margin-bottom:10px;">Adicione as salas, lojas ou ambientes desta obra.</div>'
+      +'<input type="hidden" id="mo-andares" value="1">'
+      +'<input type="hidden" id="mo-aptos-andar" value="1">'
+      +'<input type="hidden" id="mo-num-inicio" value="1">'
+      +'<div id="andares-preview"></div>'
+      +'<div style="background:#fff;border-radius:8px;padding:10px;">'
+      +'<div style="font-size:13px;font-weight:700;margin-bottom:8px;">Ambientes / Salas</div>'
+      +'<div id="com-amb-lista" style="display:flex;flex-direction:column;gap:6px;"></div>'
+      +'<button type="button" class="btn-sec" onclick="addComAmb()" style="margin-top:8px;width:100%;border-color:#e65100;color:#e65100;">+ Adicionar ambiente</button>'
+      +'</div></div>';
+  } else if(tipo==='Outro'){
+    wrap.innerHTML='<div style="background:#f5f5f5;border-radius:12px;padding:13px;border-left:3px solid #888;margin-top:4px;">'
+      +'<div style="font-size:12px;font-weight:700;color:#555;margin-bottom:10px;">Estrutura - Outro</div>'
+      +'<div style="font-size:11px;color:var(--sub);margin-bottom:10px;">Adicione os ambientes desta obra.</div>'
+      +'<input type="hidden" id="mo-andares" value="1">'
+      +'<input type="hidden" id="mo-aptos-andar" value="1">'
+      +'<input type="hidden" id="mo-num-inicio" value="1">'
+      +'<div id="andares-preview"></div>'
+      +'<div style="background:#fff;border-radius:8px;padding:10px;">'
+      +'<div style="font-size:13px;font-weight:700;margin-bottom:8px;">Ambientes</div>'
+      +'<div id="out-amb-lista" style="display:flex;flex-direction:column;gap:6px;"></div>'
+      +'<button type="button" class="btn-sec" onclick="addOutAmb()" style="margin-top:8px;width:100%;">+ Adicionar ambiente</button>'
+      +'</div></div>';
   } else {
     wrap.innerHTML='<input type="hidden" id="mo-andares" value="0"><input type="hidden" id="mo-aptos-andar" value="0"><input type="hidden" id="mo-num-inicio" value="1"><div id="andares-preview"></div>';
   }
 }
+
+function _addAmbGenerico(listaId, cor){
+  var lista=document.getElementById(listaId); if(!lista) return;
+  var d=document.createElement('div');
+  d.style.cssText='background:#fff;border-radius:8px;padding:9px 12px;display:flex;flex-direction:column;gap:6px;border:1px solid var(--border);';
+  d.innerHTML='<div style="display:grid;grid-template-columns:1fr 80px 32px;gap:6px;align-items:center;">'
+    +'<input class="inp" type="text" placeholder="Ex: Sala, Loja 01..." style="margin:0;">'
+    +'<input class="inp" type="number" placeholder="m²" data-unit="m2" style="margin:0;text-align:center;">'
+    +'<button class="btn-rem" type="button" onclick="this.parentElement.parentElement.remove()">✕</button>'
+    +'</div>'
+    +'<div style="display:flex;gap:6px;align-items:center;">'
+    +'<span style="font-size:10px;color:var(--sub);font-weight:700;">Unidade:</span>'
+    +'<button type="button" data-unit="m2" onclick="toggleUnitAmb(this)" style="padding:3px 10px;border-radius:20px;border:1px solid var(--gold);background:var(--gold);color:#fff;font-size:10px;font-weight:700;cursor:pointer;">m²</button>'
+    +'<button type="button" data-unit="ml" onclick="toggleUnitAmb(this)" style="padding:3px 10px;border-radius:20px;border:1px solid var(--border);background:#fff;color:var(--sub);font-size:10px;font-weight:700;cursor:pointer;">ml</button>'
+    +'</div>'
+    +'<div style="background:#fdf3e3;border-radius:6px;padding:6px 8px;display:grid;grid-template-columns:1fr 1fr;gap:6px;">'
+    +'<div><div style="font-size:9px;color:var(--sub);margin-bottom:2px;">Valor Func R$/unit</div>'
+    +'<input class="inp" type="number" placeholder="Ex: 35.00" data-vf="1" style="margin:0;font-size:11px;"></div>'
+    +'<div><div style="font-size:9px;color:var(--sub);margin-bottom:2px;">Valor Venda R$/unit</div>'
+    +'<input class="inp" type="number" placeholder="Ex: 70.00" data-vv="1" style="margin:0;font-size:11px;"></div>'
+    +'</div>';
+  lista.appendChild(d);
+}
+function addComAmb(){ _addAmbGenerico('com-amb-lista','#e65100'); }
+function addOutAmb(){ _addAmbGenerico('out-amb-lista','#888'); }
 
 function addMarmAmb(){
   var lista=document.getElementById('marm-amb-lista'); if(!lista) return;
@@ -6035,29 +6086,36 @@ function gerarAndaresPreview(){
   var nP=parseInt(getEl('mo-aptos-andar').value)||0;
   var nI=parseInt(getEl('mo-num-inicio').value)||101;
 
-  // Marmoraria: montar estrutura com ambientes selecionados
-  if(tipo2==='Marmoraria'){
-    var ambsMarm=[];
-    var lista=document.getElementById('marm-amb-lista');
-    if(lista){
-      var rows=lista.children;
-      for(var ri=0;ri<rows.length;ri++){
-        var cb=rows[ri].querySelector('input[type=checkbox]');
-        var nomeInp=rows[ri].querySelector('input[type=text]');
-        var valInp=rows[ri].querySelector('input[type=number]');
-        var unitBtn=rows[ri].querySelector('button[data-unit][style*="#6a0dad"]');
-        var unit=unitBtn?unitBtn.getAttribute('data-unit'):'m2';
-        var nomeVal=nomeInp?nomeInp.value.trim():'';
-        if(cb&&cb.checked&&nomeVal){
-          var vfMarm=rows[ri].querySelector('input[data-vf]');
-          var vvMarm=rows[ri].querySelector('input[data-vv]');
-          ambsMarm.push({nome:nomeVal,m2:parseFloat(valInp?valInp.value:0)||0,unidade:unit,valor_fixo:parseFloat(vfMarm?vfMarm.value:0)||null,valor_venda:parseFloat(vvMarm?vvMarm.value:0)||null});
-        }
+  // Tipos simples: Marmoraria, Comercial, Outro - montar estrutura com lista de ambientes
+  var tipoSimples=(tipo2==='Marmoraria'||tipo2==='Comercial'||tipo2==='Outro'||tipo2==='Casa');
+  if(tipoSimples){
+    var listaIdMap={Marmoraria:'marm-amb-lista',Comercial:'com-amb-lista',Outro:'out-amb-lista',Casa:'casa-amb-lista'};
+    var listaIdS=listaIdMap[tipo2];
+    var nomeTipoS=tipo2==='Casa'?'Casa':'Obra';
+    var ambsSimples=[];
+    var listaS=document.getElementById(listaIdS);
+    if(listaS){
+      var rowsS=listaS.children;
+      for(var ri=0;ri<rowsS.length;ri++){
+        var cb=rowsS[ri].querySelector('input[type=checkbox]');
+        // Para Casa: checkbox nao existe, pegar todos
+        if(cb&&!cb.checked) continue;
+        var nomeInpS=rowsS[ri].querySelector('input[type=text]');
+        var valInpS=rowsS[ri].querySelector('input[type=number]');
+        var unitBtnS=rowsS[ri].querySelector('button[data-unit][style*="gold"],button[data-unit][style*="#6a0dad"]');
+        var unitBtnAlt=rowsS[ri].querySelector('button[data-unit]');
+        var unitS=(unitBtnS||unitBtnAlt)?((unitBtnS||unitBtnAlt).getAttribute('data-unit')||'m2'):'m2';
+        if(valInpS) unitS=valInpS.getAttribute('data-unit')||unitS;
+        var nomeValS=nomeInpS?nomeInpS.value.trim():'';
+        if(!nomeValS) continue;
+        var vfS=rowsS[ri].querySelector('input[data-vf]');
+        var vvS=rowsS[ri].querySelector('input[data-vv]');
+        ambsSimples.push({nome:nomeValS,m2:parseFloat(valInpS?valInpS.value:0)||0,unidade:unitS,valor_fixo:parseFloat(vfS?vfS.value:0)||null,valor_venda:parseFloat(vvS?vvS.value:0)||null});
       }
     }
-    if(ambsMarm.length){
-      var oIdMarm=editObraId||'__novo__';
-      _obraAndares[oIdMarm]={andares:[{num:1,nome:'Unico',aptos:[{nome:'Obra',ambientes:ambsMarm}]}]};
+    if(ambsSimples.length){
+      var oIdS=editObraId||'__novo__';
+      _obraAndares[oIdS]={andares:[{num:1,nome:'Unico',aptos:[{nome:nomeTipoS,ambientes:ambsSimples}]}]};
       nA=1;nP=1;nI=1;
     }
   }
