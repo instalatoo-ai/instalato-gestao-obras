@@ -1122,11 +1122,17 @@ function aptoChanged(oId,aptoNome){
     // Calcular ja lancado deste ambiente neste apto/obra
     var m2Total=parseFloat(a.m2)||0;
     var m2Lancado=0;
+    var m2LancadoTotal=0; // todos os funcs
     if(oIdL&&aptoL){
       lancs.forEach(function(l){
         if(l.obra_id===oIdL&&l.apartamento===aptoL){
           var ambsL=[];try{ambsL=(l.ambiente||'').split(', ');}catch(e){}
-          if(ambsL.indexOf(a.nome)>=0||l.ambiente===a.nome) m2Lancado+=(parseFloat(l.area_m2)||0)/Math.max(ambsL.length,1);
+          if(ambsL.indexOf(a.nome)>=0||l.ambiente===a.nome){
+            var qtd=(parseFloat(l.area_m2)||0)/Math.max(ambsL.length,1);
+            m2LancadoTotal+=qtd;
+            // Contar apenas do funcionario logado para controle de disponivel
+            if(l.usuario_id===U.id) m2Lancado+=qtd;
+          }
         }
       });
     }
@@ -1140,7 +1146,8 @@ function aptoChanged(oId,aptoNome){
       +'<div style="font-size:10px;color:'+dispColor+';">'
       +m2Disp.toFixed(1)+(m2Lancado>0?' disponivel de '+m2Total:' '+(unidade==='ml'?'ml':'m²'))
       +(a.valor_fixo?' · valor fixo':'')
-      +(m2Lancado>0?' · '+m2Lancado.toFixed(1)+' ja lancado':'')
+      +(m2Lancado>0?' · '+m2Lancado.toFixed(1)+' seu lancamento':'')
+      +(m2LancadoTotal>m2Lancado?' · total: '+m2LancadoTotal.toFixed(1):'')
       +'</div>'
       +'</label></div>'
       +'<div style="text-align:right;font-size:12px;font-weight:700;color:'+dispColor+';">'+m2Disp.toFixed(1)+(unidade==='ml'?' ml':' m²')+'</div>';
