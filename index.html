@@ -1382,29 +1382,21 @@ function salvarLanc() {
   if(!amb){toast('⚠️ Selecione o ambiente.');return;}
   if(!area){toast('⚠️ Informe a área.');return;}
 
-  // Regra: nao permitir lancamento duplicado de apto+ambiente na mesma obra
-  var jaExiste=false; var jaAprovado=false;
+  // Regra: bloquear se aprovado ou mesmo func ja lancou; permitir outro func se tiver m2 disponivel
+  var jaAprovado=false, jaExisteMesmoFunc=false;
+  var m2LancadoAmb=0;
   for(var li=0;li<lancs.length;li++){
     var lx=lancs[li];
-    if(lx.obra_id===oId && lx.apartamento===apto && lx.ambiente===amb){
-      jaExiste=true;
-      // Verificar se foi aprovado na conferencia
+    if(lx.obra_id===oId&&lx.apartamento===apto&&lx.ambiente===amb){
+      m2LancadoAmb+=parseFloat(lx.area_m2)||0;
+      if(lx.usuario_id===fId) jaExisteMesmoFunc=true;
       for(var ci=0;ci<confs.length;ci++){
-        if(confs[ci].obra_id===oId && confs[ci].apartamento===apto && confs[ci].ambiente===amb && confs[ci].status==='aprovado'){
-          jaAprovado=true; break;
-        }
+        if(confs[ci].obra_id===oId&&confs[ci].apartamento===apto&&confs[ci].ambiente===amb&&confs[ci].status==='aprovado'){jaAprovado=true;break;}
       }
-      break;
     }
   }
-  if(jaAprovado){
-    toast('Apto '+apto+' / '+amb+' ja foi conferido e aprovado nesta obra!');
-    return;
-  }
-  if(jaExiste){
-    toast('Apto '+apto+' / '+amb+' ja tem lancamento nesta obra! Exclua ou edite o existente.');
-    return;
-  }
+  if(jaAprovado){toast('Apto '+apto+' / '+amb+' ja foi aprovado na conferencia!');return;}
+  if(jaExisteMesmoFunc){toast('Apto '+apto+' / '+amb+' ja tem lancamento seu! Exclua o existente para relandar.');return;}
   var base=0; var rate=getRate(oId);
   var cbs3=document.querySelectorAll('#l-amb-lista input[type=checkbox]:checked');
   if(cbs3.length){
