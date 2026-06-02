@@ -294,9 +294,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="sec-lbl">Portal do Cliente</div>
     <div class="cfg-item" onclick="openSub('clientes')"><div class="ci-ico" style="background:#e8f0fb">👥</div><div><div class="ci-nm">Clientes</div><div class="ci-ds">Gerenciar acessos ao portal</div></div><span style="color:#ccc;font-size:20px;margin-left:auto">›</span></div>
     <div class="cfg-item" onclick="openSub('novocliente')"><div class="ci-ico" style="background:#eafaf1">➕</div><div><div class="ci-nm">Cadastrar cliente</div><div class="ci-ds">Novo acesso ao portal</div></div><span style="color:#ccc;font-size:20px;margin-left:auto">›</span></div>
+    <div class="sec-lbl">Financeiro</div>
+    <div class="cfg-item" onclick="openSub('cfg-marmita');atualizarValorMarmitaCfg()"><div class="ci-ico" style="background:#fdf3e3">🍱</div><div><div class="ci-nm">Valor da Marmita</div><div class="ci-ds">Preco cobrado por refeicao</div></div><span style="color:#ccc;font-size:20px;margin-left:auto">›</span></div>
     <div class="sec-lbl">Conta</div>
     <div class="cfg-item" onclick="doLogout()"><div class="ci-ico" style="background:#fdf0f0">🚪</div><div><div class="ci-nm" style="color:var(--red)">Sair do sistema</div></div></div>
   </div>
+</div>
+
+<div class="sub-pg" id="sub-cfg-marmita">
+  <div class="sub-hdr"><button class="btn-bk" type="button" onclick="closeSub('cfg-marmita')">&#8592;</button><div><div class="sub-t">Valor da Marmita</div></div></div>
+  <div class="sub-body"><div class="pad">
+    <div style="background:#fdf3e3;border-radius:14px;padding:16px;border:1px solid #B8860B;margin-bottom:16px;text-align:center;">
+      <div style="font-size:40px;margin-bottom:8px;">&#127857;</div>
+      <div style="font-size:12px;color:#888;">Valor atual cobrado por refeicao</div>
+      <div id="marm-valor-atual-cfg" style="font-size:28px;font-weight:700;color:#B8860B;margin-top:4px;">R$ --</div>
+    </div>
+    <div><div class="fl">Novo valor R$</div><input class="inp" type="number" id="marm-cfg-novo-valor" placeholder="Ex: 18.50" step="0.50"></div>
+    <div style="background:#e8f0fb;border-radius:10px;padding:10px 12px;font-size:11px;color:#888;margin-top:4px;">
+      Este valor sera descontado automaticamente do funcionario ao pedir marmita. Apenas administradores podem alterar.
+    </div>
+    <button onclick="salvarValorMarmitaCfg()" style="width:100%;padding:12px;border-radius:12px;border:none;background:#B8860B;color:#fff;font-size:14px;font-weight:700;cursor:pointer;margin-top:12px;">Salvar Valor</button>
+  </div></div>
 </div>
 
 <div class="sub-pg" id="sub-empresa">
@@ -1663,17 +1681,26 @@ function renderConf() {
   var checks=window._checks||_checks;
   var pendHtml='';
   if(pendentes.length){
-    pendHtml='<div class="pend-card"><div style="font-size:11px;font-weight:700;color:#854F0B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">⏳ Aguardando conferência ('+pendentes.length+')</div>';
+    _pendDiv=[];
+    pendHtml='<div class="pend-card" id="pend-card-wrap"><div style="font-size:11px;font-weight:700;color:#854F0B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">⏳ Aguardando conferência ('+pendentes.length+')</div><div id="pend-items-container"></div>';
     pendentes.forEach(function(l){
       var u=null; for(var i=0;i<users.length;i++) if(users[i].id===l.usuario_id){u=users[i];break;}
       var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===l.obra_id){o=obras[i];break;}
-      pendHtml+='<div class="pend-item" onclick="preencherConf(\''+l.id+'\',\''+l.obra_id+'\',\''+l.usuario_id+'\',\''+l.apartamento+'\',\''+l.ambiente+'\')">'
-        +'<div style="display:flex;justify-content:space-between"><div>'
-        +'<div style="font-size:13px;font-weight:700">'+(u?u.apelido:'--')+' · Apto '+(l.apartamento||'--')+'</div>'
-        +'<div style="font-size:11px;color:var(--sub)">'+(o?o.nome:'--')+' · '+(l.ambiente||'--')+' · '+l.area_m2+'m²</div>'
-        +'<div style="font-size:10px;color:var(--sub)">'+fmtD(l.data)+(l.hora?' · '+l.hora:'')+'</div></div>'
-        +'<div style="text-align:right"><div style="font-size:13px;font-weight:700;color:var(--gold)">'+fmt(l.total)+'</div>'
-        +'<div style="font-size:10px;background:var(--lg);color:var(--gold);padding:2px 7px;border-radius:20px;margin-top:3px">Conferir →</div></div></div></div>';
+      var div=document.createElement('div');
+      div.className='pend-item';
+      div.setAttribute('data-lid',l.id);
+      div.setAttribute('data-oid',l.obra_id);
+      div.setAttribute('data-uid',l.usuario_id);
+      div.setAttribute('data-apto',l.apartamento||'');
+      div.setAttribute('data-amb',l.ambiente||'');
+      div.onclick=function(){preencherConf(l.id,l.obra_id,l.usuario_id,l.apartamento,l.ambiente);};
+      div.innerHTML='<div style="display:flex;justify-content:space-between"><div>'
+        +'<div style="font-size:13px;font-weight:700;">'+(u?u.apelido:'--')+' · Apto '+(l.apartamento||'--')+'</div>'
+        +'<div style="font-size:11px;color:var(--sub);">'+(o?o.nome:'--')+' · '+(l.ambiente||'--')+' · '+(l.area_m2||0)+'m²</div>'
+        +'<div style="font-size:10px;color:var(--sub);">'+fmtD(l.data)+(l.hora?' · '+l.hora:'')+'</div></div>'
+        +'<div style="text-align:right;"><div style="font-size:13px;font-weight:700;color:var(--gold);">'+fmt(l.total)+'</div>'
+        +'<div style="font-size:10px;background:var(--lg);color:var(--gold);padding:2px 7px;border-radius:20px;margin-top:3px;">Conferir →</div></div></div>';
+      _pendDiv=_pendDiv||[];_pendDiv.push(div);
     });
     pendHtml+='</div>';
   } else {
@@ -1797,6 +1824,14 @@ function salvarEdicaoConf(confId){
   });
 }
 
+function preencherConfBtn(el){
+  var lid=el.getAttribute('data-lid');
+  var oid=el.getAttribute('data-oid');
+  var uid=el.getAttribute('data-uid');
+  var apto=el.getAttribute('data-apto');
+  var amb=decodeURIComponent(el.getAttribute('data-amb')||'');
+  preencherConf(lid,oid,uid,apto,amb);
+}
 function preencherConf(lancId,obraId,profId,apto,amb) {
   getEl('c-lanc-id').value=lancId; getEl('c-obra').value=obraId;
   getEl('c-prof').value=profId; getEl('c-apto').value=apto; getEl('c-amb').value=amb;
@@ -2503,11 +2538,10 @@ function renderMarmita(){
     configAdminHtml='<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
       +'<div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;">Configuracoes</div>'
       +'<div style="padding:12px 14px;display:flex;flex-direction:column;gap:10px;">'
-      // Valor da marmita
-      +'<div style="display:flex;align-items:center;gap:10px;">'
-      +'<div class="fl" style="margin:0;flex:1;">Valor R$</div>'
-      +'<input class="inp" type="number" id="marm-valor-cfg" value="'+valorMarmita+'" style="margin:0;width:80px;text-align:center;">'
-      +'<button onclick="salvarValorMarmita()" style="padding:8px 14px;border-radius:20px;border:none;background:var(--gold);color:#fff;font-size:11px;font-weight:700;cursor:pointer;">Salvar</button>'
+      // Valor da marmita - configurado no painel Config
+      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;">'
+      +'<span style="font-size:12px;color:var(--sub);">Valor por refeicao</span>'
+      +'<span style="font-size:14px;font-weight:700;color:#B8860B;">'+fmt(valorMarmita)+'</span>'
       +'</div>'
       // Lancamento manual
       +'<div style="border-top:1px solid var(--border);padding-top:10px;">'
@@ -2855,6 +2889,21 @@ function lancarMarmitaManualEEnviar(){
   });
 }
 
+function atualizarValorMarmitaCfg(){
+  var el=document.getElementById('marm-valor-atual-cfg');
+  if(el) el.textContent='R$ '+getValorMarmita().toFixed(2).replace('.',',');
+  var inp=document.getElementById('marm-cfg-novo-valor');
+  if(inp&&!inp.value) inp.value=getValorMarmita().toFixed(2);
+}
+function salvarValorMarmitaCfg(){
+  var inp=document.getElementById('marm-cfg-novo-valor');
+  var v=parseFloat(inp?inp.value:0)||0;
+  if(!v){toast('Informe o valor.');return;}
+  try{localStorage.setItem('instalato_marm_valor',String(v));}catch(e){}
+  atualizarValorMarmitaCfg();
+  toast('Valor da marmita salvo: R$ '+v.toFixed(2).replace('.',','));
+  closeSub('cfg-marmita');
+}
 function salvarValorMarmita(){
   var v=parseFloat(document.getElementById('marm-valor-cfg').value)||15;
   try{localStorage.setItem('instalato_marm_valor',String(v));}catch(e){}
@@ -2983,7 +3032,9 @@ function renderPonto(){
   var chaveHoje='marm_aviso_'+U.id+'_'+hoje();
   var jaAvistou=false; try{jaAvistou=localStorage.getItem(chaveHoje)==='1';}catch(e){}
   var jaFezPedido=marmitas.some(function(m){return m.usuario_id===U.id&&m.data===hoje();});
-  if(!jaAvistou&&!jaFezPedido){
+  var horaAtual=new Date().getHours();
+  var dentroHorario=horaAtual>=5&&horaAtual<9;
+  if(!jaAvistou&&!jaFezPedido&&dentroHorario){
     try{localStorage.setItem(chaveHoje,'1');}catch(e){}
     setTimeout(function(){
       var hora=new Date().getHours();
@@ -5147,7 +5198,39 @@ function abrirNovoLancamentoPagar(){
 }
 
 function fecharNovoPagar(){var m=document.getElementById('modal-novo-pagar');if(m)m.remove();}
+function temFaturamentoMed(id){
+  // Verifica se existe faturamento vinculado a esta medicao (via conf_id ou por periodo+funcionario)
+  var med=null; for(var i=0;i<medicoes.length;i++) if(medicoes[i].id===id){med=medicoes[i];break;}
+  if(!med) return false;
+  return faturamentos.some(function(f){
+    // Faturamento vinculado diretamente
+    if(f.med_id===id) return true;
+    // Faturamento no mesmo periodo do funcionario
+    if(f.status==='pago') return false; // ja recebido nao conta como bloqueio
+    return false;
+  });
+}
+
+function temConferenciaMed(id){
+  // Verifica se a medicao foi conferida/aprovada
+  var med=null; for(var i=0;i<medicoes.length;i++) if(medicoes[i].id===id){med=medicoes[i];break;}
+  if(!med) return false;
+  // Se status=pago, foi processada
+  return med.status==='pago';
+}
+
 function excluirMedicao(id){
+  var med=null; for(var i=0;i<medicoes.length;i++) if(medicoes[i].id===id){med=medicoes[i];break;}
+  if(med&&med.status==='pago'){
+    toast('Nao e possivel excluir: esta medicao ja foi paga. Cancele o pagamento primeiro.');
+    return;
+  }
+  // Verificar se tem faturamento ativo vinculado
+  var fatVinc=faturamentos.find(function(f){return f.med_id===id&&f.status==='pendente';});
+  if(fatVinc){
+    toast('Nao e possivel excluir: existe faturamento pendente vinculado. Cancele o faturamento primeiro.');
+    return;
+  }
   if(!confirm('Excluir este lancamento?')) return;
   dbDelete('medicoes',id).then(function(ok){
     if(ok){medicoes=medicoes.filter(function(m){return m.id!==id;});renderAPagar();toast('Excluido!');}
@@ -5263,7 +5346,8 @@ function renderAPagar(){
           +(isPend?'<button data-mid="'+m.id+'" onclick="marcarMedicaoPaga(this.dataset.mid)" style="flex:1;padding:7px;border-radius:20px;border:none;background:var(--green);color:#fff;font-size:11px;font-weight:700;cursor:pointer;">✓ Marcar como Pago</button>':'')
           +'<button data-mid="'+m.id+'" onclick="verDetalhesMED(this.dataset.mid)" style="padding:7px 12px;border-radius:20px;border:1px solid #1a3a5c;background:transparent;color:#1a3a5c;font-size:11px;font-weight:700;cursor:pointer;">🔍 Detalhes</button>'
           +'<button data-mid="'+m.id+'" onclick="reimprMED(this.dataset.mid)" style="padding:7px 12px;border-radius:20px;border:1px solid var(--gold);background:transparent;color:var(--gold);font-size:11px;font-weight:700;cursor:pointer;">📄 MED</button>'
-          +'<button data-mid="'+m.id+'" onclick="excluirMedicao(this.dataset.mid)" style="padding:7px 12px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);font-size:11px;font-weight:700;cursor:pointer;">🗑</button>'
+          +(!isPend?'<button data-mid="'+m.id+'" onclick="cancelarPagamentoMed(this.dataset.mid)" style="padding:7px 12px;border-radius:20px;border:1px solid #B8860B;background:transparent;color:#B8860B;font-size:11px;font-weight:700;cursor:pointer;">↩ Cancelar Pag.</button>':'')
+          +(isPend?'<button data-mid="'+m.id+'" onclick="excluirMedicao(this.dataset.mid)" style="padding:7px 12px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);font-size:11px;font-weight:700;cursor:pointer;">🗑</button>':'')
           +'</div></div>';
       }).join(''))
     +'</div>'
@@ -5367,6 +5451,19 @@ function verDetalhesMED(id){
 }
 
 function fecharDetMED(){var m=document.getElementById('modal-det-med');if(m)m.remove();}
+function cancelarPagamentoMed(id){
+  if(!confirm('Cancelar o pagamento desta medicao? Ela voltara para PENDENTE e podera ser editada ou excluida.')) return;
+  dbUpdate('medicoes',id,{status:'pendente',data_pagamento:null}).then(function(ok){
+    for(var i=0;i<medicoes.length;i++) if(medicoes[i].id===id){medicoes[i].status='pendente';medicoes[i].data_pagamento=null;break;}
+    toast('Pagamento cancelado. Medicao voltou para pendente.');
+    renderAPagar();
+  }).catch(function(){
+    for(var i=0;i<medicoes.length;i++) if(medicoes[i].id===id){medicoes[i].status='pendente';medicoes[i].data_pagamento=null;break;}
+    toast('Pagamento cancelado.');
+    renderAPagar();
+  });
+}
+
 function reimprMED(id){
   var m=null; for(var i=0;i<medicoes.length;i++) if(medicoes[i].id===id){m=medicoes[i];break;}
   if(m) imprimirMEDIndividual(m);
