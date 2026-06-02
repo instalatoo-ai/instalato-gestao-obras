@@ -1397,40 +1397,25 @@ function salvarLanc() {
   var area=parseFloat(getEl('l-area')?getEl('l-area').value:0)||0;
   if(!oId){toast('⚠️ Selecione a obra.');return;}
   if(!fId){toast('⚠️ Selecione o funcionário.');return;}
+  if(!apto){toast('⚠️ Informe o apto.');return;}
+  if(!amb){toast('⚠️ Selecione o ambiente.');return;}
+  if(!area){toast('⚠️ Informe a área.');return;}
 
-  var extrasTemp=[];
-  document.querySelectorAll('#extras-wrap .el-line').forEach(function(l){
-    var ins=l.querySelectorAll('input');
-    var nm=ins[0]?ins[0].value.trim():'';
-    var vl=parseFloat(ins[1]?ins[1].value:0)||0;
-    var qt=parseFloat(ins[2]?ins[2].value:1)||1;
-    if(nm) extrasTemp.push({nome:nm,valor:vl,qty:qt,total:vl*qt});
-  });
-  var soExtras=!amb && extrasTemp.length>0;
-
-  if(!soExtras){
-    if(!apto){toast('⚠️ Informe o apto.');return;}
-    if(!amb){toast('⚠️ Selecione o ambiente.');return;}
-    if(!area){toast('⚠️ Informe a área.');return;}
-  }
-  if(soExtras){ apto='Outros'; amb='Outros'; area=0; }
-
+  // Regra: bloquear se aprovado ou mesmo func ja lancou; permitir outro func se tiver m2 disponivel
   var jaAprovado=false, jaExisteMesmoFunc=false;
   var m2LancadoAmb=0;
-  if(!soExtras){
-    for(var li=0;li<lancs.length;li++){
-      var lx=lancs[li];
-      if(lx.obra_id===oId&&lx.apartamento===apto&&lx.ambiente===amb){
-        m2LancadoAmb+=parseFloat(lx.area_m2)||0;
-        if(lx.usuario_id===fId) jaExisteMesmoFunc=true;
-        for(var ci=0;ci<confs.length;ci++){
-          if(confs[ci].obra_id===oId&&confs[ci].apartamento===apto&&confs[ci].ambiente===amb&&confs[ci].status==='aprovado'){jaAprovado=true;break;}
-        }
+  for(var li=0;li<lancs.length;li++){
+    var lx=lancs[li];
+    if(lx.obra_id===oId&&lx.apartamento===apto&&lx.ambiente===amb){
+      m2LancadoAmb+=parseFloat(lx.area_m2)||0;
+      if(lx.usuario_id===fId) jaExisteMesmoFunc=true;
+      for(var ci=0;ci<confs.length;ci++){
+        if(confs[ci].obra_id===oId&&confs[ci].apartamento===apto&&confs[ci].ambiente===amb&&confs[ci].status==='aprovado'){jaAprovado=true;break;}
       }
     }
-    if(jaAprovado){toast('Apto '+apto+' / '+amb+' ja foi aprovado na conferencia!');return;}
-    if(jaExisteMesmoFunc){toast('Apto '+apto+' / '+amb+' ja tem lancamento seu! Exclua o existente para relandar.');return;}
   }
+  if(jaAprovado){toast('Apto '+apto+' / '+amb+' ja foi aprovado na conferencia!');return;}
+  if(jaExisteMesmoFunc){toast('Apto '+apto+' / '+amb+' ja tem lancamento seu! Exclua o existente para relandar.');return;}
   var base=0; var rate=getRate(oId);
   var cbs3=document.querySelectorAll('#l-amb-lista input[type=checkbox]:checked');
   if(cbs3.length){
@@ -1441,10 +1426,17 @@ function salvarLanc() {
       var rateCb2=getRate(oId,nomeAmbS);
       base+=vfcb>0?(m2cb*vfcb):(m2cb*rateCb2);
     });
-  } else if(!soExtras){
+  } else {
     base=area*rate;
   }
-  var extras=extrasTemp;
+  var extras=[];
+  document.querySelectorAll('#extras-wrap .el-line').forEach(function(l) {
+    var ins=l.querySelectorAll('input');
+    var nm=ins[0]?ins[0].value.trim():'';
+    var vl=parseFloat(ins[1]?ins[1].value:0)||0;
+    var qt=parseFloat(ins[2]?ins[2].value:1)||1;
+    if(nm) extras.push({nome:nm,valor:vl,qty:qt,total:vl*qt});
+  });
   var extTotal=extras.reduce(function(s,e){return s+e.total;},0);
   var bonusMapS={qualidade:2,limpeza:4,horario:2,retrabalho:2};
   var pct=0;
@@ -4857,6 +4849,73 @@ function abrirRelatorioFinanceiro(){
 function fecharRelFin(){
   var m=document.getElementById('modal-rel-fin'); if(m) m.remove();
 }
+window._relToggle=function(div){
+  var chk=div.querySelector('.rel-chk');
+  if(chk){chk.checked=!chk.checked;window._relAtualizarSel();}
+};
+window._relClick=function(div){
+  var chk=div.querySelector('.rel-chk');
+  if(chk){chk.checked=!chk.checked;window._relAtualizarSel();}
+};
+window._relAtualizarSel=function(){
+  // atualizar info de selecionados por funcionario
+  var chks=document.querySelectorAll('.rel-chk');
+  var porFunc={};
+  chks.forEach(function(c){
+    var fn=c.getAttribute('data-func');
+    if(!porFunc[fn]) porFunc[fn]={val:0,m2:0,qtd:0};
+    if(c.checked){
+      porFunc[fn].val+=parseFloat(c.getAttribute('data-total'))||0;
+      porFunc[fn].m2+=parseFloat(c.getAttribute('data-m2'))||0;
+      porFunc[fn].qtd++;
+    }
+  });
+  Object.keys(porFunc).forEach(function(fn){
+    var key=fn.replace(/\s/g,'_');
+    var el=document.querySelector('.rel-sel-'+key);
+    if(el){
+      var d=porFunc[fn];
+      el.textContent=d.qtd>0?d.qtd+' sel · R$ '+d.val.toLocaleString('pt-BR',{minimumFractionDigits:2}):'';
+    }
+  });
+};
+window._abrirMEDSel=function(btn){
+  var nome=btn.getAttribute('data-nome');
+  var ini=btn.getAttribute('data-ini');
+  var fim=btn.getAttribute('data-fim');
+  var chks=document.querySelectorAll('.rel-chk[data-func="'+nome+'"]');
+  var valor=0,m2=0,qtd=0;
+  chks.forEach(function(c){
+    if(c.checked){
+      valor+=parseFloat(c.getAttribute('data-total'))||0;
+      m2+=parseFloat(c.getAttribute('data-m2'))||0;
+      qtd++;
+    }
+  });
+  if(!qtd){toast('Selecione ao menos um lancamento.');return;}
+  var venc=new Date();venc.setDate(venc.getDate()+10);
+  var vencStr=venc.toISOString().split('T')[0];
+  var existing=document.getElementById('modal-med');if(existing)existing.remove();
+  var h='<div class="modal-bg show" id="modal-med" style="z-index:9999;align-items:center;padding:20px;">'
+    +'<div style="background:#fff;border-radius:16px;width:100%;max-width:400px;overflow:hidden;">'
+    +'<div style="background:#1e8449;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<span style="font-size:15px;font-weight:700;color:#fff;">MED - '+nome+'</span>'
+    +'<button onclick="fecharMED()" style="background:transparent;border:none;color:#fff;font-size:18px;cursor:pointer;">x</button>'
+    +'</div>'
+    +'<div style="padding:16px;display:flex;flex-direction:column;gap:12px;">'
+    +'<div style="background:#e8f5e9;border-radius:10px;padding:12px;text-align:center;">'
+    +'<div style="font-size:12px;color:var(--sub);">'+qtd+' lancamento(s) selecionado(s)</div>'
+    +'<div style="font-size:24px;font-weight:700;color:#1e8449;">R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div>'
+    +'<div style="font-size:11px;color:var(--sub);">'+m2.toFixed(1)+'m2</div>'
+    +'</div>'
+    +'<div><div class="fl">Vencimento</div><input class="inp" type="date" id="med-venc" value="'+vencStr+'"></div>'
+    +'<div><div class="fl">Observacao (opcional)</div><input class="inp" type="text" id="med-obs" placeholder="Ex: Pagamento sala apto 101"></div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button onclick="fecharMED()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>'
+    +'<button data-nome="'+nome+'" data-valor="'+valor.toFixed(2)+'" data-m2="'+m2.toFixed(1)+'" data-ini="'+ini+'" data-fim="'+fim+'" onclick="confirmarMED(this)" style="flex:2;padding:12px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Gerar e Enviar para A Pagar</button>'
+    +'</div></div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',h);
+};
 
 function gerarRelatorioFin(){
   var funcId=document.getElementById('rel-func').value;
@@ -4951,12 +5010,7 @@ function gerarRelatorioFin(){
 
     f.itens.sort(function(a,b){return a.data>b.data?1:-1;}).forEach(function(l){
       var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===l.obra_id){o=obras[i];break;}
-      html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;padding:6px 14px;border-bottom:1px solid var(--border);font-size:11px;">'
-        +'<span>'+fmtD(l.data)+'</span>'
-        +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(l.apartamento||'')+'<br><span style="color:var(--sub);font-size:10px;">'+(l.ambiente||'')+'</span></span>'
-        +'<span style="text-align:right;">'+(parseFloat(l.area_m2)||0).toFixed(1)+'</span>'
-        +'<span style="text-align:right;font-weight:700;color:var(--gold);">'+fmt(l.total)+'</span>'
-        +'</div>';
+      html+='<div style="display:flex;align-items:center;gap:8px;padding:6px 14px;border-bottom:1px solid var(--border);font-size:11px;background:#fff;cursor:pointer;" onclick="window._relClick(this)">'        +'<input type="checkbox" class="rel-chk" data-total="'+l.total+'" data-m2="'+(parseFloat(l.area_m2)||0)+'" data-func="'+nome+'" checked onclick="event.stopPropagation();window._relAtualizarSel();" style="width:16px;height:16px;accent-color:#1e8449;flex-shrink:0;cursor:pointer;">'        +'<div style="flex:1;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;">'        +'<span>'+fmtD(l.data)+'</span>'        +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(o?'<span style="font-size:9px;color:var(--sub);display:block;">'+o.nome+'</span>':'')+(l.apartamento||'')+'<br><span style="color:var(--sub);font-size:10px;">'+(l.ambiente||'')+'</span></span>'        +'<span style="text-align:right;">'+(parseFloat(l.area_m2)||0).toFixed(1)+'</span>'        +'<span style="text-align:right;font-weight:700;color:var(--gold);">'+fmt(l.total)+'</span>'        +'</div></div>';
     });
 
     var descontos=f.descontos||[];
@@ -4986,11 +5040,8 @@ function gerarRelatorioFin(){
     var nomeFuncBtn=nome;
     var valorLiqBtn=f.totalValor;
     var m2Btn=f.totalM2;
-    html+='<div style="padding:8px 14px;background:#f9f9f9;border-bottom:2px solid #1a3a5c;display:flex;align-items:center;justify-content:space-between;">'
-      +'<div style="font-size:10px;color:var(--sub);">Periodo: '+fmtD(ini)+' a '+fmtD(fim)+'</div>'
-      +'<button data-nome="'+nome+'" data-valor="'+f.totalValor.toFixed(2)+'" data-m2="'+f.totalM2.toFixed(1)+'" data-ini="'+ini+'" data-fim="'+fim+'"'
-      +' onclick="abrirMED(this)" style="padding:6px 14px;border-radius:20px;border:none;background:#1e8449;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">📄 Gerar MED</button>'
-      +'</div>';
+    var nomeKey=nome.replace(/ /g,'_');
+    html+='<div style="padding:8px 14px;background:#f9f9f9;border-bottom:2px solid #1a3a5c;display:flex;align-items:center;justify-content:space-between;">'      +'<div style="font-size:10px;color:var(--sub);">Periodo: '+fmtD(ini)+' a '+fmtD(fim)+'</div>'      +'<div style="display:flex;gap:8px;align-items:center;">'      +'<span class="rel-sel-'+nomeKey+'" style="font-size:10px;color:var(--green);font-weight:700;"></span>'      +'<button data-nome="'+nome+'" data-ini="'+ini+'" data-fim="'+fim+'"'      +' onclick="window._abrirMEDSel(this)" style="padding:6px 14px;border-radius:20px;border:none;background:#1e8449;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">Gerar MED</button>'      +'</div></div>';
   });
 
   html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;padding:10px 14px;background:#1a3a5c;font-size:12px;font-weight:700;">'
@@ -5433,8 +5484,10 @@ function verDetalhesMED(id){
 
   var lancHtml=lancsPeriodo.length?lancsPeriodo.map(function(l){
     var confOk=confs.some(function(c){return c.lancamento_id===l.id&&c.status==='aprovado';});
+    var obraL=null;for(var oi=0;oi<obras.length;oi++)if(obras[oi].id===l.obra_id){obraL=obras[oi];break;}
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">'
-      +'<div><div style="font-size:12px;font-weight:700;">'+(l.apartamento||'--')+' · '+(l.ambiente||'--')+'</div>'
+      +'<div><div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:1px;">'+(obraL?obraL.nome:'')+'</div>'
+      +'<div style="font-size:12px;font-weight:700;">'+(l.apartamento||'--')+' · '+(l.ambiente||'--')+'</div>'
       +'<div style="font-size:10px;color:var(--sub);">'+fmtD(l.data)+' · '+(l.area_m2||0)+'m²'+(confOk?' · <span style="color:var(--green);">✓ Aprovado</span>':' · <span style="color:#B8860B;">⏳ Pendente</span>')+'</div>'
       +'</div>'
       +'<span style="font-size:13px;font-weight:700;color:var(--gold);">'+fmt(l.total)+'</span>'
@@ -5799,6 +5852,7 @@ function renderFinanceiro(){
     if(S.obraFiltro) prod=prod.filter(function(p){return p.obra_id===S.obraFiltro;});
     if(!prod.length) return '<div style="text-align:center;padding:30px;color:var(--sub);">Nenhuma producao neste periodo.</div>';
     if(!S.pagos) S.pagos={};
+    if(!S.selecionados) S.selecionados={};
     Object.keys(S.selecionados).forEach(function(id){if(!prod.find(function(p){return p.id===id;})) delete S.selecionados[id];});
     var totalSel=prod.filter(function(p){return S.selecionados[p.id]&&!S.excluidos[p.id];}).reduce(function(s,p){return s+(parseFloat(p.total)||0);},0);
     var qtdSel=prod.filter(function(p){return S.selecionados[p.id]&&!S.excluidos[p.id];}).length;
@@ -5888,7 +5942,6 @@ function renderFinanceiro(){
       var on=S.tabAtual===t[0];
       return '<div onclick="window._finTB(\''+t[0]+'\')" style="flex:1;padding:8px 4px;border-radius:10px;border:1px solid '+(on?'#2C1F00':'var(--border)')+';background:'+(on?'#2C1F00':'#fff')+';color:'+(on?'#fff':'var(--sub)')+';font-size:11px;font-weight:700;cursor:pointer;text-align:center;">'+t[1]+'</div>';
     }).join('');
-    var oOpts2=obras.map(function(o){return '<option value="'+o.id+'"'+(S.obraFiltro===o.id?' selected':'')+'>'+o.nome+'</option>';}).join('');
     var conteudo=S.tabAtual==='prod'?renderProdTab():S.tabAtual==='vales'?renderValesTab():renderNovoForm();
     el.innerHTML='<div class="hero" style="background:var(--dark)"><p>Admin</p><h2>Financeiro</h2></div>'+'<div style="padding:10px 14px 0;"><button onclick="abrirRelatorioFinanceiro()" style="width:100%;padding:11px;border-radius:12px;border:1.5px solid #1a3a5c;background:transparent;color:#1a3a5c;font-size:13px;font-weight:700;cursor:pointer;">Gerar Relatorio de Producao</button></div>'+'<div class="pad">'
       +'<div style="background:#fff;border-radius:14px;border:1px solid var(--lg);overflow:hidden;">'
@@ -5915,7 +5968,7 @@ function renderFinanceiro(){
   window._finAP=function(){var i=getEl('fin-ini'),f=getEl('fin-fim');if(i)S.fIni=i.value;if(f)S.fFim=f.value;rebuild();};
   window._finTB=function(t){S.tabAtual=t;rebuild();};
   window._finTP=function(id){S.excluidos[id]=!S.excluidos[id];rebuild();};
-  window._finSEL=function(id){S.selecionados[id]=!S.selecionados[id];rebuild();};
+  window._finSEL=function(id){if(!S.selecionados)S.selecionados={};S.selecionados[id]=!S.selecionados[id];rebuild();};
   window._finOF=function(v){S.obraFiltro=v;S.selecionados={};rebuild();};
   window._finGMS=function(){
     var prod=getProd();
@@ -5938,12 +5991,12 @@ function renderFinanceiro(){
       +'</div>'
       +'<div style="padding:16px;display:flex;flex-direction:column;gap:12px;">'
       +'<div style="background:#e8f5e9;border-radius:10px;padding:12px;text-align:center;">'
-      +'<div style="font-size:12px;color:var(--sub);">'+sels.length+' lançamento(s) selecionado(s)</div>'
+      +'<div style="font-size:12px;color:var(--sub);">'+sels.length+' lancamento(s) selecionado(s)</div>'
       +'<div style="font-size:24px;font-weight:700;color:#1e8449;">R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div>'
-      +'<div style="font-size:11px;color:var(--sub);">'+m2.toFixed(1)+'m² · '+ini+' a '+fim+'</div>'
+      +'<div style="font-size:11px;color:var(--sub);">'+m2.toFixed(1)+'m²</div>'
       +'</div>'
       +'<div><div class="fl">Vencimento</div><input class="inp" type="date" id="med-venc" value="'+vencStr+'"></div>'
-      +'<div><div class="fl">Observacao (opcional)</div><input class="inp" type="text" id="med-obs" placeholder="Ex: Pagamento ambiente sala"></div>'
+      +'<div><div class="fl">Observacao (opcional)</div><input class="inp" type="text" id="med-obs" placeholder="Ex: Pagamento sala apto 101"></div>'
       +'<div style="display:flex;gap:8px;">'
       +'<button onclick="fecharMED()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>'
       +'<button data-nome="'+nome+'" data-valor="'+valor.toFixed(2)+'" data-m2="'+m2.toFixed(1)+'" data-ini="'+ini+'" data-fim="'+fim+'" onclick="confirmarMED(this)" style="flex:2;padding:12px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Gerar e Enviar para A Pagar</button>'
