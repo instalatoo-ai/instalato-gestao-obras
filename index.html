@@ -5474,7 +5474,9 @@ function verDetalhesMED(id){
     :lancs.filter(function(l){
         if(uId&&l.usuario_id!==uId) return false;
         if(!uId&&l.usuario_id) return false;
-        return l.data>=med.periodo_ini&&l.data<=med.periodo_fim;
+        if(!(l.data>=med.periodo_ini&&l.data<=med.periodo_fim)) return false;
+        // Apenas lancamentos com conferencia aprovada
+        return confs.some(function(c){return c.lancamento_id===l.id&&c.status==='aprovado';});
       });
   // Buscar marmitas no periodo
   var marmsPeriodo=uId?marmitas.filter(function(m){
@@ -5494,7 +5496,15 @@ function verDetalhesMED(id){
 
   var lancHtml=lancsPeriodo.length?lancsPeriodo.map(function(l){
     var confOk=confs.some(function(c){return c.lancamento_id===l.id&&c.status==='aprovado';});
-    var obraL=null;for(var oi=0;oi<obras.length;oi++)if(obras[oi].id===l.obra_id){obraL=obras[oi];break;}
+    var obraL=null;
+    for(var oi=0;oi<obras.length;oi++){
+      if(obras[oi].id===l.obra_id||String(obras[oi].id)===String(l.obra_id)){obraL=obras[oi];break;}
+    }
+    // fallback: buscar pelo nome da conferencia vinculada
+    if(!obraL){
+      var confL=confs.find(function(c){return c.lancamento_id===l.id;});
+      if(confL) for(var oi=0;oi<obras.length;oi++)if(obras[oi].id===confL.obra_id){obraL=obras[oi];break;}
+    }
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">'
       +'<div><div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:1px;">'+(obraL?obraL.nome:'')+'</div>'
       +'<div style="font-size:12px;font-weight:700;">'+(l.apartamento||'--')+' · '+(l.ambiente||'--')+'</div>'
