@@ -4837,6 +4837,8 @@ function abrirRelatorioFinanceiro(){
     +'<div class="mf">'
     +'<div><div class="fl">Funcionario</div>'
     +'<select class="sel" id="rel-func"><option value="">Todos</option>'+fOpts+'</select></div>'
+    +'<div><div class="fl">Obra</div>'
+    +'<select class="sel" id="rel-obra"><option value="">Todas</option>'+obras.map(function(o){return '<option value="'+o.id+'">'+o.nome+'</option>';}).join('')+'</select></div>'
     +'<div class="row2">'
     +'<div><div class="fl">Data inicio</div><input class="inp" type="date" id="rel-ini" value="'+hoje()+'"></div>'
     +'<div><div class="fl">Data fim</div><input class="inp" type="date" id="rel-fim" value="'+hoje()+'"></div>'
@@ -4858,6 +4860,7 @@ function fecharRelFin(){
 
 function gerarRelatorioFin(){
   var funcId=document.getElementById('rel-func').value;
+  var obraId=document.getElementById('rel-obra')?document.getElementById('rel-obra').value:'';
   var ini=document.getElementById('rel-ini').value;
   var fim=document.getElementById('rel-fim').value;
   if(!ini||!fim){toast('Informe o periodo.');return;}
@@ -4866,7 +4869,8 @@ function gerarRelatorioFin(){
   var lista=lancs.filter(function(l){
     var dentroData=l.data>=ini&&l.data<=fim;
     var funcOk=!funcId||l.usuario_id===funcId;
-    if(!dentroData||!funcOk) return false;
+    var obraOk=!obraId||l.obra_id===obraId;
+    if(!dentroData||!funcOk||!obraOk) return false;
     var temConf=confs.some(function(c){return c.lancamento_id===l.id&&c.status==='aprovado';});
     return temConf;
   });
@@ -5795,12 +5799,12 @@ function renderFinanceiro(){
     if(S.obraFiltro) prod=prod.filter(function(p){return p.obra_id===S.obraFiltro;});
     if(!prod.length) return '<div style="text-align:center;padding:30px;color:var(--sub);">Nenhuma producao neste periodo.</div>';
     if(!S.pagos) S.pagos={};
-    // Limpar selecionados que nao estao mais no filtro
     Object.keys(S.selecionados).forEach(function(id){if(!prod.find(function(p){return p.id===id;})) delete S.selecionados[id];});
     var totalSel=prod.filter(function(p){return S.selecionados[p.id]&&!S.excluidos[p.id];}).reduce(function(s,p){return s+(parseFloat(p.total)||0);},0);
     var qtdSel=prod.filter(function(p){return S.selecionados[p.id]&&!S.excluidos[p.id];}).length;
-    var todosSelec=prod.filter(function(p){return !S.excluidos[p.id];}).every(function(p){return S.selecionados[p.id];});
-    var obraFiltroHtml='<div style="padding:8px 14px;border-bottom:1px solid var(--lg);display:flex;gap:8px;align-items:center;">'      +'<div style="font-size:10px;font-weight:700;color:var(--sub);white-space:nowrap;">Obra:</div>'      +'<select onchange="window._finOF(this.value)" style="flex:1;padding:5px 8px;border-radius:8px;border:1px solid var(--border);font-size:11px;">'      +'<option value="">Todas</option>'      +obras.map(function(o){return '<option value="'+o.id+'"'+(S.obraFiltro===o.id?' selected':'')+'>'+o.nome+'</option>';}).join('')      +'</select></div>';    var selBarHtml='';    if(qtdSel>0){      selBarHtml='<div style="padding:10px 14px;background:rgba(30,132,73,.08);border-bottom:1px solid rgba(30,132,73,.2);display:flex;justify-content:space-between;align-items:center;">'        +'<div style="font-size:12px;font-weight:700;color:var(--green);">'+qtdSel+' selecionado(s) · '+fmtM(totalSel)+'</div>'        +'<button onclick="window._finGMS()" style="padding:6px 14px;border-radius:20px;border:none;background:#1e8449;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">📄 Gerar MED</button>'        +'</div>';    }    var rows=prod.map(function(p){
+    var obraFiltroHtml='<div style="padding:8px 14px;border-bottom:1px solid var(--lg);display:flex;gap:8px;align-items:center;"><div style="font-size:10px;font-weight:700;color:var(--sub);white-space:nowrap;">Obra:</div><select onchange="window._finOF(this.value)" style="flex:1;padding:5px 8px;border-radius:8px;border:1px solid var(--border);font-size:11px;"><option value="">Todas</option>'+obras.map(function(o){return '<option value="'+o.id+'"'+(S.obraFiltro===o.id?' selected':'')+'>'+o.nome+'</option>';}).join('')+'</select></div>';
+    var selBarHtml=qtdSel>0?'<div style="padding:10px 14px;background:rgba(30,132,73,.08);border-bottom:1px solid rgba(30,132,73,.2);display:flex;justify-content:space-between;align-items:center;"><div style="font-size:12px;font-weight:700;color:var(--green);">'+qtdSel+' selecionado(s) · R$ '+(totalSel).toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div><button onclick="window._finGMS()" style="padding:6px 14px;border-radius:20px;border:none;background:#1e8449;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">📄 Gerar MED</button></div>':'';
+    var rows=prod.map(function(p){
       var excl=S.excluidos[p.id];
       var pago=S.pagos[p.id];
       var o=null;for(var i=0;i<obras.length;i++)if(obras[i].id===p.obra_id){o=obras[i];break;}
@@ -5922,12 +5926,30 @@ function renderFinanceiro(){
     var m2=sels.reduce(function(s,p){return s+(parseFloat(p.area_m2)||0);},0);
     var nome=S.funcSel?S.funcSel.apelido:'?';
     var datas=sels.map(function(p){return p.data;}).sort();
-    var ini=datas[0], fim=datas[datas.length-1];
-    var venc=new Date(); venc.setDate(venc.getDate()+10);
+    var ini=datas[0],fim=datas[datas.length-1];
+    var venc=new Date();venc.setDate(venc.getDate()+10);
     var vencStr=venc.toISOString().split('T')[0];
-    var existing=document.getElementById('modal-med'); if(existing) existing.remove();
-    var lancsIds=JSON.stringify(sels.map(function(p){return p.id;}));
-    var html='<div class="modal-bg show" id="modal-med" style="z-index:9999;align-items:center;padding:20px;">'      +'<div style="background:#fff;border-radius:16px;width:100%;max-width:400px;overflow:hidden;">'      +'<div style="background:#1e8449;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'      +'<span style="font-size:15px;font-weight:700;color:#fff;">MED - '+nome+'</span>'      +'<button onclick="fecharMED()" style="background:transparent;border:none;color:#fff;font-size:18px;cursor:pointer;">✕</button>'      +'</div>'      +'<div style="padding:16px;display:flex;flex-direction:column;gap:12px;">'      +'<div style="background:#e8f5e9;border-radius:10px;padding:12px;text-align:center;">'      +'<div style="font-size:12px;color:var(--sub);">'+sels.length+' lançamento(s) selecionado(s)</div>'      +'<div style="font-size:24px;font-weight:700;color:#1e8449;">'+fmtM(valor)+'</div>'      +'<div style="font-size:11px;color:var(--sub);">'+m2.toFixed(1)+'m² · '+fmtDs(ini)+' a '+fmtDs(fim)+'</div>'      +'</div>'      +'<div><div class="fl">Vencimento</div><input class="inp" type="date" id="med-venc" value="'+vencStr+'"></div>'      +'<div><div class="fl">Observacao (opcional)</div><input class="inp" type="text" id="med-obs" placeholder="Ex: Pagamento ambiente sala"></div>'      +'<div style="display:flex;gap:8px;">'      +'<button onclick="fecharMED()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>'      +'<button data-nome="'+nome+'" data-valor="'+valor.toFixed(2)+'" data-m2="'+m2.toFixed(1)+'" data-ini="'+ini+'" data-fim="'+fim+'" onclick="confirmarMED(this)" style="flex:2;padding:12px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Gerar e Enviar para A Pagar</button>'      +'</div></div></div></div>';    document.body.insertAdjacentHTML('beforeend',html);  };
+    var existing=document.getElementById('modal-med');if(existing)existing.remove();
+    var html='<div class="modal-bg show" id="modal-med" style="z-index:9999;align-items:center;padding:20px;">'
+      +'<div style="background:#fff;border-radius:16px;width:100%;max-width:400px;overflow:hidden;">'
+      +'<div style="background:#1e8449;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
+      +'<span style="font-size:15px;font-weight:700;color:#fff;">MED - '+nome+'</span>'
+      +'<button onclick="fecharMED()" style="background:transparent;border:none;color:#fff;font-size:18px;cursor:pointer;">✕</button>'
+      +'</div>'
+      +'<div style="padding:16px;display:flex;flex-direction:column;gap:12px;">'
+      +'<div style="background:#e8f5e9;border-radius:10px;padding:12px;text-align:center;">'
+      +'<div style="font-size:12px;color:var(--sub);">'+sels.length+' lançamento(s) selecionado(s)</div>'
+      +'<div style="font-size:24px;font-weight:700;color:#1e8449;">R$ '+valor.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div>'
+      +'<div style="font-size:11px;color:var(--sub);">'+m2.toFixed(1)+'m² · '+ini+' a '+fim+'</div>'
+      +'</div>'
+      +'<div><div class="fl">Vencimento</div><input class="inp" type="date" id="med-venc" value="'+vencStr+'"></div>'
+      +'<div><div class="fl">Observacao (opcional)</div><input class="inp" type="text" id="med-obs" placeholder="Ex: Pagamento ambiente sala"></div>'
+      +'<div style="display:flex;gap:8px;">'
+      +'<button onclick="fecharMED()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>'
+      +'<button data-nome="'+nome+'" data-valor="'+valor.toFixed(2)+'" data-m2="'+m2.toFixed(1)+'" data-ini="'+ini+'" data-fim="'+fim+'" onclick="confirmarMED(this)" style="flex:2;padding:12px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Gerar e Enviar para A Pagar</button>'
+      +'</div></div></div></div>';
+    document.body.insertAdjacentHTML('beforeend',html);
+  };
   window._finTD=function(id){S.descontados[id]=!S.descontados[id];rebuild();};
   window._finSS=function(v){window._finDescStatus=v;
     var p=getEl('fin-st-pend'),o=getEl('fin-st-ok');
