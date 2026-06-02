@@ -416,6 +416,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="mhdr"><span class="mhdr-t" id="mo-t">Nova obra</span><button class="mhdr-x" type="button" onclick="closeModal('obra')">✕</button></div>
     <div class="mf">
       <div><div class="fl">Nome</div><input class="inp" id="mo-nome" type="text"></div>
+      <div style="background:#f0e6ff;border-radius:10px;padding:12px 14px;border-left:3px solid #6a0dad;">
+        <div style="font-size:12px;font-weight:700;color:#6a0dad;margin-bottom:8px;">&#128119; Lider desta obra</div>
+        <select class="sel" id="mo-lider-id"><option value="">Nenhum</option></select>
+        <div style="font-size:10px;color:#6a0dad;margin-top:5px;">O lider selecionado recebera a taxa de lider R$/m2</div>
+      </div>
       <div><div class="fl">Tipo de obra</div>
         <select class="sel" id="mo-tipo" onchange="tipoObraChanged()">
           <option value="">Selecione o tipo</option>
@@ -461,11 +466,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div><div class="fl">Valor venda R$/ml (metro linear)</div><input class="inp" id="mo-rate-venda-ml" type="number" placeholder="Ex: 50"></div>
         <div><div class="fl">Valor lider R$/m²</div><input class="inp" id="mo-rate-lider" type="number" placeholder="Ex: 40"></div>
         <div><div class="fl">Valor lider R$/ml (metro linear)</div><input class="inp" id="mo-rate-lider-ml" type="number" placeholder="Ex: 30"></div>
-      </div>
-      <div style="background:#f0e6ff;border-radius:10px;padding:12px 14px;border-left:3px solid #6a0dad;margin:8px 0;">
-        <div style="font-size:12px;font-weight:700;color:#6a0dad;margin-bottom:8px;">&#128119; Lider desta obra</div>
-        <select class="sel" id="mo-lider-id"><option value="">Nenhum (usar tipo do usuario)</option></select>
-        <div style="font-size:10px;color:#6a0dad;margin-top:5px;">Somente este lider recebera o valor de lider R$/m2. Outros funcionarios recebem valor func.</div>
       </div>
       <div class="row2">
         <div style="background:#f5eef8;border-radius:10px;padding:10px 12px;border-left:3px solid #6a0dad;">
