@@ -1641,11 +1641,12 @@ function desaprovarConf(confId){
   if(!c) return;
   var isFat=medicoes.some(function(m){return m.conf_id===confId;});
   if(isFat){toast('🔒 Esta conferencia ja foi faturada. Desfature primeiro para desaprovar.');return;}
-  if(!confirm('Desaprovar esta conferencia? Ela voltara para Aguardando Conferencia.')) return;
-  dbUpdate('conferencias',confId,{status:'aguardando'}).then(function(ok){
+  if(!confirm('Desaprovar esta conferencia? Ela sera removida e o lancamento voltara para aguardando conferencia.')) return;
+  // Deletar a conferencia para que o lancamento volte para a fila
+  dbDelete('conferencias',confId).then(function(ok){
     if(ok){
-      for(var i=0;i<confs.length;i++) if(confs[i].id===confId){confs[i].status='aguardando';break;}
-      toast('Conferencia desaprovada. Voltou para aguardando.');
+      confs=confs.filter(function(c){return c.id!==confId;});
+      toast('Conferencia removida. Lancamento voltou para aguardando.');
       renderHistFiltro();
       renderConf();
     } else {
