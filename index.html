@@ -461,6 +461,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div><div class="fl">Valor venda R$/ml (metro linear)</div><input class="inp" id="mo-rate-venda-ml" type="number" placeholder="Ex: 50"></div>
         <div><div class="fl">Valor lider R$/m²</div><input class="inp" id="mo-rate-lider" type="number" placeholder="Ex: 40"></div>
         <div><div class="fl">Valor lider R$/ml (metro linear)</div><input class="inp" id="mo-rate-lider-ml" type="number" placeholder="Ex: 30"></div>
+      </div>
+      <div style="background:#f0e6ff;border-radius:10px;padding:12px 14px;border-left:3px solid #6a0dad;margin:8px 0;">
+        <div style="font-size:12px;font-weight:700;color:#6a0dad;margin-bottom:8px;">&#128119; Lider desta obra</div>
+        <select class="sel" id="mo-lider-id"><option value="">Nenhum (usar tipo do usuario)</option></select>
+        <div style="font-size:10px;color:#6a0dad;margin-top:5px;">Somente este lider recebera o valor de lider R$/m2. Outros funcionarios recebem valor func.</div>
+      </div>
+      <div class="row2">
         <div style="background:#f5eef8;border-radius:10px;padding:10px 12px;border-left:3px solid #6a0dad;">
           <div style="font-size:11px;font-weight:700;color:#6a0dad;margin-bottom:8px;">Rejunte (metro linear)</div>
           <div class="row2">
@@ -1267,13 +1274,12 @@ function getRate(oId, ambNome){
   var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===oId){o=obras[i];break;}
   var fId=val('l-func');
   var u=null; for(var i=0;i<users.length;i++) if(users[i].id===fId){u=users[i];break;}
-  var isLider=(u&&(u.tipo==='lider'||u.tipo==='lider_chefe'));
-  if(!o) return isLider?40:35;
-  // Verificar se e rejunte
+  var isLiderObra=o&&o.lider_id?o.lider_id===fId:(u&&(u.tipo==='lider'||u.tipo==='lider_chefe'));
+  if(!o) return isLiderObra?40:35;
   if(ambNome&&ambNome.toLowerCase().indexOf('rejunte')>=0&&o.rate_rejunte_func){
     return parseFloat(o.rate_rejunte_func)||0;
   }
-  if(isLider && o.rate_lider) return parseFloat(o.rate_lider)||parseFloat(o.rate_func)||35;
+  if(isLiderObra && o.rate_lider) return parseFloat(o.rate_lider)||parseFloat(o.rate_func)||35;
   return parseFloat(o.rate_func)||35;
 }
 
@@ -1323,7 +1329,7 @@ function calcTotal() {
   var fIdRate=val('l-func');
   var oRate=null; for(var i=0;i<obras.length;i++) if(obras[i].id===oIdRate){oRate=obras[i];break;}
   var uRate=null; for(var i=0;i<users.length;i++) if(users[i].id===fIdRate){uRate=users[i];break;}
-  var isLider2=uRate&&(uRate.tipo==='lider'||uRate.tipo==='lider_chefe');
+  var isLider2=oRate&&oRate.lider_id?oRate.lider_id===fIdRate:(uRate&&(uRate.tipo==='lider'||uRate.tipo==='lider_chefe'));
   if(_unidade==='ml' && oRate && (isLider2?oRate.rate_lider_ml:oRate.rate_func_ml)) {
     var rateLinear=parseFloat(isLider2?(oRate.rate_lider_ml||oRate.rate_func_ml):oRate.rate_func_ml)||0;
     var areaVal=parseFloat(getEl('l-area')?getEl('l-area').value:0)||0;
@@ -1396,44 +1402,25 @@ function salvarLanc() {
   var area=parseFloat(getEl('l-area')?getEl('l-area').value:0)||0;
   if(!oId){toast('⚠️ Selecione a obra.');return;}
   if(!fId){toast('⚠️ Selecione o funcionário.');return;}
+  if(!apto){toast('⚠️ Informe o apto.');return;}
+  if(!amb){toast('⚠️ Selecione o ambiente.');return;}
+  if(!area){toast('⚠️ Informe a área.');return;}
 
-  // Verificar se ha extras preenchidos
-  var extrasTemp=[];
-  document.querySelectorAll('#extras-wrap .el-line').forEach(function(l){
-    var ins=l.querySelectorAll('input');
-    var nm=ins[0]?ins[0].value.trim():'';
-    var vl=parseFloat(ins[1]?ins[1].value:0)||0;
-    var qt=parseFloat(ins[2]?ins[2].value:1)||1;
-    if(nm) extrasTemp.push({nome:nm,valor:vl,qty:qt,total:vl*qt});
-  });
-  var soExtras=!amb && extrasTemp.length>0;
-
-  if(!soExtras){
-    if(!apto){toast('⚠️ Informe o apto.');return;}
-    if(!amb){toast('⚠️ Selecione o ambiente.');return;}
-    if(!area){toast('⚠️ Informe a área.');return;}
-  }
-
-  // Para lançamentos só de Outros, usar identificadores genéricos
-  if(soExtras){ apto='Outros'; amb='Outros'; area=0; }
-
-  // Regra: bloquear se aprovado ou mesmo func ja lancou (apenas para lançamentos com ambiente real)
+  // Regra: bloquear se aprovado ou mesmo func ja lancou; permitir outro func se tiver m2 disponivel
   var jaAprovado=false, jaExisteMesmoFunc=false;
   var m2LancadoAmb=0;
-  if(!soExtras){
-    for(var li=0;li<lancs.length;li++){
-      var lx=lancs[li];
-      if(lx.obra_id===oId&&lx.apartamento===apto&&lx.ambiente===amb){
-        m2LancadoAmb+=parseFloat(lx.area_m2)||0;
-        if(lx.usuario_id===fId) jaExisteMesmoFunc=true;
-        for(var ci=0;ci<confs.length;ci++){
-          if(confs[ci].obra_id===oId&&confs[ci].apartamento===apto&&confs[ci].ambiente===amb&&confs[ci].status==='aprovado'){jaAprovado=true;break;}
-        }
+  for(var li=0;li<lancs.length;li++){
+    var lx=lancs[li];
+    if(lx.obra_id===oId&&lx.apartamento===apto&&lx.ambiente===amb){
+      m2LancadoAmb+=parseFloat(lx.area_m2)||0;
+      if(lx.usuario_id===fId) jaExisteMesmoFunc=true;
+      for(var ci=0;ci<confs.length;ci++){
+        if(confs[ci].obra_id===oId&&confs[ci].apartamento===apto&&confs[ci].ambiente===amb&&confs[ci].status==='aprovado'){jaAprovado=true;break;}
       }
     }
-    if(jaAprovado){toast('Apto '+apto+' / '+amb+' ja foi aprovado na conferencia!');return;}
-    if(jaExisteMesmoFunc){toast('Apto '+apto+' / '+amb+' ja tem lancamento seu! Exclua o existente para relandar.');return;}
   }
+  if(jaAprovado){toast('Apto '+apto+' / '+amb+' ja foi aprovado na conferencia!');return;}
+  if(jaExisteMesmoFunc){toast('Apto '+apto+' / '+amb+' ja tem lancamento seu! Exclua o existente para relandar.');return;}
   var base=0; var rate=getRate(oId);
   var cbs3=document.querySelectorAll('#l-amb-lista input[type=checkbox]:checked');
   if(cbs3.length){
@@ -1444,10 +1431,17 @@ function salvarLanc() {
       var rateCb2=getRate(oId,nomeAmbS);
       base+=vfcb>0?(m2cb*vfcb):(m2cb*rateCb2);
     });
-  } else if(!soExtras){
+  } else {
     base=area*rate;
   }
-  var extras=extrasTemp;
+  var extras=[];
+  document.querySelectorAll('#extras-wrap .el-line').forEach(function(l) {
+    var ins=l.querySelectorAll('input');
+    var nm=ins[0]?ins[0].value.trim():'';
+    var vl=parseFloat(ins[1]?ins[1].value:0)||0;
+    var qt=parseFloat(ins[2]?ins[2].value:1)||1;
+    if(nm) extras.push({nome:nm,valor:vl,qty:qt,total:vl*qt});
+  });
   var extTotal=extras.reduce(function(s,e){return s+e.total;},0);
   var bonusMapS={qualidade:2,limpeza:4,horario:2,retrabalho:2};
   var pct=0;
@@ -1751,11 +1745,6 @@ function renderConf() {
     +(confs.length?'<div><div class="fl">Histórico</div>'+hist+'</div>':'')
     +'</div>';
   chkState={};
-  // Inserir cards pendentes no container após innerHTML ser definido
-  if(_pendDiv && _pendDiv.length){
-    var cont=document.getElementById('pend-items-container');
-    if(cont){ _pendDiv.forEach(function(d){cont.appendChild(d);}); }
-  }
 }
 
 function editarConf(confId){
@@ -2539,9 +2528,8 @@ function renderMarmita(){
   var pedidosHoje=marmitas.filter(function(m){return m.data===hojeStr;});
 
   // Status
-  var inicio=5*60; // pedidos abrem as 05h00
-  var podePedir=bateuPonto && !jaPediu && horaAtual>=inicio && horaAtual<=limite;
-  var motivo=!bateuPonto?'Voce precisa bater ponto antes de pedir':jaPediu?'Voce ja pediu sua marmita hoje':horaAtual<inicio?'Pedidos abrem as 05h00':horaAtual>limite?'Pedidos encerrados apos 09h00':'';
+  var podePedir=bateuPonto && !jaPediu && horaAtual<=limite;
+  var motivo=!bateuPonto?'Voce precisa bater ponto antes de pedir':jaPediu?'Voce ja pediu sua marmita hoje':horaAtual>limite?'Pedidos encerrados apos 09h00':'';
 
   // Meus totais (funcionario)
   var minhasMarmitas=marmitas.filter(function(m){return m.usuario_id===U.id;});
@@ -2960,7 +2948,7 @@ function verificarBannerMarmita(){
   if(!U||U.tipo!=='admin') return;
   var agora=new Date();
   var horaAtual=agora.getHours()*60+agora.getMinutes();
-  if(horaAtual<5*60 || horaAtual>9*60) return; // somente entre 05h e 09h
+  if(horaAtual<9*60) return; // antes das 9h nao mostrar
   var hojeStr=hoje();
   try{
     var jaEnviou=localStorage.getItem('instalato_marm_enviado_'+hojeStr);
@@ -6302,7 +6290,8 @@ function renderObrasCfg(){
       +'<div><div style="font-size:14px;font-weight:700">'+o.nome+'</div>'
       +'<div style="font-size:11px;color:var(--sub)">'+(o.cliente||'--')+' · '+(o.cidade||'--')+'</div>'
       +(o.endereco?'<div style="font-size:10px;color:var(--sub)">📍 '+o.endereco+'</div>':'')
-      +(o.tipo?'<span class="chip chip-g" style="margin-top:4px">📋 '+o.tipo+'</span>':'')+'</div>'
+      +(o.tipo?'<span class="chip chip-g" style="margin-top:4px">📋 '+o.tipo+'</span>':'')
+      +(o.lider_id?(function(){var lu=users.find(function(u){return u.id===o.lider_id;});return lu?'<div style="font-size:10px;font-weight:700;color:#6a0dad;margin-top:3px;">👷 Lider: '+lu.apelido+'</div>':'';}()):'')+'</div>'
       +'<span class="chip '+(o.status==='ativa'?'chip-ap':'chip-g')+'">'+(o.status==='ativa'?'Ativa':'Concluída')+'</span></div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">'
       +'<div style="background:#fff;border-radius:8px;padding:7px 9px"><div style="font-size:9px;color:var(--sub)">Metragem</div><div style="font-size:12px;font-weight:700">'+o.contrato+'m²</div></div>'
@@ -6335,6 +6324,11 @@ function showModalObra(id){
     var rfml=getEl('mo-rate-func-ml'); if(rfml) rfml.value=o.rate_func_ml||'';
     var rl=getEl('mo-rate-lider'); if(rl) rl.value=o.rate_lider||'';
     var rlml=getEl('mo-rate-lider-ml'); if(rlml) rlml.value=o.rate_lider_ml||'';
+    var liderSel=getEl('mo-lider-id');
+    if(liderSel){
+      liderSel.innerHTML='<option value="">Nenhum (usar tipo do usuario)</option>'
+        +users.filter(function(u){return u.ativo&&(u.tipo==='lider'||u.tipo==='lider_chefe');}).map(function(u){return '<option value="'+u.id+'"'+(o.lider_id===u.id?' selected':'')+'>'+u.apelido+'</option>';}).join('');
+    }
     var rrf=getEl('mo-rate-rejunte-func'); if(rrf) rrf.value=o.rate_rejunte_func||'';
     var rrv=getEl('mo-rate-rejunte-venda'); if(rrv) rrv.value=o.rate_rejunte_venda||'';
     var mlat=getEl('mo-lat'); if(mlat) mlat.value=o.lat_obra||'';
@@ -6350,6 +6344,11 @@ function showModalObra(id){
     ['mo-nome','mo-cliente','mo-cidade','mo-endereco','mo-andares','mo-aptos-andar','mo-num-inicio','mo-contrato','mo-rate-func','mo-rate-venda','mo-rate-func-ml','mo-rate-venda-ml','mo-inicio','mo-entrega'].forEach(function(f){var e=getEl(f);if(e)e.value='';});
     getEl('mo-status').value='ativa';
     var ew=document.getElementById('mo-estrutura-wrap');if(ew)ew.innerHTML='';
+    var liderSelNovo=getEl('mo-lider-id');
+    if(liderSelNovo){
+      liderSelNovo.innerHTML='<option value="">Nenhum (usar tipo do usuario)</option>'
+        +users.filter(function(u){return u.ativo&&(u.tipo==='lider'||u.tipo==='lider_chefe');}).map(function(u){return '<option value="'+u.id+'">'+u.apelido+'</option>';}).join('');
+    }
   }
   getEl('modal-obra').classList.add('show');
 }
@@ -6924,6 +6923,7 @@ function salvarObra(){
     rate_func:parseFloat(getEl('mo-rate-func').value)||0,
     rate_venda:parseFloat(getEl('mo-rate-venda').value)||0,
     rate_func_ml:parseFloat(getEl('mo-rate-func-ml')?getEl('mo-rate-func-ml').value:0)||0,
+    lider_id:getEl('mo-lider-id')?getEl('mo-lider-id').value||null:null,
     rate_lider:parseFloat(getEl('mo-rate-lider')?getEl('mo-rate-lider').value:0)||0,
     rate_lider_ml:parseFloat(getEl('mo-rate-lider-ml')?getEl('mo-rate-lider-ml').value:0)||0,
     rate_rejunte_func:parseFloat(getEl('mo-rate-rejunte-func')?getEl('mo-rate-rejunte-func').value:0)||0,
