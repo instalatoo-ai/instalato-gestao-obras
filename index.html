@@ -866,9 +866,9 @@ function buildNav() {
   if(T==='admin'||T==='lider'||T==='lider_chefe') tabs.push({id:'aptos',i:'🏁',l:'Amb.'});
   if(T==='admin') tabs.push({id:'dash',i:'📈',l:'Dashboard'});
   if(T==='admin') tabs.push({id:'desp',i:'💸',l:'Despesas'});
-  if(T==='admin') tabs.push({id:'fin',i:'💰',l:'Financeiro'});
+  if(T==='admin') tabs.push({id:'fin',i:'🪚',l:'Controle Produção'});
   if(T==='admin') tabs.push({id:'receber',i:'💵',l:'A Receber'});
-  if(T==='admin') tabs.push({id:'faturamentos',i:'🧾',l:'Faturamentos'});
+  if(T==='admin') tabs.push({id:'faturamentos',i:'🧾',l:'Faturamentos a Receber'});
   if(T==='admin') tabs.push({id:'apagar',i:'💳',l:'A Pagar'});
   tabs.push({id:'conta',i:'👤',l:'Minha Conta'});
   tabs.forEach(function(t, i) {
@@ -1397,7 +1397,6 @@ function salvarLanc() {
   if(!oId){toast('⚠️ Selecione a obra.');return;}
   if(!fId){toast('⚠️ Selecione o funcionário.');return;}
 
-  // Verificar se ha extras preenchidos
   var extrasTemp=[];
   document.querySelectorAll('#extras-wrap .el-line').forEach(function(l){
     var ins=l.querySelectorAll('input');
@@ -1413,11 +1412,8 @@ function salvarLanc() {
     if(!amb){toast('⚠️ Selecione o ambiente.');return;}
     if(!area){toast('⚠️ Informe a área.');return;}
   }
-
-  // Para lançamentos só de Outros, usar identificadores genéricos
   if(soExtras){ apto='Outros'; amb='Outros'; area=0; }
 
-  // Regra: bloquear se aprovado ou mesmo func ja lancou (apenas para lançamentos com ambiente real)
   var jaAprovado=false, jaExisteMesmoFunc=false;
   var m2LancadoAmb=0;
   if(!soExtras){
@@ -1653,15 +1649,31 @@ function renderHistFiltro() {
   el.innerHTML=lista.map(function(l){
     var u=null; for(var i=0;i<users.length;i++) if(users[i].id===l.usuario_id){u=users[i];break;}
     var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===l.obra_id){o=obras[i];break;}
+    var confReg=null; for(var i=0;i<confs.length;i++) if(confs[i].lancamento_id===l.id){confReg=confs[i];break;}
+    var confStatus=confReg?confReg.status:'';
+    var statusTxt='',statusCor='';
+    if(confStatus==='aprovado'){statusTxt='✅ Aprovado';statusCor='var(--green)';}
+    else if(confStatus==='reprovado'){statusTxt='❌ Reprovado';statusCor='var(--red)';}
+    else if(confStatus==='incompleto'){statusTxt='⚠️ Incompleto';statusCor='#B8860B';}
+    else{statusTxt='⏳ Aguardando conferência';statusCor='#B8860B';}
+    var isFaturado=confReg&&medicoes.some(function(m){return m.conf_id===confReg.id;});
     var podeEditar=(U&&(U.tipo==='admin'||U.tipo==='lider_chefe'));
-    var btns=podeEditar
-      ?'<div style="display:flex;gap:6px;margin-top:6px;">'
-        +'<button type="button" data-lid="'+l.id+'" onclick="editarLanc(this.dataset.lid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;font-weight:700;">Editar</button>'
-        +'<button type="button" data-lid="'+l.id+'" onclick="excluirLanc(this.dataset.lid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;font-weight:700;">Excluir</button>'
-        +'</div>':'' ;
-    return '<div class="hi"><div class="hi-ico">🪵</div><div class="hi-b">'
+    var btns='';
+    if(podeEditar){
+      if(isFaturado){
+        btns='<div style="margin-top:6px;padding:5px 10px;background:rgba(184,134,11,.08);border-radius:20px;display:inline-block;">'
+          +'<span style="font-size:10px;color:#B8860B;font-weight:700;">🔒 Faturado — desfature para alterar</span></div>';
+      } else {
+        btns='<div style="display:flex;gap:6px;margin-top:6px;">'
+          +'<button type="button" data-lid="'+l.id+'" onclick="editarLanc(this.dataset.lid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;font-weight:700;">Editar</button>'
+          +'<button type="button" data-lid="'+l.id+'" onclick="excluirLanc(this.dataset.lid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;font-weight:700;">Excluir</button>'
+          +'</div>';
+      }
+    }
+    return '<div class="hi" style="border-left:3px solid '+statusCor+';"><div class="hi-ico">🪵</div><div class="hi-b">'
       +'<div class="hi-t">'+(u?u.apelido:'--')+' - '+(l.ambiente||'--')+' - Apto '+(l.apartamento||'--')+'</div>'
       +'<div class="hi-s">'+(o?o.nome:'--')+' - '+l.area_m2+'m2 - bonus '+l.bonus_pct+'%</div>'
+      +'<div style="font-size:10px;font-weight:700;color:'+statusCor+';margin-top:2px;">'+statusTxt+'</div>'
       +btns+'</div>'
       +'<div class="hi-r"><div class="hi-v">'+fmt(l.total)+'</div><div class="hi-d">'+fmtD(l.data)+'</div></div></div>';
   }).join('') || '<div class="empty"><p>Nenhum registro encontrado.</p></div>';
@@ -1751,7 +1763,6 @@ function renderConf() {
     +(confs.length?'<div><div class="fl">Histórico</div>'+hist+'</div>':'')
     +'</div>';
   chkState={};
-  // Inserir cards pendentes no container após innerHTML ser definido
   if(_pendDiv && _pendDiv.length){
     var cont=document.getElementById('pend-items-container');
     if(cont){ _pendDiv.forEach(function(d){cont.appendChild(d);}); }
@@ -1893,7 +1904,7 @@ function salvarConf(){
   var duplicatas=ambientes.filter(function(a){
     return confs.some(function(c){
       return c.obra_id===oId && c.apartamento===apto && c.status==='aprovado' &&
-        c.ambiente&&(c.ambiente===a.trim()||c.ambiente.indexOf(a.trim())>=0);
+        c.ambiente&&c.ambiente===a.trim();
     });
   });
   if(duplicatas.length){
@@ -2539,7 +2550,7 @@ function renderMarmita(){
   var pedidosHoje=marmitas.filter(function(m){return m.data===hojeStr;});
 
   // Status
-  var inicio=5*60; // pedidos abrem as 05h00
+  var inicio=5*60;
   var podePedir=bateuPonto && !jaPediu && horaAtual>=inicio && horaAtual<=limite;
   var motivo=!bateuPonto?'Voce precisa bater ponto antes de pedir':jaPediu?'Voce ja pediu sua marmita hoje':horaAtual<inicio?'Pedidos abrem as 05h00':horaAtual>limite?'Pedidos encerrados apos 09h00':'';
 
@@ -3821,9 +3832,9 @@ function renderDesp(){
     +'<select class="sel" id="d-func"><option value="">Nenhum</option>'+users.filter(function(u){return u.ativo;}).map(function(u){return '<option value="'+u.id+'">'+u.apelido+'</option>';}).join('')+'</select></div>'
     +'<div><div class="fl">Tipo de gasto</div>'
     +'<div style="display:flex;gap:8px;">'
-    +'<button type="button" id="d-tipo-var" data-t="variavel" class="tb on" onclick="selDespTipo(this.dataset.t)">Variavel</button>'
-    +'<button type="button" id="d-tipo-imp" data-t="imposto" class="tb" onclick="selDespTipo(this.dataset.t)">Imposto</button>'
-    +'<button type="button" id="d-tipo-fix" data-t="fixo" class="tb" onclick="selDespTipo(this.dataset.t)">Fixo</button>'
+    +'<button type="button" id="d-tipo-var" data-t="variavel" class="tb'+(_despTipo==='variavel'?' on':'')+'" onclick="selDespTipo(this.dataset.t)">Variavel</button>'
+    +'<button type="button" id="d-tipo-imp" data-t="imposto" class="tb'+(_despTipo==='imposto'?' on':'')+'" onclick="selDespTipo(this.dataset.t)">Imposto</button>'
+    +'<button type="button" id="d-tipo-fix" data-t="fixo" class="tb'+(_despTipo==='fixo'?' on':'')+'" onclick="selDespTipo(this.dataset.t)">Fixo</button>'
     +'</div></div>'
     +'<button class="btn-gold" type="button" onclick="salvarDesp()">Registrar despesa</button>'
     +'</div></div>'
