@@ -1396,25 +1396,44 @@ function salvarLanc() {
   var area=parseFloat(getEl('l-area')?getEl('l-area').value:0)||0;
   if(!oId){toast('⚠️ Selecione a obra.');return;}
   if(!fId){toast('⚠️ Selecione o funcionário.');return;}
-  if(!apto){toast('⚠️ Informe o apto.');return;}
-  if(!amb){toast('⚠️ Selecione o ambiente.');return;}
-  if(!area){toast('⚠️ Informe a área.');return;}
 
-  // Regra: bloquear se aprovado ou mesmo func ja lancou; permitir outro func se tiver m2 disponivel
+  // Verificar se ha extras preenchidos
+  var extrasTemp=[];
+  document.querySelectorAll('#extras-wrap .el-line').forEach(function(l){
+    var ins=l.querySelectorAll('input');
+    var nm=ins[0]?ins[0].value.trim():'';
+    var vl=parseFloat(ins[1]?ins[1].value:0)||0;
+    var qt=parseFloat(ins[2]?ins[2].value:1)||1;
+    if(nm) extrasTemp.push({nome:nm,valor:vl,qty:qt,total:vl*qt});
+  });
+  var soExtras=!amb && extrasTemp.length>0;
+
+  if(!soExtras){
+    if(!apto){toast('⚠️ Informe o apto.');return;}
+    if(!amb){toast('⚠️ Selecione o ambiente.');return;}
+    if(!area){toast('⚠️ Informe a área.');return;}
+  }
+
+  // Para lançamentos só de Outros, usar identificadores genéricos
+  if(soExtras){ apto='Outros'; amb='Outros'; area=0; }
+
+  // Regra: bloquear se aprovado ou mesmo func ja lancou (apenas para lançamentos com ambiente real)
   var jaAprovado=false, jaExisteMesmoFunc=false;
   var m2LancadoAmb=0;
-  for(var li=0;li<lancs.length;li++){
-    var lx=lancs[li];
-    if(lx.obra_id===oId&&lx.apartamento===apto&&lx.ambiente===amb){
-      m2LancadoAmb+=parseFloat(lx.area_m2)||0;
-      if(lx.usuario_id===fId) jaExisteMesmoFunc=true;
-      for(var ci=0;ci<confs.length;ci++){
-        if(confs[ci].obra_id===oId&&confs[ci].apartamento===apto&&confs[ci].ambiente===amb&&confs[ci].status==='aprovado'){jaAprovado=true;break;}
+  if(!soExtras){
+    for(var li=0;li<lancs.length;li++){
+      var lx=lancs[li];
+      if(lx.obra_id===oId&&lx.apartamento===apto&&lx.ambiente===amb){
+        m2LancadoAmb+=parseFloat(lx.area_m2)||0;
+        if(lx.usuario_id===fId) jaExisteMesmoFunc=true;
+        for(var ci=0;ci<confs.length;ci++){
+          if(confs[ci].obra_id===oId&&confs[ci].apartamento===apto&&confs[ci].ambiente===amb&&confs[ci].status==='aprovado'){jaAprovado=true;break;}
+        }
       }
     }
+    if(jaAprovado){toast('Apto '+apto+' / '+amb+' ja foi aprovado na conferencia!');return;}
+    if(jaExisteMesmoFunc){toast('Apto '+apto+' / '+amb+' ja tem lancamento seu! Exclua o existente para relandar.');return;}
   }
-  if(jaAprovado){toast('Apto '+apto+' / '+amb+' ja foi aprovado na conferencia!');return;}
-  if(jaExisteMesmoFunc){toast('Apto '+apto+' / '+amb+' ja tem lancamento seu! Exclua o existente para relandar.');return;}
   var base=0; var rate=getRate(oId);
   var cbs3=document.querySelectorAll('#l-amb-lista input[type=checkbox]:checked');
   if(cbs3.length){
@@ -1425,17 +1444,10 @@ function salvarLanc() {
       var rateCb2=getRate(oId,nomeAmbS);
       base+=vfcb>0?(m2cb*vfcb):(m2cb*rateCb2);
     });
-  } else {
+  } else if(!soExtras){
     base=area*rate;
   }
-  var extras=[];
-  document.querySelectorAll('#extras-wrap .el-line').forEach(function(l) {
-    var ins=l.querySelectorAll('input');
-    var nm=ins[0]?ins[0].value.trim():'';
-    var vl=parseFloat(ins[1]?ins[1].value:0)||0;
-    var qt=parseFloat(ins[2]?ins[2].value:1)||1;
-    if(nm) extras.push({nome:nm,valor:vl,qty:qt,total:vl*qt});
-  });
+  var extras=extrasTemp;
   var extTotal=extras.reduce(function(s,e){return s+e.total;},0);
   var bonusMapS={qualidade:2,limpeza:4,horario:2,retrabalho:2};
   var pct=0;
@@ -2527,8 +2539,9 @@ function renderMarmita(){
   var pedidosHoje=marmitas.filter(function(m){return m.data===hojeStr;});
 
   // Status
-  var podePedir=bateuPonto && !jaPediu && horaAtual<=limite;
-  var motivo=!bateuPonto?'Voce precisa bater ponto antes de pedir':jaPediu?'Voce ja pediu sua marmita hoje':horaAtual>limite?'Pedidos encerrados apos 09h00':'';
+  var inicio=5*60; // pedidos abrem as 05h00
+  var podePedir=bateuPonto && !jaPediu && horaAtual>=inicio && horaAtual<=limite;
+  var motivo=!bateuPonto?'Voce precisa bater ponto antes de pedir':jaPediu?'Voce ja pediu sua marmita hoje':horaAtual<inicio?'Pedidos abrem as 05h00':horaAtual>limite?'Pedidos encerrados apos 09h00':'';
 
   // Meus totais (funcionario)
   var minhasMarmitas=marmitas.filter(function(m){return m.usuario_id===U.id;});
@@ -2947,7 +2960,7 @@ function verificarBannerMarmita(){
   if(!U||U.tipo!=='admin') return;
   var agora=new Date();
   var horaAtual=agora.getHours()*60+agora.getMinutes();
-  if(horaAtual<9*60) return; // antes das 9h nao mostrar
+  if(horaAtual<5*60 || horaAtual>9*60) return; // somente entre 05h e 09h
   var hojeStr=hoje();
   try{
     var jaEnviou=localStorage.getItem('instalato_marm_enviado_'+hojeStr);
