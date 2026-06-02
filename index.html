@@ -1670,14 +1670,18 @@ function confirmarDesaprovar(confId){
   if(!senhaDigitada){toast('Digite sua senha.');return;}
   if(!U||U.senha!==senhaDigitada){toast('❌ Senha incorreta.');return;}
   document.getElementById('modal-desaprovar').remove();
+  // Remover localmente imediatamente para UI responder rápido
+  confs=confs.filter(function(c){return c.id!==confId;});
+  toast('Conferencia removida. Lancamento voltou para aguardando.');
+  renderHistFiltro();
+  renderConf();
+  // Deletar no Supabase em background
   dbDelete('conferencias',confId).then(function(ok){
-    if(ok){
-      confs=confs.filter(function(c){return c.id!==confId;});
-      toast('Conferencia removida. Lancamento voltou para aguardando.');
-      renderHistFiltro();
-      renderConf();
-    } else {
-      toast('Erro ao desaprovar. Tente novamente.');
+    if(!ok){
+      // Recarregar conferencias do servidor para garantir consistência
+      dbFetch('/rest/v1/conferencias?select=*&order=created_at.desc').then(function(r){
+        if(r.ok) r.json().then(function(d){confs=d||[];renderHistFiltro();renderConf();});
+      });
     }
   });
 }
