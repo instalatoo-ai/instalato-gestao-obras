@@ -1628,6 +1628,25 @@ function renderHist() {
   renderHistFiltro();
 }
 
+function desaprovarConf(confId){
+  var c=null; for(var i=0;i<confs.length;i++) if(confs[i].id===confId){c=confs[i];break;}
+  if(!c) return;
+  // Verificar se faturado
+  var isFat=medicoes.some(function(m){return m.conf_id===confId;});
+  if(isFat){toast('🔒 Esta conferencia ja foi faturada. Desfature primeiro para desaprovar.');return;}
+  if(!confirm('Desaprovar esta conferencia? Ela voltara para Aguardando Conferencia.')) return;
+  dbUpdate('conferencias',confId,{status:'aguardando'}).then(function(ok){
+    if(ok){
+      for(var i=0;i<confs.length;i++) if(confs[i].id===confId){confs[i].status='aguardando';break;}
+      toast('Conferencia desaprovada. Voltou para aguardando.');
+      renderHistFiltro();
+      renderConf();
+    } else {
+      toast('Erro ao desaprovar. Tente novamente.');
+    }
+  });
+}
+
 function renderHistFiltro() {
   var oId=getEl('hf-obra')?getEl('hf-obra').value:'';
   var fId=getEl('hf-func')?getEl('hf-func').value:'';
@@ -1657,9 +1676,10 @@ function renderHistFiltro() {
         btns='<div style="margin-top:6px;padding:5px 10px;background:rgba(184,134,11,.08);border-radius:20px;display:inline-block;">'
           +'<span style="font-size:10px;color:#B8860B;font-weight:700;">🔒 Faturado — desfature para alterar</span></div>';
       } else {
-        btns='<div style="display:flex;gap:6px;margin-top:6px;">'
+        btns='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">'
           +'<button type="button" data-lid="'+l.id+'" onclick="editarLanc(this.dataset.lid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;font-weight:700;">Editar</button>'
           +'<button type="button" data-lid="'+l.id+'" onclick="excluirLanc(this.dataset.lid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;font-weight:700;">Excluir</button>'
+          +(confReg&&confStatus==='aprovado'?'<button type="button" data-cid="'+confReg.id+'" onclick="desaprovarConf(this.dataset.cid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--sub);background:transparent;color:var(--sub);cursor:pointer;font-weight:700;">↩ Desaprovar</button>':'')
           +'</div>';
       }
     }
@@ -5422,10 +5442,21 @@ function renderAPagar(){
         var venceu=isPend&&m.vencimento&&m.vencimento<hoje();
         var corStatus=isPend?(venceu?'var(--red)':'#B8860B'):'var(--green)';
         var bgCard=venceu?'rgba(192,57,43,.04)':'#fff';
+        // Obter obras dos lançamentos deste MED
+        var mLancIds=[];try{mLancIds=JSON.parse(m.lanc_ids||'[]');}catch(e){mLancIds=[];}
+        var mObras=[];
+        if(mLancIds.length){
+          mLancIds.forEach(function(lid){
+            var lx=lancs.find(function(l){return l.id===lid;});
+            if(lx){var ox=obras.find(function(o){return o.id===lx.obra_id;});if(ox&&mObras.indexOf(ox.nome)<0)mObras.push(ox.nome);}
+          });
+        }
+        var obrasTag=mObras.length?'<div style="font-size:10px;font-weight:700;color:#1a3a5c;margin-top:2px;">'+mObras.join(' · ')+'</div>':'';
         return '<div style="padding:12px 14px;border-bottom:1px solid var(--border);background:'+bgCard+';">'
           +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
           +'<div>'
           +'<div style="font-size:14px;font-weight:700;">'+m.nome_func+'</div>'
+          +obrasTag
           +'<div style="font-size:11px;color:var(--sub);">'+fmtD(m.periodo_ini)+' a '+fmtD(m.periodo_fim)+' · '+m.area_m2+'m²</div>'
           +'<div style="font-size:11px;color:'+(venceu?'var(--red)':'var(--sub)')+';">'
           +(venceu?'⚠️ Vencido: ':'Vence: ')+fmtD(m.vencimento)
