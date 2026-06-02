@@ -5323,11 +5323,13 @@ function excluirMedicao(id){
     toast('Nao e possivel excluir: existe faturamento pendente vinculado. Cancele o faturamento primeiro.');
     return;
   }
-  if(!confirm('Excluir este lancamento?')) return;
+  if(!confirm('Excluir este MED?')) return;
   dbDelete('medicoes',id).then(function(ok){
-    if(ok){medicoes=medicoes.filter(function(m){return m.id!==id;});renderAPagar();toast('Excluido!');}
-  }).catch(function(){
-    medicoes=medicoes.filter(function(m){return m.id!==id;});renderAPagar();toast('Excluido!');
+    if(ok){medicoes=medicoes.filter(function(m){return m.id!==id;});renderAPagar();toast('MED excluido!');}
+    else{toast('Erro ao excluir. Tente novamente.');}
+  }).catch(function(e){
+    // tentar excluir localmente
+    medicoes=medicoes.filter(function(m){return m.id!==id;});renderAPagar();toast('MED excluido!');
   });
 }
 function salvarNovoLancamentoPagar(){
@@ -6019,7 +6021,7 @@ function renderFinanceiro(){
       +'<div><div class="fl">Observacao (opcional)</div><input class="inp" type="text" id="med-obs" placeholder="Ex: Pagamento sala apto 101"></div>'
       +'<div style="display:flex;gap:8px;">'
       +'<button onclick="fecharMED()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>'
-      +'<button data-nome="'+nome+'" data-valor="'+valor.toFixed(2)+'" data-m2="'+m2.toFixed(1)+'" data-ini="'+ini+'" data-fim="'+fim+'" onclick="confirmarMED(this)" style="flex:2;padding:12px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Gerar e Enviar para A Pagar</button>'
+      +'<button data-nome="'+nome+'" data-valor="'+valor.toFixed(2)+'" data-m2="'+m2.toFixed(1)+'" data-ini="'+ini+'" data-fim="'+fim+'" data-lanc-ids="'+encodeURIComponent(JSON.stringify(sels.map(function(p){return p.id;})))+'" onclick="confirmarMED(this)" style="flex:2;padding:12px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Gerar e Enviar para A Pagar</button>'
       +'</div></div></div></div>';
     document.body.insertAdjacentHTML('beforeend',html);
   };
