@@ -1397,25 +1397,40 @@ function salvarLanc() {
   var area=parseFloat(getEl('l-area')?getEl('l-area').value:0)||0;
   if(!oId){toast('⚠️ Selecione a obra.');return;}
   if(!fId){toast('⚠️ Selecione o funcionário.');return;}
-  if(!apto){toast('⚠️ Informe o apto.');return;}
-  if(!amb){toast('⚠️ Selecione o ambiente.');return;}
-  if(!area){toast('⚠️ Informe a área.');return;}
 
-  // Regra: bloquear se aprovado ou mesmo func ja lancou; permitir outro func se tiver m2 disponivel
+  var extrasTemp=[];
+  document.querySelectorAll('#extras-wrap .el-line').forEach(function(l){
+    var ins=l.querySelectorAll('input');
+    var nm=ins[0]?ins[0].value.trim():'';
+    var vl=parseFloat(ins[1]?ins[1].value:0)||0;
+    var qt=parseFloat(ins[2]?ins[2].value:1)||1;
+    if(nm) extrasTemp.push({nome:nm,valor:vl,qty:qt,total:vl*qt});
+  });
+  var soExtras=!amb && extrasTemp.length>0;
+
+  if(!soExtras){
+    if(!apto){toast('⚠️ Informe o apto.');return;}
+    if(!amb){toast('⚠️ Selecione o ambiente.');return;}
+    if(!area){toast('⚠️ Informe a área.');return;}
+  }
+  if(soExtras){ apto='Outros'; amb='Outros'; area=0; }
+
   var jaAprovado=false, jaExisteMesmoFunc=false;
   var m2LancadoAmb=0;
-  for(var li=0;li<lancs.length;li++){
-    var lx=lancs[li];
-    if(lx.obra_id===oId&&lx.apartamento===apto&&lx.ambiente===amb){
-      m2LancadoAmb+=parseFloat(lx.area_m2)||0;
-      if(lx.usuario_id===fId) jaExisteMesmoFunc=true;
-      for(var ci=0;ci<confs.length;ci++){
-        if(confs[ci].obra_id===oId&&confs[ci].apartamento===apto&&confs[ci].ambiente===amb&&confs[ci].status==='aprovado'){jaAprovado=true;break;}
+  if(!soExtras){
+    for(var li=0;li<lancs.length;li++){
+      var lx=lancs[li];
+      if(lx.obra_id===oId&&lx.apartamento===apto&&lx.ambiente===amb){
+        m2LancadoAmb+=parseFloat(lx.area_m2)||0;
+        if(lx.usuario_id===fId) jaExisteMesmoFunc=true;
+        for(var ci=0;ci<confs.length;ci++){
+          if(confs[ci].obra_id===oId&&confs[ci].apartamento===apto&&confs[ci].ambiente===amb&&confs[ci].status==='aprovado'){jaAprovado=true;break;}
+        }
       }
     }
+    if(jaAprovado){toast('Apto '+apto+' / '+amb+' ja foi aprovado na conferencia!');return;}
+    if(jaExisteMesmoFunc){toast('Apto '+apto+' / '+amb+' ja tem lancamento seu! Exclua o existente para relandar.');return;}
   }
-  if(jaAprovado){toast('Apto '+apto+' / '+amb+' ja foi aprovado na conferencia!');return;}
-  if(jaExisteMesmoFunc){toast('Apto '+apto+' / '+amb+' ja tem lancamento seu! Exclua o existente para relandar.');return;}
   var base=0; var rate=getRate(oId);
   var cbs3=document.querySelectorAll('#l-amb-lista input[type=checkbox]:checked');
   if(cbs3.length){
@@ -1426,17 +1441,10 @@ function salvarLanc() {
       var rateCb2=getRate(oId,nomeAmbS);
       base+=vfcb>0?(m2cb*vfcb):(m2cb*rateCb2);
     });
-  } else {
+  } else if(!soExtras){
     base=area*rate;
   }
-  var extras=[];
-  document.querySelectorAll('#extras-wrap .el-line').forEach(function(l) {
-    var ins=l.querySelectorAll('input');
-    var nm=ins[0]?ins[0].value.trim():'';
-    var vl=parseFloat(ins[1]?ins[1].value:0)||0;
-    var qt=parseFloat(ins[2]?ins[2].value:1)||1;
-    if(nm) extras.push({nome:nm,valor:vl,qty:qt,total:vl*qt});
-  });
+  var extras=extrasTemp;
   var extTotal=extras.reduce(function(s,e){return s+e.total;},0);
   var bonusMapS={qualidade:2,limpeza:4,horario:2,retrabalho:2};
   var pct=0;
@@ -1631,7 +1639,6 @@ function renderHist() {
 function desaprovarConf(confId){
   var c=null; for(var i=0;i<confs.length;i++) if(confs[i].id===confId){c=confs[i];break;}
   if(!c) return;
-  // Verificar se faturado
   var isFat=medicoes.some(function(m){return m.conf_id===confId;});
   if(isFat){toast('🔒 Esta conferencia ja foi faturada. Desfature primeiro para desaprovar.');return;}
   if(!confirm('Desaprovar esta conferencia? Ela voltara para Aguardando Conferencia.')) return;
@@ -1679,7 +1686,7 @@ function renderHistFiltro() {
         btns='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">'
           +'<button type="button" data-lid="'+l.id+'" onclick="editarLanc(this.dataset.lid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;font-weight:700;">Editar</button>'
           +'<button type="button" data-lid="'+l.id+'" onclick="excluirLanc(this.dataset.lid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;font-weight:700;">Excluir</button>'
-          +(confReg&&confStatus==='aprovado'?'<button type="button" data-cid="'+confReg.id+'" onclick="desaprovarConf(this.dataset.cid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--sub);background:transparent;color:var(--sub);cursor:pointer;font-weight:700;">↩ Desaprovar</button>':'')
+          +(confReg&&confStatus==="aprovado"?'<button type="button" data-cid="'+confReg.id+'" onclick="desaprovarConf(this.dataset.cid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--sub);background:transparent;color:var(--sub);cursor:pointer;font-weight:700;">↩ Desaprovar</button>':'')
           +'</div>';
       }
     }
@@ -4869,16 +4876,11 @@ function abrirRelatorioFinanceiro(){
 function fecharRelFin(){
   var m=document.getElementById('modal-rel-fin'); if(m) m.remove();
 }
-window._relToggle=function(div){
-  var chk=div.querySelector('.rel-chk');
-  if(chk){chk.checked=!chk.checked;window._relAtualizarSel();}
-};
 window._relClick=function(div){
   var chk=div.querySelector('.rel-chk');
   if(chk){chk.checked=!chk.checked;window._relAtualizarSel();}
 };
 window._relAtualizarSel=function(){
-  // atualizar info de selecionados por funcionario
   var chks=document.querySelectorAll('.rel-chk');
   var porFunc={};
   chks.forEach(function(c){
@@ -4891,7 +4893,7 @@ window._relAtualizarSel=function(){
     }
   });
   Object.keys(porFunc).forEach(function(fn){
-    var key=fn.replace(/\s/g,'_');
+    var key=fn.replace(/ /g,'_');
     var el=document.querySelector('.rel-sel-'+key);
     if(el){
       var d=porFunc[fn];
@@ -4904,12 +4906,14 @@ window._abrirMEDSel=function(btn){
   var ini=btn.getAttribute('data-ini');
   var fim=btn.getAttribute('data-fim');
   var chks=document.querySelectorAll('.rel-chk[data-func="'+nome+'"]');
-  var valor=0,m2=0,qtd=0;
+  var valor=0,m2=0,qtd=0,ids=[];
   chks.forEach(function(c){
     if(c.checked){
       valor+=parseFloat(c.getAttribute('data-total'))||0;
       m2+=parseFloat(c.getAttribute('data-m2'))||0;
       qtd++;
+      var lid=c.getAttribute('data-lid');
+      if(lid) ids.push(lid);
     }
   });
   if(!qtd){toast('Selecione ao menos um lancamento.');return;}
@@ -4932,7 +4936,7 @@ window._abrirMEDSel=function(btn){
     +'<div><div class="fl">Observacao (opcional)</div><input class="inp" type="text" id="med-obs" placeholder="Ex: Pagamento sala apto 101"></div>'
     +'<div style="display:flex;gap:8px;">'
     +'<button onclick="fecharMED()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>'
-    +'<button data-nome="'+nome+'" data-valor="'+valor.toFixed(2)+'" data-m2="'+m2.toFixed(1)+'" data-ini="'+ini+'" data-fim="'+fim+'" data-lanc-ids="'+encodeURIComponent(JSON.stringify(sels.map(function(p){return p.id;})))+'" onclick="confirmarMED(this)" style="flex:2;padding:12px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Gerar e Enviar para A Pagar</button>'
+    +'<button data-nome="'+nome+'" data-valor="'+valor.toFixed(2)+'" data-m2="'+m2.toFixed(1)+'" data-ini="'+ini+'" data-fim="'+fim+'" data-lanc-ids="'+encodeURIComponent(JSON.stringify(ids))+'" onclick="confirmarMED(this)" style="flex:2;padding:12px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Gerar e Enviar para A Pagar</button>'
     +'</div></div></div></div>';
   document.body.insertAdjacentHTML('beforeend',h);
 };
@@ -5030,7 +5034,14 @@ function gerarRelatorioFin(){
 
     f.itens.sort(function(a,b){return a.data>b.data?1:-1;}).forEach(function(l){
       var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===l.obra_id){o=obras[i];break;}
-      html+='<div style="display:flex;align-items:center;gap:8px;padding:6px 14px;border-bottom:1px solid var(--border);font-size:11px;background:#fff;cursor:pointer;" onclick="window._relClick(this)">'        +'<input type="checkbox" class="rel-chk" data-lid="'+l.id+'" data-total="'+l.total+'" data-m2="'+(parseFloat(l.area_m2)||0)+'" data-func="'+nome+'" checked onclick="event.stopPropagation();window._relAtualizarSel();" style="width:16px;height:16px;accent-color:#1e8449;flex-shrink:0;cursor:pointer;">'        +'<div style="flex:1;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;">'        +'<span>'+fmtD(l.data)+'</span>'        +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(o?'<span style="font-size:9px;color:var(--sub);display:block;">'+o.nome+'</span>':'')+(l.apartamento||'')+'<br><span style="color:var(--sub);font-size:10px;">'+(l.ambiente||'')+'</span></span>'        +'<span style="text-align:right;">'+(parseFloat(l.area_m2)||0).toFixed(1)+'</span>'        +'<span style="text-align:right;font-weight:700;color:var(--gold);">'+fmt(l.total)+'</span>'        +'</div></div>';
+      html+='<div style="display:flex;align-items:center;gap:8px;padding:6px 14px;border-bottom:1px solid var(--border);font-size:11px;background:#fff;cursor:pointer;" onclick="window._relClick(this)">'
+        +'<input type="checkbox" class="rel-chk" data-lid="'+l.id+'" data-total="'+l.total+'" data-m2="'+(parseFloat(l.area_m2)||0)+'" data-func="'+nome+'" checked onclick="event.stopPropagation();window._relAtualizarSel();" style="width:16px;height:16px;accent-color:#1e8449;flex-shrink:0;cursor:pointer;">'
+        +'<div style="flex:1;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;">'
+        +'<span>'+fmtD(l.data)+'</span>'
+        +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(o?'<span style="font-size:9px;color:var(--sub);display:block;">'+o.nome+'</span>':'')+(l.apartamento||'')+'<br><span style="color:var(--sub);font-size:10px;">'+(l.ambiente||'')+'</span></span>'
+        +'<span style="text-align:right;">'+(parseFloat(l.area_m2)||0).toFixed(1)+'</span>'
+        +'<span style="text-align:right;font-weight:700;color:var(--gold);">'+fmt(l.total)+'</span>'
+        +'</div></div>';
     });
 
     var descontos=f.descontos||[];
@@ -5061,7 +5072,13 @@ function gerarRelatorioFin(){
     var valorLiqBtn=f.totalValor;
     var m2Btn=f.totalM2;
     var nomeKey=nome.replace(/ /g,'_');
-    html+='<div style="padding:8px 14px;background:#f9f9f9;border-bottom:2px solid #1a3a5c;display:flex;align-items:center;justify-content:space-between;">'      +'<div style="font-size:10px;color:var(--sub);">Periodo: '+fmtD(ini)+' a '+fmtD(fim)+'</div>'      +'<div style="display:flex;gap:8px;align-items:center;">'      +'<span class="rel-sel-'+nomeKey+'" style="font-size:10px;color:var(--green);font-weight:700;"></span>'      +'<button data-nome="'+nome+'" data-ini="'+ini+'" data-fim="'+fim+'"'      +' onclick="window._abrirMEDSel(this)" style="padding:6px 14px;border-radius:20px;border:none;background:#1e8449;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">Gerar MED</button>'      +'</div></div>';
+    html+='<div style="padding:8px 14px;background:#f9f9f9;border-bottom:2px solid #1a3a5c;display:flex;align-items:center;justify-content:space-between;">'
+      +'<div style="font-size:10px;color:var(--sub);">Periodo: '+fmtD(ini)+' a '+fmtD(fim)+'</div>'
+      +'<div style="display:flex;gap:8px;align-items:center;">'
+      +'<span class="rel-sel-'+nomeKey+'" style="font-size:10px;color:var(--green);font-weight:700;"></span>'
+      +'<button data-nome="'+nome+'" data-ini="'+ini+'" data-fim="'+fim+'"'
+      +' onclick="window._abrirMEDSel(this)" style="padding:6px 14px;border-radius:20px;border:none;background:#1e8449;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">Gerar MED</button>'
+      +'</div></div>';
   });
 
   html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;padding:10px 14px;background:#1a3a5c;font-size:12px;font-weight:700;">'
@@ -5126,11 +5143,6 @@ function abrirMED(btn){
   var m2=btn.getAttribute('data-m2');
   var ini=btn.getAttribute('data-ini');
   var fim=btn.getAttribute('data-fim');
-  // Coletar IDs dos checkboxes selecionados deste funcionario
-  var chksAMED=document.querySelectorAll('.rel-chk[data-func="'+nome+'"]');
-  var lancIdsAMED=[];
-  chksAMED.forEach(function(c){if(c.checked)lancIdsAMED.push(c.getAttribute('data-lid')||'');});
-  lancIdsAMED=lancIdsAMED.filter(Boolean);
   var existing=document.getElementById('modal-med');
   if(existing) existing.remove();
   // Calcular vencimento padrao (10 dias a frente)
@@ -5154,7 +5166,7 @@ function abrirMED(btn){
     +'<input class="inp" type="text" id="med-obs" placeholder="Ex: Pagamento referente ao mes de maio"></div>'
     +'<div style="display:flex;gap:8px;">'
     +'<button onclick="fecharMED()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>'
-    +'<button data-nome="'+nome+'" data-valor="'+valor.toFixed(2)+'" data-m2="'+m2+'" data-ini="'+ini+'" data-fim="'+fim+'" data-lanc-ids="'+encodeURIComponent(JSON.stringify(lancIdsAMED))+'" onclick="confirmarMED(this)" style="flex:2;padding:12px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Gerar e Enviar para A Pagar</button>'
+    +'<button data-nome="'+nome+'" data-valor="'+valor.toFixed(2)+'" data-m2="'+m2+'" data-ini="'+ini+'" data-fim="'+fim+'" onclick="confirmarMED(this)" style="flex:2;padding:12px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Gerar e Enviar para A Pagar</button>'
     +'</div>'
     +'</div></div></div>';
   document.body.insertAdjacentHTML('beforeend',html);
@@ -5343,13 +5355,11 @@ function excluirMedicao(id){
     toast('Nao e possivel excluir: existe faturamento pendente vinculado. Cancele o faturamento primeiro.');
     return;
   }
-  if(!confirm('Excluir este MED?')) return;
+  if(!confirm('Excluir este lancamento?')) return;
   dbDelete('medicoes',id).then(function(ok){
-    if(ok){medicoes=medicoes.filter(function(m){return m.id!==id;});renderAPagar();toast('MED excluido!');}
-    else{toast('Erro ao excluir. Tente novamente.');}
-  }).catch(function(e){
-    // tentar excluir localmente
-    medicoes=medicoes.filter(function(m){return m.id!==id;});renderAPagar();toast('MED excluido!');
+    if(ok){medicoes=medicoes.filter(function(m){return m.id!==id;});renderAPagar();toast('Excluido!');}
+  }).catch(function(){
+    medicoes=medicoes.filter(function(m){return m.id!==id;});renderAPagar();toast('Excluido!');
   });
 }
 function salvarNovoLancamentoPagar(){
@@ -5442,15 +5452,12 @@ function renderAPagar(){
         var venceu=isPend&&m.vencimento&&m.vencimento<hoje();
         var corStatus=isPend?(venceu?'var(--red)':'#B8860B'):'var(--green)';
         var bgCard=venceu?'rgba(192,57,43,.04)':'#fff';
-        // Obter obras dos lançamentos deste MED
         var mLancIds=[];try{mLancIds=JSON.parse(m.lanc_ids||'[]');}catch(e){mLancIds=[];}
         var mObras=[];
-        if(mLancIds.length){
-          mLancIds.forEach(function(lid){
-            var lx=lancs.find(function(l){return l.id===lid;});
-            if(lx){var ox=obras.find(function(o){return o.id===lx.obra_id;});if(ox&&mObras.indexOf(ox.nome)<0)mObras.push(ox.nome);}
-          });
-        }
+        mLancIds.forEach(function(lid){
+          var lx=lancs.find(function(l){return l.id===lid;});
+          if(lx){var ox=obras.find(function(o){return o.id===lx.obra_id;});if(ox&&mObras.indexOf(ox.nome)<0)mObras.push(ox.nome);}
+        });
         var obrasTag=mObras.length?'<div style="font-size:10px;font-weight:700;color:#1a3a5c;margin-top:2px;">'+mObras.join(' · ')+'</div>':'';
         return '<div style="padding:12px 14px;border-bottom:1px solid var(--border);background:'+bgCard+';">'
           +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
@@ -5500,7 +5507,6 @@ function verDetalhesMED(id){
   // Buscar usuario
   var u=null; for(var i=0;i<users.length;i++) if(users[i].id===med.usuario_id||(users[i].apelido===med.nome_func)){u=users[i];break;}
   var uId=u?u.id:null;
-  // Buscar lancamentos: usar lanc_ids se disponível, senão filtrar por periodo
   var lancIds=[];try{lancIds=JSON.parse(med.lanc_ids||'[]');}catch(e){lancIds=[];}
   var lancsPeriodo=lancIds.length>0
     ?lancs.filter(function(l){return lancIds.indexOf(l.id)>=0;})
@@ -5508,7 +5514,6 @@ function verDetalhesMED(id){
         if(uId&&l.usuario_id!==uId) return false;
         if(!uId&&l.usuario_id) return false;
         if(!(l.data>=med.periodo_ini&&l.data<=med.periodo_fim)) return false;
-        // Apenas lancamentos com conferencia aprovada
         return confs.some(function(c){return c.lancamento_id===l.id&&c.status==='aprovado';});
       });
   // Buscar marmitas no periodo
@@ -5529,18 +5534,8 @@ function verDetalhesMED(id){
 
   var lancHtml=lancsPeriodo.length?lancsPeriodo.map(function(l){
     var confOk=confs.some(function(c){return c.lancamento_id===l.id&&c.status==='aprovado';});
-    var obraL=null;
-    for(var oi=0;oi<obras.length;oi++){
-      if(obras[oi].id===l.obra_id||String(obras[oi].id)===String(l.obra_id)){obraL=obras[oi];break;}
-    }
-    // fallback: buscar pelo nome da conferencia vinculada
-    if(!obraL){
-      var confL=confs.find(function(c){return c.lancamento_id===l.id;});
-      if(confL) for(var oi=0;oi<obras.length;oi++)if(obras[oi].id===confL.obra_id){obraL=obras[oi];break;}
-    }
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">'
-      +'<div><div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:1px;">'+(obraL?obraL.nome:'')+'</div>'
-      +'<div style="font-size:12px;font-weight:700;">'+(l.apartamento||'--')+' · '+(l.ambiente||'--')+'</div>'
+      +'<div><div style="font-size:12px;font-weight:700;">'+(l.apartamento||'--')+' · '+(l.ambiente||'--')+'</div>'
       +'<div style="font-size:10px;color:var(--sub);">'+fmtD(l.data)+' · '+(l.area_m2||0)+'m²'+(confOk?' · <span style="color:var(--green);">✓ Aprovado</span>':' · <span style="color:#B8860B;">⏳ Pendente</span>')+'</div>'
       +'</div>'
       +'<span style="font-size:13px;font-weight:700;color:var(--gold);">'+fmt(l.total)+'</span>'
