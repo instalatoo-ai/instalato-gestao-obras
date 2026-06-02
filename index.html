@@ -1415,20 +1415,23 @@ function salvarLanc() {
   }
   if(soExtras){ apto='Outros'; amb='Outros'; area=0; }
 
-  var jaAprovado=false, jaExisteMesmoFunc=false;
+  var jaAprovadoMesmoFunc=false, jaExisteMesmoFunc=false;
   var m2LancadoAmb=0;
   if(!soExtras){
     for(var li=0;li<lancs.length;li++){
       var lx=lancs[li];
       if(lx.obra_id===oId&&lx.apartamento===apto&&lx.ambiente===amb){
         m2LancadoAmb+=parseFloat(lx.area_m2)||0;
-        if(lx.usuario_id===fId) jaExisteMesmoFunc=true;
-        for(var ci=0;ci<confs.length;ci++){
-          if(confs[ci].obra_id===oId&&confs[ci].apartamento===apto&&confs[ci].ambiente===amb&&confs[ci].status==='aprovado'){jaAprovado=true;break;}
+        if(lx.usuario_id===fId){
+          jaExisteMesmoFunc=true;
+          // Verificar se o lancamento DESTE funcionario ja foi aprovado
+          for(var ci=0;ci<confs.length;ci++){
+            if(confs[ci].lancamento_id===lx.id&&confs[ci].status==='aprovado'){jaAprovadoMesmoFunc=true;break;}
+          }
         }
       }
     }
-    if(jaAprovado){toast('Apto '+apto+' / '+amb+' ja foi aprovado na conferencia!');return;}
+    if(jaAprovadoMesmoFunc){toast('Apto '+apto+' / '+amb+' — seu lancamento ja foi aprovado na conferencia!');return;}
     if(jaExisteMesmoFunc){toast('Apto '+apto+' / '+amb+' ja tem lancamento seu! Exclua o existente para relandar.');return;}
   }
   var base=0; var rate=getRate(oId);
