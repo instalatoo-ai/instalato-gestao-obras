@@ -5388,6 +5388,8 @@ function renderComissao(){
       if(m.nome_func===lider.apelido) return false;
       var u2=users.find(function(u){return u.apelido===m.nome_func;});
       if(u2&&u2.id===lider.id) return false;
+      // Excluir tambem se o usuario e admin/lider desta obra
+      if(u2&&u2.id===cfg.lider_id) return false;
       // Medicao deve ter lancamentos desta obra
       var lids=[];try{lids=JSON.parse(m.lanc_ids||'[]');}catch(e){}
       if(!lids.length) return false;
@@ -5579,9 +5581,10 @@ function gerarMEDComissao(btn){
     var obs2=document.getElementById('med-com-obs').value;
     if(!venc2){toast('Informe o vencimento.');return;}
     el.remove();
+    var obs2final=obs2||('Comissao lider '+nome);
     var obj={usuario_id:u?u.id:null,nome_func:nome,valor:valor,area_m2:parseFloat(m2)||0,
-      periodo_ini:ini,periodo_fim:fim,vencimento:venc2,observacao:obs2||('Comissao '+nome),
-      status:'pendente',criado_por:U.id,data:hoje(),lanc_ids:'[]',tipo_med:'comissao'};
+      periodo_ini:ini,periodo_fim:fim,vencimento:venc2,observacao:obs2final,
+      status:'pendente',criado_por:U.id,data:hoje(),lanc_ids:'[]'};
     dbInsert('medicoes',obj).then(function(r){
       if(r){medicoes=[r].concat(medicoes);toast('MED de comissao gerado!');renderAPagar();}
       else toast('Erro ao gerar MED.');
