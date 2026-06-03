@@ -1627,6 +1627,50 @@ function renderHist() {
   renderHistFiltro();
 }
 
+function desaprovarConf(confId){
+  var c=null; for(var i=0;i<confs.length;i++) if(confs[i].id===confId){c=confs[i];break;}
+  if(!c) return;
+  var isFat=medicoes.some(function(m){return m.conf_id===confId;});
+  if(isFat){toast('Faturado. Desfature primeiro para desaprovar.');return;}
+  var el=document.createElement('div');
+  el.className='modal-bg show'; el.id='modal-desaprovar'; el.style.cssText='z-index:9999;align-items:center;padding:20px;';
+  el.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:360px;overflow:hidden;">'
+    +'<div style="background:var(--dark);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<span style="font-size:14px;font-weight:700;color:#fff;">Confirmar Desaprovacao</span>'
+    +'<button id="btn-fecha-desap" style="background:transparent;border:none;color:#fff;font-size:18px;cursor:pointer;">x</button>'
+    +'</div>'
+    +'<div style="padding:16px;display:flex;flex-direction:column;gap:12px;">'
+    +'<div style="font-size:12px;color:var(--sub);">Digite sua senha de admin para confirmar.</div>'
+    +'<input class="inp" type="password" id="inp-desaprovar-senha" placeholder="Sua senha">'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button id="btn-cancela-desap" style="flex:1;padding:11px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>'
+    +'<button id="btn-ok-desap" style="flex:2;padding:11px;border-radius:10px;border:none;background:var(--dark);color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Confirmar</button>'
+    +'</div></div></div>';
+  document.body.appendChild(el);
+  el.querySelector('#btn-fecha-desap').onclick=function(){el.remove();};
+  el.querySelector('#btn-cancela-desap').onclick=function(){el.remove();};
+  el.querySelector('#btn-ok-desap').onclick=function(){confirmarDesaprovar(confId);};
+  setTimeout(function(){var e=document.getElementById('inp-desaprovar-senha');if(e)e.focus();},100);
+}
+
+function confirmarDesaprovar(confId){
+  var senhaDigitada=(document.getElementById('inp-desaprovar-senha')?document.getElementById('inp-desaprovar-senha').value:'').trim();
+  if(!senhaDigitada){toast('Digite sua senha.');return;}
+  if(!U||U.senha!==senhaDigitada){toast('Senha incorreta.');return;}
+  document.getElementById('modal-desaprovar').remove();
+  confs=confs.filter(function(c){return c.id!==confId;});
+  toast('Conferencia removida. Lancamento voltou para aguardando.');
+  renderHistFiltro();
+  renderConf();
+  dbDelete('conferencias',confId).then(function(ok){
+    if(!ok){
+      dbFetch('/rest/v1/conferencias?select=*&order=created_at.desc').then(function(r){
+        if(r.ok) r.json().then(function(d){confs=d||[];renderHistFiltro();renderConf();});
+      });
+    }
+  });
+}
+
 function renderHistFiltro() {
   var oId=getEl('hf-obra')?getEl('hf-obra').value:'';
   var fId=getEl('hf-func')?getEl('hf-func').value:'';
@@ -1641,15 +1685,32 @@ function renderHistFiltro() {
   el.innerHTML=lista.map(function(l){
     var u=null; for(var i=0;i<users.length;i++) if(users[i].id===l.usuario_id){u=users[i];break;}
     var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===l.obra_id){o=obras[i];break;}
+    var confReg=null; for(var i=0;i<confs.length;i++) if(confs[i].lancamento_id===l.id){confReg=confs[i];break;}
+    var confStatus=confReg?confReg.status:'';
+    var statusTxt='',statusCor='';
+    if(confStatus==='aprovado'){statusTxt='Aprovado';statusCor='var(--green)';}
+    else if(confStatus==='reprovado'){statusTxt='Reprovado';statusCor='var(--red)';}
+    else if(confStatus==='incompleto'){statusTxt='Incompleto';statusCor='#B8860B';}
+    else{statusTxt='Aguardando conferencia';statusCor='#B8860B';}
+    var isFaturado=confReg&&medicoes.some(function(m){return m.conf_id===confReg.id;});
     var podeEditar=(U&&(U.tipo==='admin'||U.tipo==='lider_chefe'));
-    var btns=podeEditar
-      ?'<div style="display:flex;gap:6px;margin-top:6px;">'
-        +'<button type="button" data-lid="'+l.id+'" onclick="editarLanc(this.dataset.lid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;font-weight:700;">Editar</button>'
-        +'<button type="button" data-lid="'+l.id+'" onclick="excluirLanc(this.dataset.lid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;font-weight:700;">Excluir</button>'
-        +'</div>':'' ;
-    return '<div class="hi"><div class="hi-ico">🪵</div><div class="hi-b">'
+    var btns='';
+    if(podeEditar){
+      if(isFaturado){
+        btns='<div style="margin-top:6px;padding:5px 10px;background:rgba(184,134,11,.08);border-radius:20px;display:inline-block;">'
+          +'<span style="font-size:10px;color:#B8860B;font-weight:700;">Faturado - desfature para alterar</span></div>';
+      } else {
+        btns='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">'
+          +'<button type="button" data-lid="'+l.id+'" onclick="editarLanc(this.dataset.lid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;font-weight:700;">Editar</button>'
+          +'<button type="button" data-lid="'+l.id+'" onclick="excluirLanc(this.dataset.lid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;font-weight:700;">Excluir</button>'
+          +(confReg&&confStatus==='aprovado'?'<button type="button" data-cid="'+confReg.id+'" onclick="desaprovarConf(this.dataset.cid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--sub);background:transparent;color:var(--sub);cursor:pointer;font-weight:700;">Desaprovar</button>':'')
+          +'</div>';
+      }
+    }
+    return '<div class="hi" style="border-left:3px solid '+statusCor+';"><div class="hi-ico">&#129683;</div><div class="hi-b">'
       +'<div class="hi-t">'+(u?u.apelido:'--')+' - '+(l.ambiente||'--')+' - Apto '+(l.apartamento||'--')+'</div>'
       +'<div class="hi-s">'+(o?o.nome:'--')+' - '+l.area_m2+'m2 - bonus '+l.bonus_pct+'%</div>'
+      +'<div style="font-size:10px;font-weight:700;color:'+statusCor+';margin-top:2px;">'+statusTxt+'</div>'
       +btns+'</div>'
       +'<div class="hi-r"><div class="hi-v">'+fmt(l.total)+'</div><div class="hi-d">'+fmtD(l.data)+'</div></div></div>';
   }).join('') || '<div class="empty"><p>Nenhum registro encontrado.</p></div>';
@@ -1687,11 +1748,8 @@ function renderConf() {
       var u=null; for(var i=0;i<users.length;i++) if(users[i].id===l.usuario_id){u=users[i];break;}
       var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===l.obra_id){o=obras[i];break;}
       pendHtml+='<div class="pend-item"'
-        +' data-lid="'+l.id+'"'
-        +' data-oid="'+l.obra_id+'"'
-        +' data-uid="'+l.usuario_id+'"'
-        +' data-apto="'+(l.apartamento||'')+'"'
-        +' data-amb="'+(l.ambiente||'').replace(/"/g,'&quot;')+'"'
+        +' data-lid="'+l.id+'" data-oid="'+l.obra_id+'" data-uid="'+l.usuario_id+'"'
+        +' data-apto="'+(l.apartamento||'')+'" data-amb="'+(l.ambiente||'').replace(/"/g,'')+'"'
         +' onclick="preencherConfBtn(this)">'
         +'<div style="display:flex;justify-content:space-between"><div>'
         +'<div style="font-size:13px;font-weight:700;">'+(u?u.apelido:'--')+' - Apto '+(l.apartamento||'--')+'</div>'
@@ -1868,13 +1926,10 @@ function salvarConf(){
   var lancId=getEl('c-lanc-id')?getEl('c-lanc-id').value:null;
   if(!confSt){toast('⚠️ Selecione o resultado.');return;}
   if(!oId||!pId||!apto||!amb){toast('⚠️ Selecione um lançamento acima.');return;}
-  // Verificar duplicata apenas pelo lancamento_id especifico
+  // Verificar duplicata apenas pelo lancamento_id
   if(lancId&&!window._editConfId){
-    var jaConfMesmoLanc=confs.some(function(c){return c.lancamento_id===lancId&&c.status==='aprovado';});
-    if(jaConfMesmoLanc){
-      toast('⚠️ Este lancamento ja possui conferencia aprovada. Desaprove antes de reconferir.');
-      return;
-    }
+    var jaConf=confs.some(function(c){return c.lancamento_id===lancId&&c.status==='aprovado';});
+    if(jaConf){toast('Este lancamento ja possui conferencia aprovada. Desaprove antes de reconferir.');return;}
   }
   // Salvar um registro por ambiente
   var ambientes=amb.split(', ');
