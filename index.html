@@ -5524,7 +5524,13 @@ function abrirConfigComissao(){
         toast('Configuracao salva!');
         el.remove();
         renderComissao();
-      } else toast('Erro ao salvar.');
+      } else {
+        // Tentar sem foreign key constraint
+        fetch(SURL+'/rest/v1/comissoes_config',{method:'POST',headers:Object.assign({},H,{'Prefer':'return=representation'}),body:JSON.stringify({lider_id:lidId,obra_id:obraId,valor_m2:valorM2})})
+          .then(function(r2){return r2.json();})
+          .then(function(d){if(d&&d[0]){comissoesConfig.push(d[0]);toast('Configuracao salva!');el.remove();renderComissao();}else{toast('Erro: '+JSON.stringify(d));}})
+          .catch(function(e){toast('Erro: '+e.message);});
+      }
     });
   };
 }
