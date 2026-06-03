@@ -5363,68 +5363,53 @@ function renderComissao(){
     var obra=obras.find(function(o){return o.id===cfg.obra_id;});
     var lider=users.find(function(u){return u.id===cfg.lider_id;});
     if(!obra||!lider) return;
-    // Buscar medicoes da obra no periodo, EXCLUINDO as do proprio lider
+    // Buscar lancamentos aprovados desta obra no periodo, excluindo o proprio lider e excluindo ml
+    function isAmbML(ambNome, obraEst){
+      var lower=(ambNome||'').toLowerCase();
+      if(lower.indexOf('rejunte')>=0||lower.indexOf('rodap')>=0||lower.indexOf('meia esquadria')>=0||lower.indexOf('nicho')>=0) return true;
+      if(obraEst){
+        try{
+          var est=JSON.parse(obraEst);
+          var found=false;
+          est.andares&&est.andares.forEach(function(an){
+            an.aptos&&an.aptos.forEach(function(ap){
+              (ap.ambientes||[]).forEach(function(a){
+                if(a.nome===ambNome&&a.unidade==='ml') found=true;
+              });
+            });
+          });
+          if(found) return true;
+        }catch(e){}
+      }
+      return false;
+    }
+    // Lançamentos aprovados desta obra no periodo, excluindo o lider e excluindo ml
+    var lancsObra=lancs.filter(function(l){
+      if(l.obra_id!==cfg.obra_id) return false;
+      if(l.data<S.ini||l.data>S.fim) return false;
+      // Excluir lancamentos do proprio lider
+      if(l.usuario_id===lider.id) return false;
+      var ul=users.find(function(u){return u.id===l.usuario_id;});
+      if(ul&&ul.apelido===lider.apelido) return false;
+      // Excluir ml
+      if(isAmbML(l.ambiente,obra.estrutura)) return false;
+      // Apenas aprovados (com conferencia aprovada)
+      return confs.some(function(c){return c.lancamento_id===l.id&&c.status==='aprovado';});
+    });
+    // Buscar medicoes que contem esses lancamentos
+    var lancsObraIds=lancsObra.map(function(l){return l.id;});
     var medsDaObra=medsNoP.filter(function(m){
-      // Excluir medicoes do proprio lider
       if(m.nome_func===lider.apelido) return false;
       var u2=users.find(function(u){return u.apelido===m.nome_func;});
       if(u2&&u2.id===lider.id) return false;
-      // Verificar se pertence a esta obra via lanc_ids
       var lids=[];try{lids=JSON.parse(m.lanc_ids||'[]');}catch(e){}
-      if(lids.length){
-        var pertence=lids.some(function(lid){
-          var l=lancs.find(function(l){return l.id===lid;});
-          return l&&l.obra_id===cfg.obra_id;
-        });
-        if(pertence) return true;
-      }
-      // fallback: usuario da medicao tem lancamentos nesta obra no periodo
-      if(u2){
-        var temLanc=lancs.some(function(l){
-          return l.usuario_id===u2.id&&l.obra_id===cfg.obra_id&&l.data>=S.ini&&l.data<=S.fim;
-        });
-        if(temLanc) return true;
-      }
-      // fallback2: verificar pelo nome_func se tem lancamento na obra
-      var temLancNome=lancs.some(function(l){
-        if(l.obra_id!==cfg.obra_id) return false;
-        var ul=users.find(function(u){return u.id===l.usuario_id;});
-        return ul&&ul.apelido===m.nome_func&&l.data>=S.ini&&l.data<=S.fim;
-      });
-      return temLancNome;
+      return lids.some(function(lid){return lancsObraIds.indexOf(lid)>=0;});
     });
-    // Calcular m2 excluindo lancamentos ml (rejunte, rodape, etc)
-    var m2Total=medsDaObra.reduce(function(s,m){
-      var lids=[];try{lids=JSON.parse(m.lanc_ids||'[]');}catch(e){}
-      if(!lids.length) return s+(parseFloat(m.area_m2)||0);
-      // Somar apenas lancamentos m2 (nao ml)
-      var m2Med=lids.reduce(function(sm,lid){
-        var l=lancs.find(function(l){return l.id===lid;});
-        if(!l) return sm;
-        // Verificar unidade do ambiente
-        var unidade='m2';
-        if(obra.estrutura){
-          try{
-            var est=JSON.parse(obra.estrutura);
-            est.andares&&est.andares.forEach(function(an){
-              an.aptos&&an.aptos.forEach(function(ap){
-                (ap.ambientes||[]).forEach(function(a){
-                  if(a.nome===l.ambiente) unidade=a.unidade||'m2';
-                });
-              });
-            });
-          }catch(e){}
-        }
-        // Excluir ml (rejunte, rodape, etc)
-        var ambLower=(l.ambiente||'').toLowerCase();
-        var isML=unidade==='ml'||ambLower.indexOf('rejunte')>=0||ambLower.indexOf('rodape')>=0||ambLower.indexOf('roda pe')>=0||ambLower.indexOf('rodapé')>=0||ambLower.indexOf('meia esquadria')>=0;
-        return isML?sm:sm+(parseFloat(l.area_m2)||0);
-      },0);
-      return s+m2Med;
-    },0);
+    // m2 total = soma dos lancamentos desta obra (ja filtrados)
+    var m2Total=lancsObra.reduce(function(s,l){return s+(parseFloat(l.area_m2)||0);},0);
     var valorComissao=m2Total*(parseFloat(cfg.valor_m2)||0);
     if(!porLider[lider.id]) porLider[lider.id]={lider:lider,itens:[],totalM2:0,totalValor:0};
-    porLider[lider.id].itens.push({obra:obra,cfg:cfg,m2:m2Total,valor:valorComissao,meds:medsDaObra});
+    porLider[lider.id].itens.push({obra:obra,cfg:cfg,m2:m2Total,valor:valorComissao,meds:medsDaObra,lancsObra:lancsObra});
     porLider[lider.id].totalM2+=m2Total;
     porLider[lider.id].totalValor+=valorComissao;
   });
@@ -5438,20 +5423,12 @@ function renderComissao(){
       if(!window._comSelState) window._comSelState={};
       if(!window._comSelState[key]) window._comSelState[key]=it.meds.map(function(m){return m.id;});
       var sel=window._comSelState[key];
-      var m2Sel=it.meds.filter(function(m){return sel.indexOf(m.id)>=0;}).reduce(function(s,m){
+      // m2 das medicoes selecionadas = lancamentos desta obra (filtrados) que estao nas meds selecionadas
+      var selMedIds=it.meds.filter(function(m){return sel.indexOf(m.id)>=0;}).reduce(function(arr,m){
         var lids=[];try{lids=JSON.parse(m.lanc_ids||'[]');}catch(e){}
-        if(!lids.length) return s+(parseFloat(m.area_m2)||0);
-        var m2m=lids.reduce(function(sm,lid){
-          var l=lancs.find(function(l){return l.id===lid;});
-          if(!l) return sm;
-          var ambLower=(l.ambiente||'').toLowerCase();
-          var unidade='m2';
-          if(it.obra&&it.obra.estrutura){try{var est=JSON.parse(it.obra.estrutura);est.andares&&est.andares.forEach(function(an){an.aptos&&an.aptos.forEach(function(ap){(ap.ambientes||[]).forEach(function(a){if(a.nome===l.ambiente)unidade=a.unidade||'m2';});});});}catch(e){}}
-          var isML=unidade==='ml'||ambLower.indexOf('rejunte')>=0||ambLower.indexOf('rodape')>=0||ambLower.indexOf('roda pe')>=0||ambLower.indexOf('rodapé')>=0||ambLower.indexOf('meia esquadria')>=0;
-          return isML?sm:sm+(parseFloat(l.area_m2)||0);
-        },0);
-        return s+m2m;
-      },0);
+        return arr.concat(lids);
+      },[]);
+      var m2Sel=it.lancsObra?it.lancsObra.filter(function(l){return selMedIds.indexOf(l.id)>=0;}).reduce(function(s,l){return s+(parseFloat(l.area_m2)||0);},0):(parseFloat(it.m2)||0);
       var valSel=m2Sel*(parseFloat(it.cfg.valor_m2)||0);
       var medIds=it.meds.map(function(m){return m.id;});
       return '<div style="padding:8px 0;border-bottom:1px solid var(--border);">'
