@@ -5393,7 +5393,35 @@ function renderComissao(){
       });
       return temLancNome;
     });
-    var m2Total=medsDaObra.reduce(function(s,m){return s+(parseFloat(m.area_m2)||0);},0);
+    // Calcular m2 excluindo lancamentos ml (rejunte, rodape, etc)
+    var m2Total=medsDaObra.reduce(function(s,m){
+      var lids=[];try{lids=JSON.parse(m.lanc_ids||'[]');}catch(e){}
+      if(!lids.length) return s+(parseFloat(m.area_m2)||0);
+      // Somar apenas lancamentos m2 (nao ml)
+      var m2Med=lids.reduce(function(sm,lid){
+        var l=lancs.find(function(l){return l.id===lid;});
+        if(!l) return sm;
+        // Verificar unidade do ambiente
+        var unidade='m2';
+        if(obra.estrutura){
+          try{
+            var est=JSON.parse(obra.estrutura);
+            est.andares&&est.andares.forEach(function(an){
+              an.aptos&&an.aptos.forEach(function(ap){
+                (ap.ambientes||[]).forEach(function(a){
+                  if(a.nome===l.ambiente) unidade=a.unidade||'m2';
+                });
+              });
+            });
+          }catch(e){}
+        }
+        // Excluir ml (rejunte, rodape, etc)
+        var ambLower=(l.ambiente||'').toLowerCase();
+        var isML=unidade==='ml'||ambLower.indexOf('rejunte')>=0||ambLower.indexOf('rodape')>=0||ambLower.indexOf('roda pe')>=0||ambLower.indexOf('rodapé')>=0||ambLower.indexOf('meia esquadria')>=0;
+        return isML?sm:sm+(parseFloat(l.area_m2)||0);
+      },0);
+      return s+m2Med;
+    },0);
     var valorComissao=m2Total*(parseFloat(cfg.valor_m2)||0);
     if(!porLider[lider.id]) porLider[lider.id]={lider:lider,itens:[],totalM2:0,totalValor:0};
     porLider[lider.id].itens.push({obra:obra,cfg:cfg,m2:m2Total,valor:valorComissao,meds:medsDaObra});
@@ -5410,7 +5438,20 @@ function renderComissao(){
       if(!window._comSelState) window._comSelState={};
       if(!window._comSelState[key]) window._comSelState[key]=it.meds.map(function(m){return m.id;});
       var sel=window._comSelState[key];
-      var m2Sel=it.meds.filter(function(m){return sel.indexOf(m.id)>=0;}).reduce(function(s,m){return s+(parseFloat(m.area_m2)||0);},0);
+      var m2Sel=it.meds.filter(function(m){return sel.indexOf(m.id)>=0;}).reduce(function(s,m){
+        var lids=[];try{lids=JSON.parse(m.lanc_ids||'[]');}catch(e){}
+        if(!lids.length) return s+(parseFloat(m.area_m2)||0);
+        var m2m=lids.reduce(function(sm,lid){
+          var l=lancs.find(function(l){return l.id===lid;});
+          if(!l) return sm;
+          var ambLower=(l.ambiente||'').toLowerCase();
+          var unidade='m2';
+          if(it.obra&&it.obra.estrutura){try{var est=JSON.parse(it.obra.estrutura);est.andares&&est.andares.forEach(function(an){an.aptos&&an.aptos.forEach(function(ap){(ap.ambientes||[]).forEach(function(a){if(a.nome===l.ambiente)unidade=a.unidade||'m2';});});});}catch(e){}}
+          var isML=unidade==='ml'||ambLower.indexOf('rejunte')>=0||ambLower.indexOf('rodape')>=0||ambLower.indexOf('roda pe')>=0||ambLower.indexOf('rodapé')>=0||ambLower.indexOf('meia esquadria')>=0;
+          return isML?sm:sm+(parseFloat(l.area_m2)||0);
+        },0);
+        return s+m2m;
+      },0);
       var valSel=m2Sel*(parseFloat(it.cfg.valor_m2)||0);
       var medIds=it.meds.map(function(m){return m.id;});
       return '<div style="padding:8px 0;border-bottom:1px solid var(--border);">'
