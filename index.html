@@ -5481,7 +5481,12 @@ function renderRelFuncResultado(){
 
   // Todas as despesas vinculadas ao funcionario no periodo
   var despsFunc=desps.filter(function(d){
-    return d.usuario_id===funcId&&d.data>=ini&&d.data<=fim;
+    if(!(d.data>=ini&&d.data<=fim)) return false;
+    // Buscar por usuario_id ou por responsavel/apelido
+    if(d.usuario_id===funcId) return true;
+    if(u&&d.responsavel&&d.responsavel===u.apelido) return true;
+    if(u&&d.responsavel&&d.responsavel===u.nome) return true;
+    return false;
   });
   // Agrupar por categoria para exibir no relatorio
   var despsPorCat={};
