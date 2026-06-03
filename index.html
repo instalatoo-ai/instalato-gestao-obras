@@ -386,8 +386,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div><div class="fl">Meta R$</div><input class="inp" id="nf-meta" type="number" placeholder="12000"></div>
     </div>
     <div><div class="fl">Senha</div><input class="inp" id="nf-senha" type="password" placeholder="Mínimo 6 caracteres"></div>
-    <div class="info-box">ℹ️ O tipo define quais abas o funcionário visualiza.</div>
-    <button class="btn-pri" type="button" onclick="cadastrarFunc()">✅ Cadastrar</button>
+    <div id="nf-lider-wrap" style="display:none;background:#f0e6ff;border-radius:10px;padding:10px 12px;border-left:3px solid #6a0dad;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="nf-is-lider" style="width:16px;height:16px;accent-color:#6a0dad;">
+        <span style="font-size:12px;font-weight:700;color:#6a0dad;">&#128119; Tambem e Lider (recebe taxa de lider nas obras vinculadas)</span>
+      </label>
+    </div>
+    <div class="info-box">&#8505;&#65039; O tipo define quais abas o funcionario visualiza.</div>
+    <button class="btn-pri" type="button" onclick="cadastrarFunc()">&#10003; Cadastrar</button>
   </div></div>
 </div>
 
@@ -614,10 +620,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
       <div><div class="fl">Tipo</div>
         <div class="row3">
-          <button class="tb" id="et-func" type="button" onclick="selET('func')">👷 Func.</button>
-          <button class="tb" id="et-lider" type="button" onclick="selET('lider')">👑 Líder</button>
-          <button class="tb" id="et-lider_chefe" type="button" onclick="selET('lider_chefe')">⭐ L. Chefe</button>
-          <button class="tb" id="et-admin" type="button" onclick="selET('admin')">🛡 Admin</button>
+          <button class="tb" id="et-func" type="button" onclick="selET('func')">&#128119; Func.</button>
+          <button class="tb" id="et-lider" type="button" onclick="selET('lider')">&#128081; Lider</button>
+          <button class="tb" id="et-lider_chefe" type="button" onclick="selET('lider_chefe')">&#11088; L. Chefe</button>
+          <button class="tb" id="et-admin" type="button" onclick="selET('admin')">&#128737; Admin</button>
+        </div></div>
+        <div id="et-lider-wrap" style="display:none;background:#f0e6ff;border-radius:10px;padding:10px 12px;border-left:3px solid #6a0dad;margin-top:6px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="et-is-lider" style="width:16px;height:16px;accent-color:#6a0dad;">
+            <span style="font-size:12px;font-weight:700;color:#6a0dad;">&#128119; Tambem e Lider</span>
+          </label>
+        </div>
+        <div style="display:none"
         </div>
       </div>
       <div><div class="fl">Nova senha (opcional)</div><input class="inp" id="ef-senha" type="password" placeholder="Deixe em branco para manter"></div>
@@ -1273,7 +1287,7 @@ function getRate(oId, ambNome){
   var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===oId){o=obras[i];break;}
   var fId=val('l-func');
   var u=null; for(var i=0;i<users.length;i++) if(users[i].id===fId){u=users[i];break;}
-  var isLiderObra=o&&o.lider_id?o.lider_id===fId:(u&&(u.tipo==='lider'||u.tipo==='lider_chefe'));
+  var isLiderObra=o&&o.lider_id?o.lider_id===fId:(u&&(u.tipo==='lider'||u.tipo==='lider_chefe'||u.is_lider));
   if(!o) return isLiderObra?40:35;
   if(ambNome&&ambNome.toLowerCase().indexOf('rejunte')>=0&&o.rate_rejunte_func){
     return parseFloat(o.rate_rejunte_func)||0;
@@ -7114,6 +7128,8 @@ function delUser(id){
 }
 function selNT(t){
   novoTipo=t;
+  var w=getEl('nf-lider-wrap');
+  if(w) w.style.display=(t==='admin'||t==='lider_chefe')?'block':'none';
   var map={func:'func',lider:'lider',lider_chefe:'lchefe',admin:'adm'};
   ['func','lider','lider_chefe','admin'].forEach(function(k){
     var b=getEl('nt-'+k); if(b) b.className='tb'+(k===t?' '+map[k]:'');
@@ -7122,6 +7138,8 @@ function selNT(t){
 
 function selET(t){
   novoTipoEdit=t;
+  var w=getEl('et-lider-wrap');
+  if(w) w.style.display=(t==='admin'||t==='lider_chefe')?'block':'none';
   ['func','lider','lider_chefe','admin'].forEach(function(x){
     var b=getEl('et-'+x); if(b){b.classList.remove('on');}
   });
@@ -7131,7 +7149,9 @@ function cadastrarFunc(){
   var nome=val('nf-nome'), ap=val('nf-apelido'), pw=val('nf-senha');
   if(!nome||!ap){toast('⚠️ Preencha nome e apelido.');return;}
   if(!pw||pw.length<6){toast('⚠️ Senha mínimo 6 caracteres.');return;}
-  dbInsert('usuarios',{nome:nome,apelido:ap,telefone:val('nf-tel'),tipo:novoTipo,
+  var isLiderCb=getEl('nf-is-lider');
+  var isLiderVal=isLiderCb?isLiderCb.checked:false;
+  dbInsert('usuarios',{nome:nome,apelido:ap,telefone:val('nf-tel'),tipo:novoTipo,is_lider:isLiderVal,
     obra_id:val('nf-obra')||null,rate_m2:parseFloat(getEl('nf-rate').value)||35,
     meta_mensal:parseFloat(getEl('nf-meta').value)||0,senha:pw,ativo:true})
   .then(function(r){
@@ -7155,6 +7175,10 @@ function abrirEditFunc(id){
   sel.innerHTML='<option value="">Sem obra</option>'+obras.map(function(o){return '<option value="'+o.id+'"'+(u.obra_id===o.id?' selected':'')+'>'+o.nome+'</option>';}).join('');
   // Carregar tipo atual
   novoTipoEdit=u.tipo||'func';
+  var etLiderWrap=getEl('et-lider-wrap');
+  if(etLiderWrap) etLiderWrap.style.display=(novoTipoEdit==='admin'||novoTipoEdit==='lider_chefe')?'block':'none';
+  var etIsLider=getEl('et-is-lider');
+  if(etIsLider) etIsLider.checked=u.is_lider||false;
   ['func','lider','lider_chefe','admin'].forEach(function(x){
     var b=getEl('et-'+x); if(b) b.classList.toggle('on',x===novoTipoEdit);
   });
@@ -7164,9 +7188,11 @@ function salvarEditFunc(){
   if(!editFuncId) return;
   var nome=val('ef-nome'), apelido=val('ef-apelido');
   if(!nome||!apelido){toast('⚠️ Preencha nome e apelido.');return;}
+  var etIsLiderCb=getEl('et-is-lider');
   var obj={nome:nome,apelido:apelido,telefone:val('ef-tel'),obra_id:val('ef-obra')||null,
     rate_m2:parseFloat(getEl('ef-rate').value)||35,meta_mensal:parseFloat(getEl('ef-meta').value)||0,
-    tipo:novoTipoEdit||'func'};
+    tipo:novoTipoEdit||'func',
+    is_lider:etIsLiderCb?etIsLiderCb.checked:false};
   var pw=val('ef-senha');
   if(pw){if(pw.length<6){toast('⚠️ Senha mínimo 6 caracteres.');return;}obj.senha=pw;}
   dbUpdate('usuarios',editFuncId,obj).then(function(ok){
