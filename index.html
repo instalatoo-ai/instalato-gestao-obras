@@ -5363,53 +5363,52 @@ function renderComissao(){
     var obra=obras.find(function(o){return o.id===cfg.obra_id;});
     var lider=users.find(function(u){return u.id===cfg.lider_id;});
     if(!obra||!lider) return;
-    // Buscar lancamentos aprovados desta obra no periodo, excluindo o proprio lider e excluindo ml
-    function isAmbML(ambNome, obraEst){
-      var lower=(ambNome||'').toLowerCase();
-      if(lower.indexOf('rejunte')>=0||lower.indexOf('rodap')>=0||lower.indexOf('meia esquadria')>=0||lower.indexOf('nicho')>=0) return true;
-      if(obraEst){
-        try{
-          var est=JSON.parse(obraEst);
-          var found=false;
-          est.andares&&est.andares.forEach(function(an){
-            an.aptos&&an.aptos.forEach(function(ap){
-              (ap.ambientes||[]).forEach(function(a){
-                if(a.nome===ambNome&&a.unidade==='ml') found=true;
-              });
+    // Montar lista de ambientes ml desta obra (cadastro de obra)
+    var ambsML=[];
+    if(obra.estrutura){
+      try{
+        var est=JSON.parse(obra.estrutura);
+        est.andares&&est.andares.forEach(function(an){
+          an.aptos&&an.aptos.forEach(function(ap){
+            (ap.ambientes||[]).forEach(function(a){
+              if(a.unidade==='ml') ambsML.push(a.nome);
             });
           });
-          if(found) return true;
-        }catch(e){}
-      }
-      return false;
+        });
+      }catch(e){}
     }
-    // Lançamentos aprovados desta obra no periodo, excluindo o lider e excluindo ml
-    var lancsObra=lancs.filter(function(l){
-      if(l.obra_id!==cfg.obra_id) return false;
-      if(l.data<S.ini||l.data>S.fim) return false;
-      // Excluir lancamentos do proprio lider
-      if(l.usuario_id===lider.id) return false;
-      var ul=users.find(function(u){return u.id===l.usuario_id;});
-      if(ul&&ul.apelido===lider.apelido) return false;
-      // Excluir ml
-      if(isAmbML(l.ambiente,obra.estrutura)) return false;
-      // Apenas aprovados (com conferencia aprovada)
-      return confs.some(function(c){return c.lancamento_id===l.id&&c.status==='aprovado';});
-    });
-    // Buscar medicoes que contem esses lancamentos
-    var lancsObraIds=lancsObra.map(function(l){return l.id;});
+    function isML(ambNome){
+      if(ambsML.indexOf(ambNome)>=0) return true;
+      var l=(ambNome||'').toLowerCase();
+      return l.indexOf('rejunte')>=0||l.indexOf('rodap')>=0||l.indexOf('meia esquadria')>=0;
+    }
+    // Filtrar medicoes: mesma obra, excluindo o lider, no periodo
     var medsDaObra=medsNoP.filter(function(m){
+      // Excluir medicoes do proprio lider
       if(m.nome_func===lider.apelido) return false;
       var u2=users.find(function(u){return u.apelido===m.nome_func;});
       if(u2&&u2.id===lider.id) return false;
+      // Medicao deve ter lancamentos desta obra
       var lids=[];try{lids=JSON.parse(m.lanc_ids||'[]');}catch(e){}
-      return lids.some(function(lid){return lancsObraIds.indexOf(lid)>=0;});
+      if(!lids.length) return false;
+      return lids.some(function(lid){
+        var l=lancs.find(function(l){return l.id===lid;});
+        return l&&l.obra_id===cfg.obra_id;
+      });
     });
-    // m2 total = soma dos lancamentos desta obra (ja filtrados)
-    var m2Total=lancsObra.reduce(function(s,l){return s+(parseFloat(l.area_m2)||0);},0);
+    // Para cada medicao, somar apenas m2 dos lancamentos desta obra, excluindo ml
+    var m2Total=medsDaObra.reduce(function(s,m){
+      var lids=[];try{lids=JSON.parse(m.lanc_ids||'[]');}catch(e){}
+      return s+lids.reduce(function(sm,lid){
+        var l=lancs.find(function(l){return l.id===lid;});
+        if(!l||l.obra_id!==cfg.obra_id) return sm;
+        if(isML(l.ambiente)) return sm;
+        return sm+(parseFloat(l.area_m2)||0);
+      },0);
+    },0);
     var valorComissao=m2Total*(parseFloat(cfg.valor_m2)||0);
     if(!porLider[lider.id]) porLider[lider.id]={lider:lider,itens:[],totalM2:0,totalValor:0};
-    porLider[lider.id].itens.push({obra:obra,cfg:cfg,m2:m2Total,valor:valorComissao,meds:medsDaObra,lancsObra:lancsObra});
+    porLider[lider.id].itens.push({obra:obra,cfg:cfg,m2:m2Total,valor:valorComissao,meds:medsDaObra,ambsML:ambsML});
     porLider[lider.id].totalM2+=m2Total;
     porLider[lider.id].totalValor+=valorComissao;
   });
@@ -5423,12 +5422,17 @@ function renderComissao(){
       if(!window._comSelState) window._comSelState={};
       if(!window._comSelState[key]) window._comSelState[key]=it.meds.map(function(m){return m.id;});
       var sel=window._comSelState[key];
-      // m2 das medicoes selecionadas = lancamentos desta obra (filtrados) que estao nas meds selecionadas
-      var selMedIds=it.meds.filter(function(m){return sel.indexOf(m.id)>=0;}).reduce(function(arr,m){
+      var m2Sel=it.meds.filter(function(m){return sel.indexOf(m.id)>=0;}).reduce(function(s,m){
         var lids=[];try{lids=JSON.parse(m.lanc_ids||'[]');}catch(e){}
-        return arr.concat(lids);
-      },[]);
-      var m2Sel=it.lancsObra?it.lancsObra.filter(function(l){return selMedIds.indexOf(l.id)>=0;}).reduce(function(s,l){return s+(parseFloat(l.area_m2)||0);},0):(parseFloat(it.m2)||0);
+        return s+lids.reduce(function(sm,lid){
+          var l=lancs.find(function(l){return l.id===lid;});
+          if(!l||l.obra_id!==it.obra.id) return sm;
+          var lower=(l.ambiente||'').toLowerCase();
+          var mlAmbs=it.ambsML||[];
+          if(mlAmbs.indexOf(l.ambiente)>=0||lower.indexOf('rejunte')>=0||lower.indexOf('rodap')>=0||lower.indexOf('meia esquadria')>=0) return sm;
+          return sm+(parseFloat(l.area_m2)||0);
+        },0);
+      },0);
       var valSel=m2Sel*(parseFloat(it.cfg.valor_m2)||0);
       var medIds=it.meds.map(function(m){return m.id;});
       return '<div style="padding:8px 0;border-bottom:1px solid var(--border);">'
