@@ -5363,19 +5363,25 @@ function renderComissao(){
     var obra=obras.find(function(o){return o.id===cfg.obra_id;});
     var lider=users.find(function(u){return u.id===cfg.lider_id;});
     if(!obra||!lider) return;
-    // Buscar todas as medicoes da obra no periodo
+    // Buscar medicoes da obra no periodo, EXCLUINDO as do proprio lider
     var medsDaObra=medsNoP.filter(function(m){
-      // medicao tem lanc_ids - buscar lancamentos da obra
+      // Excluir medicoes do proprio lider
+      if(m.nome_func===lider.apelido) return false;
+      var u2=users.find(function(u){return u.apelido===m.nome_func;});
+      if(u2&&u2.id===lider.id) return false;
+      // Verificar se pertence a esta obra
       var lids=[];try{lids=JSON.parse(m.lanc_ids||'[]');}catch(e){}
-      if(!lids.length){
-        // fallback: buscar por usuario da obra
-        var u2=users.find(function(u){return u.apelido===m.nome_func;});
-        if(u2) lids=lancs.filter(function(l){return l.usuario_id===u2.id&&l.obra_id===cfg.obra_id;}).map(function(l){return l.id;});
+      if(lids.length){
+        return lids.some(function(lid){
+          var l=lancs.find(function(l){return l.id===lid;});
+          return l&&l.obra_id===cfg.obra_id;
+        });
       }
-      return lids.some(function(lid){
-        var l=lancs.find(function(l){return l.id===lid;});
-        return l&&l.obra_id===cfg.obra_id;
-      });
+      // fallback por usuario vinculado a obra
+      if(u2){
+        return lancs.some(function(l){return l.usuario_id===u2.id&&l.obra_id===cfg.obra_id&&l.data>=S.ini&&l.data<=S.fim;});
+      }
+      return false;
     });
     var m2Total=medsDaObra.reduce(function(s,m){return s+(parseFloat(m.area_m2)||0);},0);
     var valorComissao=m2Total*(parseFloat(cfg.valor_m2)||0);
@@ -5389,24 +5395,45 @@ function renderComissao(){
 
   var cardsHtml=Object.keys(porLider).length?Object.keys(porLider).map(function(lid){
     var g=porLider[lid];
-    var itensHtml=g.itens.map(function(it){
-      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">'
+    var itensHtml=g.itens.map(function(it,itIdx){
+      var key='com_sel_'+g.lider.id+'_'+itIdx;
+      if(!window._comSelState) window._comSelState={};
+      if(!window._comSelState[key]) window._comSelState[key]=it.meds.map(function(m){return m.id;});
+      var sel=window._comSelState[key];
+      var m2Sel=it.meds.filter(function(m){return sel.indexOf(m.id)>=0;}).reduce(function(s,m){return s+(parseFloat(m.area_m2)||0);},0);
+      var valSel=m2Sel*(parseFloat(it.cfg.valor_m2)||0);
+      var medIds=it.meds.map(function(m){return m.id;});
+      return '<div style="padding:8px 0;border-bottom:1px solid var(--border);">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;">'
         +'<div><div style="font-size:12px;font-weight:700;">'+it.obra.nome+'</div>'
-        +'<div style="font-size:10px;color:var(--sub);">'+it.m2.toFixed(1)+'m² × R$ '+parseFloat(it.cfg.valor_m2).toFixed(2)+'/m²</div>'
-        +'<div style="font-size:10px;color:var(--sub);">'+it.meds.length+' medicao(s) no periodo</div>'
+        +'<div style="font-size:10px;color:var(--sub);">'+m2Sel.toFixed(1)+'m² × R$ '+parseFloat(it.cfg.valor_m2).toFixed(2)+'/m²</div>'
+        +'<div style="font-size:10px;color:var(--sub);">'+it.meds.length+' med(s) · '+sel.length+' selecionada(s)</div>'
         +'</div>'
-        +'<span style="font-size:14px;font-weight:700;color:var(--gold);">R$ '+it.valor.toLocaleString("pt-BR",{minimumFractionDigits:2})+'</span>'
-        +'</div>';
+        +'<div style="text-align:right;">'
+        +'<div style="font-size:14px;font-weight:700;color:var(--gold);">R$ '+valSel.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div>'
+        +'<button data-mids="'+encodeURIComponent(JSON.stringify(medIds))+'" data-key="'+key+'" onclick="verMedsComissao(JSON.parse(decodeURIComponent(this.getAttribute(\"data-mids\"))),this.getAttribute(\"data-key\"))" style="font-size:10px;padding:2px 8px;border-radius:20px;border:1px solid #1a3a5c;background:transparent;color:#1a3a5c;cursor:pointer;margin-top:3px;">Detalhes</button>'
+        +'</div></div></div>';
     }).join('');
+    // Recalcular total com selecao
+    var totalM2Sel=0,totalValSel=0;
+    g.itens.forEach(function(it,itIdx){
+      var key='com_sel_'+g.lider.id+'_'+itIdx;
+      if(!window._comSelState) window._comSelState={};
+      if(!window._comSelState[key]) window._comSelState[key]=it.meds.map(function(m){return m.id;});
+      var sel=window._comSelState[key];
+      var m2s=it.meds.filter(function(m){return sel.indexOf(m.id)>=0;}).reduce(function(s,m){return s+(parseFloat(m.area_m2)||0);},0);
+      totalM2Sel+=m2s; totalValSel+=m2s*(parseFloat(it.cfg.valor_m2)||0);
+    });
     return '<div style="background:#fff;border-radius:14px;border:1px solid var(--lg);overflow:hidden;margin-bottom:12px;">'
       +'<div style="background:var(--dark);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;">'
       +'<div><div style="font-size:14px;font-weight:700;color:#fff;">&#128081; '+g.lider.apelido+'</div>'
       +'<div style="font-size:11px;color:rgba(255,255,255,.7);">'+g.totalM2.toFixed(1)+'m² total</div></div>'
-      +'<div style="text-align:right;"><div style="font-size:18px;font-weight:700;color:var(--gold);">R$ '+g.totalValor.toLocaleString("pt-BR",{minimumFractionDigits:2})+'</div></div>'
+      +'<div style="text-align:right;"><div style="font-size:18px;font-weight:700;color:var(--gold);">R$ '+totalValSel.toLocaleString("pt-BR",{minimumFractionDigits:2})+'</div>'
+      +'<div style="font-size:10px;color:rgba(255,255,255,.6);">'+totalM2Sel.toFixed(1)+'m² selecionado</div></div>'
       +'</div>'
       +'<div style="padding:12px 14px;">'+itensHtml+'</div>'
       +'<div style="padding:10px 14px;background:#f9f9f9;display:flex;gap:8px;">'
-      +'<button data-lid="'+g.lider.id+'" data-nome="'+g.lider.apelido+'" data-valor="'+g.totalValor.toFixed(2)+'" data-m2="'+g.totalM2.toFixed(1)+'" data-ini="'+S.ini+'" data-fim="'+S.fim+'" onclick="gerarMEDComissao(this)" style="flex:1;padding:10px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">&#128196; Gerar MED Comissao</button>'
+      +'<button data-lid="'+g.lider.id+'" data-nome="'+g.lider.apelido+'" data-valor="'+totalValSel.toFixed(2)+'" data-m2="'+totalM2Sel.toFixed(1)+'" data-ini="'+S.ini+'" data-fim="'+S.fim+'" onclick="gerarMEDComissao(this)" style="flex:1;padding:10px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">&#128196; Gerar MED Comissao</button>'
       +'</div>'
       +'</div>';
   }).join(''):'<div class="empty"><p>Nenhuma configuracao de comissao encontrada para este periodo.</p><p style="font-size:11px;color:var(--sub);margin-top:6px;">Configure as comissoes no botao abaixo.</p></div>';
@@ -5422,6 +5449,55 @@ function renderComissao(){
     +cardsHtml
     +'</div>';
 }
+
+function verMedsComissao(medIds,stateKey){
+  if(!window._comSelState) window._comSelState={};
+  if(!window._comSelState[stateKey]) window._comSelState[stateKey]=medIds.slice();
+  var sel=window._comSelState[stateKey];
+  var meds=medIds.map(function(id){return medicoes.find(function(m){return m.id===id;});}).filter(Boolean);
+  var el=document.createElement('div');
+  el.className='modal-bg show'; el.id='modal-meds-com'; el.style.cssText='z-index:9999;align-items:flex-start;padding-top:0;';
+  // Montar itens via DOM para evitar problemas de aspas
+  var wrapDiv=document.createElement('div');
+  meds.forEach(function(m){
+    var isSel=sel.indexOf(m.id)>=0;
+    var row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;background:'+(isSel?'rgba(30,132,73,.05)':'#fff');
+    row.dataset.mid=m.id; row.dataset.key=stateKey;
+    row.onclick=function(){window._comToggleMed(this.dataset.mid,this.dataset.key,this);};
+    row.innerHTML='<input type="checkbox" '+(isSel?'checked':'')+' style="width:16px;height:16px;accent-color:#1e8449;flex-shrink:0;pointer-events:none;">'
+      +'<div style="flex:1;"><div style="font-size:12px;font-weight:700;">'+m.nome_func+'</div>'
+      +'<div style="font-size:10px;color:var(--sub);">'+m.data+' · '+(m.area_m2||0)+'m²'+(m.observacao?' · '+m.observacao:'')+'</div>'
+      +'</div>'
+      +'<span style="font-size:13px;font-weight:700;color:var(--gold);">R$ '+(parseFloat(m.valor)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})+'</span>';
+    wrapDiv.appendChild(row);
+  });
+  var itensHtml=wrapDiv.innerHTML;
+  el.innerHTML='<div class="modal-sheet" style="border-radius:0 0 20px 20px;">'
+    +'<div style="background:#1e8449;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<span style="font-size:14px;font-weight:700;color:#fff;">Medicoes da comissao</span>'
+    +'<button id="btn-fecha-meds-com" style="background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;">x</button>'
+    +'</div>'
+    +'<div style="padding:14px 16px;">'
+    +'<div style="font-size:11px;color:var(--sub);margin-bottom:8px;">Clique para selecionar/deselecionar medicoes que entram no calculo da comissao.</div>'
+    +itensHtml
+    +'<button id="btn-ok-meds-com" style="width:100%;margin-top:12px;padding:11px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Confirmar Selecao</button>'
+    +'</div></div>';
+  document.body.appendChild(el);
+  el.querySelector('#btn-fecha-meds-com').onclick=function(){el.remove();renderComissao();};
+  el.querySelector('#btn-ok-meds-com').onclick=function(){el.remove();renderComissao();};
+}
+
+window._comToggleMed=function(medId,stateKey,div){
+  if(!window._comSelState) window._comSelState={};
+  if(!window._comSelState[stateKey]) window._comSelState[stateKey]=[];
+  var sel=window._comSelState[stateKey];
+  var idx=sel.indexOf(medId);
+  if(idx>=0) sel.splice(idx,1); else sel.push(medId);
+  var chk=div.querySelector('input[type=checkbox]');
+  if(chk) chk.checked=idx<0;
+  div.style.background=idx<0?'rgba(30,132,73,.06)':'#fff';
+};
 
 function gerarMEDComissao(btn){
   var nome=btn.getAttribute('data-nome');
