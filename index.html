@@ -1951,9 +1951,10 @@ function salvarConf(){
     var isRejunteConf=ambNomeConf.toLowerCase().indexOf('rejunte')>=0;
     var unidadeConf='m2';
     var valorFixoConf=0;
-    if(oConf&&oConf.estrutura){try{var estC=JSON.parse(oConf.estrutura);estC.andares&&estC.andares.forEach(function(an){an.aptos&&an.aptos.forEach(function(ap){(ap.ambientes||[]).forEach(function(a){if(a.nome===ambNomeConf){unidadeConf=a.unidade||'m2';valorFixoConf=parseFloat(a.valor_fixo)||0;}});});});}catch(e){}}
-    var rVenda=oConf?parseFloat(oConf.rate_venda)||0:0;
-    var rVendaMl=isRejunteConf&&oConf&&oConf.rate_rejunte_venda?parseFloat(oConf.rate_rejunte_venda):oConf?parseFloat(oConf.rate_venda_ml)||0:0;
+    var vfConf=0;
+    if(oConf&&oConf.estrutura){try{var estC=JSON.parse(oConf.estrutura);estC.andares&&estC.andares.forEach(function(an){an.aptos&&an.aptos.forEach(function(ap){(ap.ambientes||[]).forEach(function(a){if(a.nome===ambNomeConf){unidadeConf=a.unidade||'m2';valorFixoConf=parseFloat(a.valor_fixo)||0;vfConf=parseFloat(a.vf)||0;}});});});}catch(e){}}
+    var rVenda=vfConf>0?vfConf:(oConf?parseFloat(oConf.rate_venda)||0:0);
+    var rVendaMl=vfConf>0?vfConf:(isRejunteConf&&oConf&&oConf.rate_rejunte_venda?parseFloat(oConf.rate_rejunte_venda):oConf?parseFloat(oConf.rate_venda_ml)||0:0);
     var valorVendaConf=valorFixoConf>0?areaConf*valorFixoConf:(unidadeConf==='ml'||isRejunteConf)?areaConf*rVendaMl:areaConf*rVenda;
     return dbInsert('conferencias',{obra_id:oId,lider_id:U.id,profissional_id:pId,lancamento_id:lancId||null,status:confSt,apartamento:apto,ambiente:ambNomeConf,checklist:JSON.stringify(chkState),observacao:obs,data:hoje(),hora:horaAgora(),valor_venda:valorVendaConf,area_m2:areaConf});
   });
@@ -4524,7 +4525,8 @@ function renderReceber(){
 
     var area=l?parseFloat(l.area_m2)||0:0;
     var valorFixo=ambCad&&ambCad.valor_fixo?parseFloat(ambCad.valor_fixo):0;
-    var valorVendaAmb=ambCad&&ambCad.valor_venda?parseFloat(ambCad.valor_venda):0;
+    // vf = valor de venda por m2 cadastrado no ambiente (campo 'vf' na estrutura)
+    var valorVendaAmb=ambCad&&ambCad.vf?parseFloat(ambCad.vf):0;
     var rateVenda=valorVendaAmb>0?valorVendaAmb:(parseFloat(o.rate_venda)||0);
     var rateVendaMl=valorVendaAmb>0?valorVendaAmb:(parseFloat(o.rate_venda_ml)||0);
     // Rejunte usa taxa propria
