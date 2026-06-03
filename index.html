@@ -5518,20 +5518,25 @@ function abrirConfigComissao(){
     // Verificar se ja existe
     var jaExiste=comissoesConfig.find(function(c){return c.lider_id===lidId&&c.obra_id===obraId;});
     if(jaExiste){toast('Ja existe config para este lider/obra. Exclua antes de criar nova.');return;}
-    dbInsert('comissoes_config',{lider_id:lidId,obra_id:obraId,valor_m2:valorM2}).then(function(r){
-      if(r){
+    // Usar fetch direto para ver erro exato
+    fetch(SURL+'/rest/v1/comissoes_config',{
+      method:'POST',
+      headers:H,
+      body:JSON.stringify({lider_id:lidId,obra_id:obraId,valor_m2:valorM2})
+    }).then(function(resp){
+      return resp.json().then(function(d){return {ok:resp.ok,data:d};});
+    }).then(function(res){
+      if(res.ok&&res.data){
+        var r=Array.isArray(res.data)?res.data[0]:res.data;
         comissoesConfig.push(r);
         toast('Configuracao salva!');
         el.remove();
         renderComissao();
       } else {
-        // Tentar sem foreign key constraint
-        fetch(SURL+'/rest/v1/comissoes_config',{method:'POST',headers:Object.assign({},H,{'Prefer':'return=representation'}),body:JSON.stringify({lider_id:lidId,obra_id:obraId,valor_m2:valorM2})})
-          .then(function(r2){return r2.json();})
-          .then(function(d){if(d&&d[0]){comissoesConfig.push(d[0]);toast('Configuracao salva!');el.remove();renderComissao();}else{toast('Erro: '+JSON.stringify(d));}})
-          .catch(function(e){toast('Erro: '+e.message);});
+        toast('Erro Supabase: '+(res.data&&(res.data.message||res.data.hint||JSON.stringify(res.data).substring(0,80))));
       }
-    });
+    }).catch(function(e){toast('Erro: '+e.message);});
+
   };
 }
 
