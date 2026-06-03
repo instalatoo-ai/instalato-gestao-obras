@@ -5847,6 +5847,7 @@ function verDetalhesMEDComissao(med){
   var el=document.createElement('div');
   el.className='modal-bg show'; el.id='modal-det-com'; el.style.cssText='z-index:9999;align-items:flex-start;padding-top:0;';
 
+  var valorM2=cfgs.length?parseFloat(cfgs[0].valor_m2)||0:0;
   var totalM2=0;
   var itensHtml=medsDoP.map(function(m){
     // Calcular m2 desta obra excluindo ml
@@ -5867,17 +5868,16 @@ function verDetalhesMEDComissao(med){
     totalM2+=m2Func;
     var obraNome='';
     if(lids.length){var lx=lancs.find(function(l){return lids.indexOf(l.id)>=0;});if(lx){var ox=obras.find(function(o){return o.id===lx.obra_id;});if(ox)obraNome=ox.nome;}}
+    var valComFunc=m2Func*valorM2;
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">'
       +'<div>'
       +(obraNome?'<div style="font-size:9px;font-weight:700;color:var(--sub);text-transform:uppercase;">'+obraNome+'</div>':'')
       +'<div style="font-size:13px;font-weight:700;">'+m.nome_func+'</div>'
-      +'<div style="font-size:10px;color:var(--sub);">'+fmtD(m.data)+' · '+m2Func.toFixed(1)+'m² (m² sem ml)</div>'
+      +'<div style="font-size:10px;color:var(--sub);">'+m2Func.toFixed(1)+'m² × R$ '+valorM2.toFixed(2)+'/m²</div>'
       +'</div>'
-      +'<span style="font-size:13px;font-weight:700;color:var(--gold);">'+fmt(m.valor)+'</span>'
+      +'<span style="font-size:13px;font-weight:700;color:var(--gold);">'+fmt(valComFunc)+'</span>'
       +'</div>';
   }).join('') || '<div style="font-size:12px;color:var(--sub);padding:12px 0;">Nenhuma medicao encontrada no periodo.</div>';
-
-  var valorM2=cfgs.length?parseFloat(cfgs[0].valor_m2)||0:0;
 
   el.innerHTML='<div class="modal-sheet" style="border-radius:0 0 20px 20px;">'
     +'<div style="background:var(--dark);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
