@@ -417,6 +417,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="mhdr"><span class="mhdr-t" id="mo-t">Nova obra</span><button class="mhdr-x" type="button" onclick="closeModal('obra')">✕</button></div>
     <div class="mf">
       <div><div class="fl">Nome</div><input class="inp" id="mo-nome" type="text"></div>
+      <div style="background:#f0e6ff;border-radius:10px;padding:12px 14px;border-left:3px solid #6a0dad;">
+        <div style="font-size:12px;font-weight:700;color:#6a0dad;margin-bottom:8px;">&#128119; Lider desta obra</div>
+        <select class="sel" id="mo-lider-id"><option value="">Nenhum (qualquer lider usa taxa lider)</option></select>
+        <div style="font-size:10px;color:#6a0dad;margin-top:5px;">Somente este lider recebera a taxa de lider R$/m2. Outros recebem taxa func.</div>
+      </div>
       <div><div class="fl">Tipo de obra</div>
         <select class="sel" id="mo-tipo" onchange="tipoObraChanged()">
           <option value="">Selecione o tipo</option>
@@ -1268,13 +1273,12 @@ function getRate(oId, ambNome){
   var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===oId){o=obras[i];break;}
   var fId=val('l-func');
   var u=null; for(var i=0;i<users.length;i++) if(users[i].id===fId){u=users[i];break;}
-  var isLider=(u&&(u.tipo==='lider'||u.tipo==='lider_chefe'));
-  if(!o) return isLider?40:35;
-  // Verificar se e rejunte
+  var isLiderObra=o&&o.lider_id?o.lider_id===fId:(u&&(u.tipo==='lider'||u.tipo==='lider_chefe'));
+  if(!o) return isLiderObra?40:35;
   if(ambNome&&ambNome.toLowerCase().indexOf('rejunte')>=0&&o.rate_rejunte_func){
     return parseFloat(o.rate_rejunte_func)||0;
   }
-  if(isLider && o.rate_lider) return parseFloat(o.rate_lider)||parseFloat(o.rate_func)||35;
+  if(isLiderObra && o.rate_lider) return parseFloat(o.rate_lider)||parseFloat(o.rate_func)||35;
   return parseFloat(o.rate_func)||35;
 }
 
@@ -1324,7 +1328,7 @@ function calcTotal() {
   var fIdRate=val('l-func');
   var oRate=null; for(var i=0;i<obras.length;i++) if(obras[i].id===oIdRate){oRate=obras[i];break;}
   var uRate=null; for(var i=0;i<users.length;i++) if(users[i].id===fIdRate){uRate=users[i];break;}
-  var isLider2=uRate&&(uRate.tipo==='lider'||uRate.tipo==='lider_chefe');
+  var isLider2=oRate&&oRate.lider_id?oRate.lider_id===fIdRate:(uRate&&(uRate.tipo==='lider'||uRate.tipo==='lider_chefe'));
   if(_unidade==='ml' && oRate && (isLider2?oRate.rate_lider_ml:oRate.rate_func_ml)) {
     var rateLinear=parseFloat(isLider2?(oRate.rate_lider_ml||oRate.rate_func_ml):oRate.rate_func_ml)||0;
     var areaVal=parseFloat(getEl('l-area')?getEl('l-area').value:0)||0;
@@ -6399,7 +6403,8 @@ function renderObrasCfg(){
       +'<div><div style="font-size:14px;font-weight:700">'+o.nome+'</div>'
       +'<div style="font-size:11px;color:var(--sub)">'+(o.cliente||'--')+' · '+(o.cidade||'--')+'</div>'
       +(o.endereco?'<div style="font-size:10px;color:var(--sub)">📍 '+o.endereco+'</div>':'')
-      +(o.tipo?'<span class="chip chip-g" style="margin-top:4px">📋 '+o.tipo+'</span>':'')+'</div>'
+      +(o.tipo?'<span class="chip chip-g" style="margin-top:4px">&#128203; '+o.tipo+'</span>':'')
+      +(o.lider_id?(function(){var lu=users.find(function(u){return u.id===o.lider_id;});return lu?'<div style="font-size:10px;font-weight:700;color:#6a0dad;margin-top:3px;">&#128119; Lider: '+lu.apelido+'</div>':'';}()):'')+'</div>'
       +'<span class="chip '+(o.status==='ativa'?'chip-ap':'chip-g')+'">'+(o.status==='ativa'?'Ativa':'Concluída')+'</span></div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">'
       +'<div style="background:#fff;border-radius:8px;padding:7px 9px"><div style="font-size:9px;color:var(--sub)">Metragem</div><div style="font-size:12px;font-weight:700">'+o.contrato+'m²</div></div>'
@@ -6432,6 +6437,11 @@ function showModalObra(id){
     var rfml=getEl('mo-rate-func-ml'); if(rfml) rfml.value=o.rate_func_ml||'';
     var rl=getEl('mo-rate-lider'); if(rl) rl.value=o.rate_lider||'';
     var rlml=getEl('mo-rate-lider-ml'); if(rlml) rlml.value=o.rate_lider_ml||'';
+    var lSel=getEl('mo-lider-id');
+    if(lSel){
+      lSel.innerHTML='<option value="">Nenhum (qualquer lider usa taxa lider)</option>'
+        +users.filter(function(u){return u.ativo&&(u.tipo==='lider'||u.tipo==='lider_chefe');}).map(function(u){return '<option value="'+u.id+'"'+(o.lider_id===u.id?' selected':'')+'>'+u.apelido+'</option>';}).join('');
+    }
     var rrf=getEl('mo-rate-rejunte-func'); if(rrf) rrf.value=o.rate_rejunte_func||'';
     var rrv=getEl('mo-rate-rejunte-venda'); if(rrv) rrv.value=o.rate_rejunte_venda||'';
     var mlat=getEl('mo-lat'); if(mlat) mlat.value=o.lat_obra||'';
@@ -6447,6 +6457,11 @@ function showModalObra(id){
     ['mo-nome','mo-cliente','mo-cidade','mo-endereco','mo-andares','mo-aptos-andar','mo-num-inicio','mo-contrato','mo-rate-func','mo-rate-venda','mo-rate-func-ml','mo-rate-venda-ml','mo-inicio','mo-entrega'].forEach(function(f){var e=getEl(f);if(e)e.value='';});
     getEl('mo-status').value='ativa';
     var ew=document.getElementById('mo-estrutura-wrap');if(ew)ew.innerHTML='';
+    var lSelN=getEl('mo-lider-id');
+    if(lSelN){
+      lSelN.innerHTML='<option value="">Nenhum (qualquer lider usa taxa lider)</option>'
+        +users.filter(function(u){return u.ativo&&(u.tipo==='lider'||u.tipo==='lider_chefe');}).map(function(u){return '<option value="'+u.id+'">'+u.apelido+'</option>';}).join('');
+    }
   }
   getEl('modal-obra').classList.add('show');
 }
@@ -7021,6 +7036,7 @@ function salvarObra(){
     rate_func:parseFloat(getEl('mo-rate-func').value)||0,
     rate_venda:parseFloat(getEl('mo-rate-venda').value)||0,
     rate_func_ml:parseFloat(getEl('mo-rate-func-ml')?getEl('mo-rate-func-ml').value:0)||0,
+    lider_id:getEl('mo-lider-id')?getEl('mo-lider-id').value||null:null,
     rate_lider:parseFloat(getEl('mo-rate-lider')?getEl('mo-rate-lider').value:0)||0,
     rate_lider_ml:parseFloat(getEl('mo-rate-lider-ml')?getEl('mo-rate-lider-ml').value:0)||0,
     rate_rejunte_func:parseFloat(getEl('mo-rate-rejunte-func')?getEl('mo-rate-rejunte-func').value:0)||0,
