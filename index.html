@@ -5748,7 +5748,12 @@ function renderFinanceiro(){
   if(!S.funcSel&&funcAtivos.length) S.funcSel=funcAtivos[0];
   function fmtM(v){return 'R$ '+(parseFloat(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
   function fmtDs(d){if(!d)return '--';var p=d.split('-');return p[2]+'/'+p[1];}
-  function getProd(){return lancs.filter(function(l){return S.funcSel&&l.usuario_id===S.funcSel.id&&l.data>=S.fIni&&l.data<=S.fFim;});}
+  function getProd(){return lancs.filter(function(l){
+    if(!S.funcSel||l.usuario_id!==S.funcSel.id) return false;
+    if(!(l.data>=S.fIni&&l.data<=S.fFim)) return false;
+    // Apenas lancamentos com conferencia aprovada
+    return confs.some(function(c){return c.lancamento_id===l.id&&c.status==='aprovado';});
+  });}
   function getLanc(){
     // Marmitas reais agrupadas
     var marmsRaw=marmitas.filter(function(m){
