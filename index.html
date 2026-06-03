@@ -5369,19 +5369,29 @@ function renderComissao(){
       if(m.nome_func===lider.apelido) return false;
       var u2=users.find(function(u){return u.apelido===m.nome_func;});
       if(u2&&u2.id===lider.id) return false;
-      // Verificar se pertence a esta obra
+      // Verificar se pertence a esta obra via lanc_ids
       var lids=[];try{lids=JSON.parse(m.lanc_ids||'[]');}catch(e){}
       if(lids.length){
-        return lids.some(function(lid){
+        var pertence=lids.some(function(lid){
           var l=lancs.find(function(l){return l.id===lid;});
           return l&&l.obra_id===cfg.obra_id;
         });
+        if(pertence) return true;
       }
-      // fallback por usuario vinculado a obra
+      // fallback: usuario da medicao tem lancamentos nesta obra no periodo
       if(u2){
-        return lancs.some(function(l){return l.usuario_id===u2.id&&l.obra_id===cfg.obra_id&&l.data>=S.ini&&l.data<=S.fim;});
+        var temLanc=lancs.some(function(l){
+          return l.usuario_id===u2.id&&l.obra_id===cfg.obra_id&&l.data>=S.ini&&l.data<=S.fim;
+        });
+        if(temLanc) return true;
       }
-      return false;
+      // fallback2: verificar pelo nome_func se tem lancamento na obra
+      var temLancNome=lancs.some(function(l){
+        if(l.obra_id!==cfg.obra_id) return false;
+        var ul=users.find(function(u){return u.id===l.usuario_id;});
+        return ul&&ul.apelido===m.nome_func&&l.data>=S.ini&&l.data<=S.fim;
+      });
+      return temLancNome;
     });
     var m2Total=medsDaObra.reduce(function(s,m){return s+(parseFloat(m.area_m2)||0);},0);
     var valorComissao=m2Total*(parseFloat(cfg.valor_m2)||0);
@@ -5459,10 +5469,12 @@ function renderComissao(){
 }
 
 function verMedsComissao(medIds,stateKey){
+  if(!medIds||!medIds.length){toast('Nenhuma medicao encontrada para esta obra no periodo. Verifique se ha MEDs gerados no periodo selecionado.');return;}
   if(!window._comSelState) window._comSelState={};
   if(!window._comSelState[stateKey]) window._comSelState[stateKey]=medIds.slice();
   var sel=window._comSelState[stateKey];
   var meds=medIds.map(function(id){return medicoes.find(function(m){return m.id===id;});}).filter(Boolean);
+  if(!meds.length){toast('Medicoes nao encontradas. Recarregue a pagina.');return;}
   var el=document.createElement('div');
   el.className='modal-bg show'; el.id='modal-meds-com'; el.style.cssText='z-index:9999;align-items:flex-start;padding-top:0;';
   // Montar itens via DOM para evitar problemas de aspas
