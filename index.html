@@ -653,7 +653,7 @@ var H = {'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY, 'Content-Type': 'app
 
 // STATE
 var U = null;
-var obras = [], users = [], lancs = [], confs = [], mats = [], desps = [], avs = [], ocorrs = [], pontos = [], clientes = [], marmitas = [], recebimentos = [], medicoes = [], faturamentos = [];
+var obras = [], users = [], lancs = [], confs = [], mats = [], desps = [], avs = [], ocorrs = [], pontos = [], clientes = [], marmitas = [], recebimentos = [], medicoes = [], faturamentos = [], comissoesConfig = [];
 var editObraId = null, editFuncId = null, editAvId = null;
 var novoTipo = 'func';
 function getOcorrLidas(){
@@ -860,7 +860,8 @@ function startApp() {
     dbGet('recebimentos').then(function(d) { recebimentos = d||[]; }),
     dbGet('medicoes').then(function(d) { medicoes = d||[]; }).catch(function(){ medicoes=[]; }),
     dbGet('faturamentos').then(function(d) { faturamentos = d||[]; }).catch(function(){ faturamentos=[]; }),
-    dbGet('clientes').then(function(d) { clientes = d||[]; })
+    dbGet('clientes').then(function(d) { clientes = d||[]; }),
+    dbGet('comissoes_config').then(function(d) { comissoesConfig = d||[]; }).catch(function(){ comissoesConfig=[]; })
   ]).then(function() {
     renderAll();
   });
@@ -890,6 +891,7 @@ function buildNav() {
   if(T==='admin') tabs.push({id:'receber',i:'💵',l:'A Receber'});
   if(T==='admin') tabs.push({id:'faturamentos',i:'🧾',l:'Faturamentos a Receber'});
   if(T==='admin') tabs.push({id:'apagar',i:'💳',l:'A Pagar'});
+  if(T==='admin') tabs.push({id:'comissao',i:'🏅',l:'Comissão Líderes'});
   tabs.push({id:'conta',i:'👤',l:'Minha Conta'});
   tabs.forEach(function(t, i) {
     var n = document.createElement('div');
@@ -996,13 +998,13 @@ function renderAll() {
   renderAvisos();
   renderMarmita();
   renderMeu();
-  if(T==='admin') { renderConf(); renderDash(); renderDesp(); renderFinanceiro(); renderReceber(); renderAPagar(); renderFaturamentos(); }
+  if(T==='admin') { renderConf(); renderDash(); renderDesp(); renderFinanceiro(); renderReceber(); renderAPagar(); renderFaturamentos(); renderComissao(); }
   if(T==='admin'||T==='lider'||T==='lider_chefe') renderAptos();
   renderConta();
 }
 
 function renderTab(id) {
-  var map = {lancar:renderLancar,meu:renderMeu,hist:renderHist,conf:renderConf,aptos:renderAptos,ponto:renderPonto,mat:renderMat,meumat:renderMeuMat,ocorr:function(){renderOcorr();if(U&&U.tipo!=='func')marcarOcorrsLidas();},aviso:renderAvisos,marmita:function(){renderMarmita();if(U&&U.tipo==='admin'){marcarMarmitasLidas();verificarBannerMarmita();}},dash:renderDash,desp:renderDesp,fin:renderFinanceiro,receber:renderReceber,apagar:renderAPagar,medicoes:renderMedicoesFuncionario,conta:renderConta};
+  var map = {lancar:renderLancar,meu:renderMeu,hist:renderHist,conf:renderConf,aptos:renderAptos,ponto:renderPonto,mat:renderMat,meumat:renderMeuMat,ocorr:function(){renderOcorr();if(U&&U.tipo!=='func')marcarOcorrsLidas();},aviso:renderAvisos,marmita:function(){renderMarmita();if(U&&U.tipo==='admin'){marcarMarmitasLidas();verificarBannerMarmita();}},dash:renderDash,desp:renderDesp,fin:renderFinanceiro,receber:renderReceber,apagar:renderAPagar,medicoes:renderMedicoesFuncionario,conta:renderConta,comissao:renderComissao};
   if(map[id]) map[id]();
 }
 
@@ -5333,6 +5335,221 @@ function salvarNovoLancamentoPagar(){
       toast('Lançamento criado!');
       renderAPagar();
     }
+  });
+}
+
+function renderComissao(){
+  var el=getEl('t-comissao'); if(!el) return;
+  var hoje2=new Date().toISOString().split('T')[0];
+  var mesIni=hoje2.substring(0,7)+'-01';
+  if(!window._comissaoState) window._comissaoState={ini:mesIni,fim:hoje2,obraFiltro:''};
+  var S=window._comissaoState;
+
+  // Filtrar medicoes no periodo
+  var medsNoP=medicoes.filter(function(m){
+    return m.data>=S.ini&&m.data<=S.fim&&m.status!=='cancelado';
+  });
+
+  // Para cada config de comissao, calcular
+  var lideres=users.filter(function(u){return u.tipo==='lider'||u.tipo==='lider_chefe'||u.is_lider;});
+
+  // Montar configs por obra/lider
+  var configs=comissoesConfig;
+  if(S.obraFiltro) configs=configs.filter(function(c){return c.obra_id===S.obraFiltro;});
+
+  // Agrupar resultado por lider
+  var porLider={};
+  configs.forEach(function(cfg){
+    var obra=obras.find(function(o){return o.id===cfg.obra_id;});
+    var lider=users.find(function(u){return u.id===cfg.lider_id;});
+    if(!obra||!lider) return;
+    // Buscar todas as medicoes da obra no periodo
+    var medsDaObra=medsNoP.filter(function(m){
+      // medicao tem lanc_ids - buscar lancamentos da obra
+      var lids=[];try{lids=JSON.parse(m.lanc_ids||'[]');}catch(e){}
+      if(!lids.length){
+        // fallback: buscar por usuario da obra
+        var u2=users.find(function(u){return u.apelido===m.nome_func;});
+        if(u2) lids=lancs.filter(function(l){return l.usuario_id===u2.id&&l.obra_id===cfg.obra_id;}).map(function(l){return l.id;});
+      }
+      return lids.some(function(lid){
+        var l=lancs.find(function(l){return l.id===lid;});
+        return l&&l.obra_id===cfg.obra_id;
+      });
+    });
+    var m2Total=medsDaObra.reduce(function(s,m){return s+(parseFloat(m.area_m2)||0);},0);
+    var valorComissao=m2Total*(parseFloat(cfg.valor_m2)||0);
+    if(!porLider[lider.id]) porLider[lider.id]={lider:lider,itens:[],totalM2:0,totalValor:0};
+    porLider[lider.id].itens.push({obra:obra,cfg:cfg,m2:m2Total,valor:valorComissao,meds:medsDaObra});
+    porLider[lider.id].totalM2+=m2Total;
+    porLider[lider.id].totalValor+=valorComissao;
+  });
+
+  var obraOpts=obras.map(function(o){return '<option value="'+o.id+'"'+(S.obraFiltro===o.id?' selected':'')+'>'+o.nome+'</option>';}).join('');
+
+  var cardsHtml=Object.keys(porLider).length?Object.keys(porLider).map(function(lid){
+    var g=porLider[lid];
+    var itensHtml=g.itens.map(function(it){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">'
+        +'<div><div style="font-size:12px;font-weight:700;">'+it.obra.nome+'</div>'
+        +'<div style="font-size:10px;color:var(--sub);">'+it.m2.toFixed(1)+'m² × R$ '+parseFloat(it.cfg.valor_m2).toFixed(2)+'/m²</div>'
+        +'<div style="font-size:10px;color:var(--sub);">'+it.meds.length+' medicao(s) no periodo</div>'
+        +'</div>'
+        +'<span style="font-size:14px;font-weight:700;color:var(--gold);">R$ '+it.valor.toLocaleString("pt-BR",{minimumFractionDigits:2})+'</span>'
+        +'</div>';
+    }).join('');
+    return '<div style="background:#fff;border-radius:14px;border:1px solid var(--lg);overflow:hidden;margin-bottom:12px;">'
+      +'<div style="background:var(--dark);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;">'
+      +'<div><div style="font-size:14px;font-weight:700;color:#fff;">&#128081; '+g.lider.apelido+'</div>'
+      +'<div style="font-size:11px;color:rgba(255,255,255,.7);">'+g.totalM2.toFixed(1)+'m² total</div></div>'
+      +'<div style="text-align:right;"><div style="font-size:18px;font-weight:700;color:var(--gold);">R$ '+g.totalValor.toLocaleString("pt-BR",{minimumFractionDigits:2})+'</div></div>'
+      +'</div>'
+      +'<div style="padding:12px 14px;">'+itensHtml+'</div>'
+      +'<div style="padding:10px 14px;background:#f9f9f9;display:flex;gap:8px;">'
+      +'<button data-lid="'+g.lider.id+'" data-nome="'+g.lider.apelido+'" data-valor="'+g.totalValor.toFixed(2)+'" data-m2="'+g.totalM2.toFixed(1)+'" data-ini="'+S.ini+'" data-fim="'+S.fim+'" onclick="gerarMEDComissao(this)" style="flex:1;padding:10px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">&#128196; Gerar MED Comissao</button>'
+      +'</div>'
+      +'</div>';
+  }).join(''):'<div class="empty"><p>Nenhuma configuracao de comissao encontrada para este periodo.</p><p style="font-size:11px;color:var(--sub);margin-top:6px;">Configure as comissoes no botao abaixo.</p></div>';
+
+  el.innerHTML='<div class="hero" style="background:var(--dark)"><p>Gestao Financeira</p><h2>&#127885; Comissao Lideres</h2></div>'
+    +'<div class="pad">'
+    +'<div style="display:flex;gap:8px;margin-bottom:12px;">'
+    +'<input class="inp" type="date" id="com-ini" value="'+S.ini+'" onchange="window._comissaoState.ini=this.value;renderComissao()">'
+    +'<input class="inp" type="date" id="com-fim" value="'+S.fim+'" onchange="window._comissaoState.fim=this.value;renderComissao()">'
+    +'</div>'
+    +'<div style="margin-bottom:12px;"><select class="sel" id="com-obra" onchange="window._comissaoState.obraFiltro=this.value;renderComissao()"><option value="">Todas as obras</option>'+obraOpts+'</select></div>'
+    +'<button onclick="abrirConfigComissao()" style="width:100%;padding:11px;border-radius:10px;border:1px dashed #6a0dad;background:#f0e6ff;color:#6a0dad;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px;">&#9881;&#65039; Configurar Comissoes por Obra/Lider</button>'
+    +cardsHtml
+    +'</div>';
+}
+
+function gerarMEDComissao(btn){
+  var nome=btn.getAttribute('data-nome');
+  var valor=parseFloat(btn.getAttribute('data-valor'))||0;
+  var m2=btn.getAttribute('data-m2');
+  var ini=btn.getAttribute('data-ini');
+  var fim=btn.getAttribute('data-fim');
+  var lid=btn.getAttribute('data-lid');
+  var u=users.find(function(u){return u.id===lid;});
+  if(!valor){toast('Valor zerado. Verifique as medicoes do periodo.');return;}
+  var venc=new Date();venc.setDate(venc.getDate()+10);
+  var vencStr=venc.toISOString().split('T')[0];
+  var el=document.createElement('div');
+  el.className='modal-bg show';el.id='modal-med-com';el.style.cssText='z-index:9999;align-items:center;padding:20px;';
+  el.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:400px;overflow:hidden;">'
+    +'<div style="background:#1e8449;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<span style="font-size:15px;font-weight:700;color:#fff;">MED Comissao - '+nome+'</span>'
+    +'<button id="btn-fecha-med-com" style="background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;">x</button>'
+    +'</div>'
+    +'<div style="padding:16px;display:flex;flex-direction:column;gap:12px;">'
+    +'<div style="background:#e8f5e9;border-radius:10px;padding:12px;text-align:center;">'
+    +'<div style="font-size:12px;color:var(--sub);">Comissao de producao '+ini+' a '+fim+'</div>'
+    +'<div style="font-size:26px;font-weight:700;color:#1e8449;">R$ '+valor.toLocaleString("pt-BR",{minimumFractionDigits:2})+'</div>'
+    +'<div style="font-size:11px;color:var(--sub);">'+m2+'m²</div>'
+    +'</div>'
+    +'<div><div class="fl">Vencimento</div><input class="inp" type="date" id="med-com-venc" value="'+vencStr+'"></div>'
+    +'<div><div class="fl">Observacao</div><input class="inp" type="text" id="med-com-obs" placeholder="Ex: Comissao '+nome+' - '+ini+'"></div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button id="btn-cancela-med-com" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:13px;cursor:pointer;">Cancelar</button>'
+    +'<button id="btn-ok-med-com" style="flex:2;padding:12px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Gerar e Enviar para A Pagar</button>'
+    +'</div></div></div>';
+  document.body.appendChild(el);
+  el.querySelector('#btn-fecha-med-com').onclick=function(){el.remove();};
+  el.querySelector('#btn-cancela-med-com').onclick=function(){el.remove();};
+  el.querySelector('#btn-ok-med-com').onclick=function(){
+    var venc2=document.getElementById('med-com-venc').value;
+    var obs2=document.getElementById('med-com-obs').value;
+    if(!venc2){toast('Informe o vencimento.');return;}
+    el.remove();
+    var obj={usuario_id:u?u.id:null,nome_func:nome,valor:valor,area_m2:parseFloat(m2)||0,
+      periodo_ini:ini,periodo_fim:fim,vencimento:venc2,observacao:obs2||('Comissao '+nome),
+      status:'pendente',criado_por:U.id,data:hoje(),lanc_ids:'[]',tipo_med:'comissao'};
+    dbInsert('medicoes',obj).then(function(r){
+      if(r){medicoes=[r].concat(medicoes);toast('MED de comissao gerado!');renderAPagar();}
+      else toast('Erro ao gerar MED.');
+    });
+  };
+}
+
+function abrirConfigComissao(){
+  var lideres=users.filter(function(u){return u.ativo&&(u.tipo==='lider'||u.tipo==='lider_chefe'||u.is_lider);});
+  var liderOpts=lideres.map(function(u){return '<option value="'+u.id+'">'+u.apelido+'</option>';}).join('');
+  var obraOpts2=obras.filter(function(o){return o.status==='ativa';}).map(function(o){return '<option value="'+o.id+'">'+o.nome+'</option>';}).join('');
+
+  var configsHtml=comissoesConfig.map(function(cfg){
+    var o=obras.find(function(o){return o.id===cfg.obra_id;});
+    var l=users.find(function(u){return u.id===cfg.lider_id;});
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">'
+      +'<div><div style="font-size:12px;font-weight:700;">'+(l?l.apelido:'--')+'</div>'
+      +'<div style="font-size:10px;color:var(--sub);">'+(o?o.nome:'--')+'</div></div>'
+      +'<div style="display:flex;align-items:center;gap:8px;">'
+      +'<span style="font-size:13px;font-weight:700;color:var(--gold);">R$ '+parseFloat(cfg.valor_m2).toFixed(2)+'/m²</span>'
+      +'<button data-cfgid="'+cfg.id+'" onclick="excluirConfigComissao(this.dataset.cfgid)" style="padding:3px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);font-size:10px;cursor:pointer;">&#128465;</button>'
+      +'</div></div>';
+  }).join('') || '<div style="font-size:12px;color:var(--sub);padding:8px 0;">Nenhuma configuracao cadastrada.</div>';
+
+  var el=document.createElement('div');
+  el.className='modal-bg show';el.id='modal-cfg-com';el.style.cssText='z-index:9999;align-items:flex-start;padding-top:0;';
+  el.innerHTML='<div class="modal-sheet" style="border-radius:0 0 20px 20px;">'
+    +'<div style="background:#6a0dad;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<span style="font-size:15px;font-weight:700;color:#fff;">&#9881; Configurar Comissoes</span>'
+    +'<button id="btn-fecha-cfg" style="background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;">x</button>'
+    +'</div>'
+    +'<div style="padding:16px;display:flex;flex-direction:column;gap:12px;">'
+    +'<div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;">Configuracoes atuais</div>'
+    +'<div id="cfg-lista">'+configsHtml+'</div>'
+    +'<div style="background:#f9f9f9;border-radius:10px;padding:12px;">'
+    +'<div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:8px;">Nova configuracao</div>'
+    +'<div style="display:flex;flex-direction:column;gap:8px;">'
+    +'<div><div class="fl">Lider</div><select class="sel" id="cfg-lider">'+liderOpts+'</select></div>'
+    +'<div><div class="fl">Obra</div><select class="sel" id="cfg-obra">'+obraOpts2+'</select></div>'
+    +'<div><div class="fl">Valor por m² (R$)</div><input class="inp" type="number" id="cfg-valor" placeholder="Ex: 2.00" step="0.01"></div>'
+    +'<button id="btn-salvar-cfg" style="padding:11px;border-radius:10px;border:none;background:#6a0dad;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Salvar Configuracao</button>'
+    +'</div></div>'
+    +'</div></div>';
+  document.body.appendChild(el);
+  el.querySelector('#btn-fecha-cfg').onclick=function(){el.remove();};
+  el.querySelector('#btn-salvar-cfg').onclick=function(){
+    var lidId=document.getElementById('cfg-lider').value;
+    var obraId=document.getElementById('cfg-obra').value;
+    var valorM2=parseFloat(document.getElementById('cfg-valor').value)||0;
+    if(!lidId||!obraId){toast('Selecione lider e obra.');return;}
+    if(!valorM2){toast('Informe o valor por m².');return;}
+    // Verificar se ja existe
+    var jaExiste=comissoesConfig.find(function(c){return c.lider_id===lidId&&c.obra_id===obraId;});
+    if(jaExiste){toast('Ja existe config para este lider/obra. Exclua antes de criar nova.');return;}
+    dbInsert('comissoes_config',{lider_id:lidId,obra_id:obraId,valor_m2:valorM2}).then(function(r){
+      if(r){
+        comissoesConfig.push(r);
+        toast('Configuracao salva!');
+        el.remove();
+        renderComissao();
+      } else toast('Erro ao salvar.');
+    });
+  };
+}
+
+function excluirConfigComissao(cfgId){
+  if(!confirm('Excluir esta configuracao de comissao?')) return;
+  dbDelete('comissoes_config',cfgId).then(function(){
+    comissoesConfig=comissoesConfig.filter(function(c){return c.id!==cfgId;});
+    toast('Configuracao removida.');
+    var lista=document.getElementById('cfg-lista');
+    if(lista){
+      var lideres2=users.filter(function(u){return u.ativo&&(u.tipo==='lider'||u.tipo==='lider_chefe'||u.is_lider);});
+      lista.innerHTML=comissoesConfig.map(function(cfg){
+        var o=obras.find(function(o){return o.id===cfg.obra_id;});
+        var l=users.find(function(u){return u.id===cfg.lider_id;});
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">'
+          +'<div><div style="font-size:12px;font-weight:700;">'+(l?l.apelido:'--')+'</div>'
+          +'<div style="font-size:10px;color:var(--sub);">'+(o?o.nome:'--')+'</div></div>'
+          +'<div style="display:flex;align-items:center;gap:8px;">'
+          +'<span style="font-size:13px;font-weight:700;color:var(--gold);">R$ '+parseFloat(cfg.valor_m2).toFixed(2)+'/m²</span>'
+          +'<button data-cfgid="'+cfg.id+'" onclick="excluirConfigComissao(this.dataset.cfgid)" style="padding:3px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);font-size:10px;cursor:pointer;">&#128465;</button>'
+          +'</div></div>';
+      }).join('') || '<div style="font-size:12px;color:var(--sub);padding:8px 0;">Nenhuma configuracao.</div>';
+    }
+    renderComissao();
   });
 }
 
