@@ -5472,7 +5472,7 @@ function gerarMEDComissao(btn){
 }
 
 function abrirConfigComissao(){
-  var lideres=users.filter(function(u){return u.ativo&&(u.tipo==='lider'||u.tipo==='lider_chefe'||u.is_lider);});
+  var lideres=users.filter(function(u){return u.ativo&&(u.tipo==='lider'||u.tipo==='lider_chefe'||u.tipo==='admin'||u.is_lider);});
   var liderOpts=lideres.map(function(u){return '<option value="'+u.id+'">'+u.apelido+'</option>';}).join('');
   var obraOpts2=obras.filter(function(o){return o.status==='ativa';}).map(function(o){return '<option value="'+o.id+'">'+o.nome+'</option>';}).join('');
 
@@ -6678,7 +6678,7 @@ function showModalObra(id){
     var lSel=getEl('mo-lider-id');
     if(lSel){
       lSel.innerHTML='<option value="">Nenhum (qualquer lider usa taxa lider)</option>'
-        +users.filter(function(u){return u.ativo&&(u.tipo==='lider'||u.tipo==='lider_chefe');}).map(function(u){return '<option value="'+u.id+'"'+(o.lider_id===u.id?' selected':'')+'>'+u.apelido+'</option>';}).join('');
+        +users.filter(function(u){return u.ativo&&(u.tipo==='lider'||u.tipo==='lider_chefe'||u.tipo==='admin'||u.is_lider);}).map(function(u){return '<option value="'+u.id+'"'+(o.lider_id===u.id?' selected':'')+'>'+u.apelido+'</option>';}).join('');
     }
     var rrf=getEl('mo-rate-rejunte-func'); if(rrf) rrf.value=o.rate_rejunte_func||'';
     var rrv=getEl('mo-rate-rejunte-venda'); if(rrv) rrv.value=o.rate_rejunte_venda||'';
@@ -6698,7 +6698,7 @@ function showModalObra(id){
     var lSelN=getEl('mo-lider-id');
     if(lSelN){
       lSelN.innerHTML='<option value="">Nenhum (qualquer lider usa taxa lider)</option>'
-        +users.filter(function(u){return u.ativo&&(u.tipo==='lider'||u.tipo==='lider_chefe');}).map(function(u){return '<option value="'+u.id+'">'+u.apelido+'</option>';}).join('');
+        +users.filter(function(u){return u.ativo&&(u.tipo==='lider'||u.tipo==='lider_chefe'||u.tipo==='admin'||u.is_lider);}).map(function(u){return '<option value="'+u.id+'">'+u.apelido+'</option>';}).join('');
     }
   }
   getEl('modal-obra').classList.add('show');
