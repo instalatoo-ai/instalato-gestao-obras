@@ -5824,9 +5824,91 @@ function marcarMedicaoPaga(id){
   };
 }
 
+function verDetalhesMEDComissao(med){
+  // Buscar o config de comissao para este lider
+  var lider=users.find(function(u){return u.id===med.usuario_id||(u.apelido===med.nome_func);});
+  var cfgs=comissoesConfig.filter(function(c){return lider&&c.lider_id===lider.id;});
+  // Buscar medicoes do periodo que geraram esta comissao
+  var medsDoP=medicoes.filter(function(m){
+    if(m.id===med.id) return false;
+    if(m.nome_func===med.nome_func) return false;
+    if(!(m.data>=med.periodo_ini&&m.data<=med.periodo_fim)) return false;
+    // Verificar se pertence a alguma obra do lider
+    if(!cfgs.length) return true;
+    var lids=[];try{lids=JSON.parse(m.lanc_ids||'[]');}catch(e){}
+    return cfgs.some(function(cfg){
+      return lids.some(function(lid){
+        var l=lancs.find(function(l){return l.id===lid;});
+        return l&&l.obra_id===cfg.obra_id;
+      });
+    });
+  });
+
+  var el=document.createElement('div');
+  el.className='modal-bg show'; el.id='modal-det-com'; el.style.cssText='z-index:9999;align-items:flex-start;padding-top:0;';
+
+  var totalM2=0;
+  var itensHtml=medsDoP.map(function(m){
+    // Calcular m2 desta obra excluindo ml
+    var m2Func=0;
+    var lids=[];try{lids=JSON.parse(m.lanc_ids||'[]');}catch(e){}
+    cfgs.forEach(function(cfg){
+      var obra=obras.find(function(o){return o.id===cfg.obra_id;});
+      var ambsML=[];
+      if(obra&&obra.estrutura){try{var est=JSON.parse(obra.estrutura);est.andares&&est.andares.forEach(function(an){an.aptos&&an.aptos.forEach(function(ap){(ap.ambientes||[]).forEach(function(a){if(a.unidade==='ml')ambsML.push(a.nome);});});});}catch(e){}}
+      lids.forEach(function(lid){
+        var l=lancs.find(function(l){return l.id===lid;});
+        if(!l||l.obra_id!==cfg.obra_id) return;
+        var lower=(l.ambiente||'').toLowerCase();
+        if(ambsML.indexOf(l.ambiente)>=0||lower.indexOf('rejunte')>=0||lower.indexOf('rodap')>=0) return;
+        m2Func+=parseFloat(l.area_m2)||0;
+      });
+    });
+    totalM2+=m2Func;
+    var obraNome='';
+    if(lids.length){var lx=lancs.find(function(l){return lids.indexOf(l.id)>=0;});if(lx){var ox=obras.find(function(o){return o.id===lx.obra_id;});if(ox)obraNome=ox.nome;}}
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">'
+      +'<div>'
+      +(obraNome?'<div style="font-size:9px;font-weight:700;color:var(--sub);text-transform:uppercase;">'+obraNome+'</div>':'')
+      +'<div style="font-size:13px;font-weight:700;">'+m.nome_func+'</div>'
+      +'<div style="font-size:10px;color:var(--sub);">'+fmtD(m.data)+' · '+m2Func.toFixed(1)+'m² (m² sem ml)</div>'
+      +'</div>'
+      +'<span style="font-size:13px;font-weight:700;color:var(--gold);">'+fmt(m.valor)+'</span>'
+      +'</div>';
+  }).join('') || '<div style="font-size:12px;color:var(--sub);padding:12px 0;">Nenhuma medicao encontrada no periodo.</div>';
+
+  var valorM2=cfgs.length?parseFloat(cfgs[0].valor_m2)||0:0;
+
+  el.innerHTML='<div class="modal-sheet" style="border-radius:0 0 20px 20px;">'
+    +'<div style="background:var(--dark);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<div><div style="font-size:15px;font-weight:700;color:#fff;">Comissao - '+(lider?lider.apelido:med.nome_func)+'</div>'
+    +'<div style="font-size:11px;color:rgba(255,255,255,.7);">'+fmtD(med.periodo_ini)+' a '+fmtD(med.periodo_fim)+'</div></div>'
+    +'<button id="btn-fecha-det-com" style="background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;">x</button>'
+    +'</div>'
+    +'<div style="padding:14px 16px;overflow-y:auto;max-height:70vh;">'
+    +'<div style="background:#e8f5e9;border-radius:10px;padding:10px 12px;margin-bottom:12px;display:flex;justify-content:space-between;">'
+    +'<div><div style="font-size:11px;color:var(--sub);">Total m² comissionado</div>'
+    +'<div style="font-size:20px;font-weight:700;color:#1e8449;">'+totalM2.toFixed(1)+'m²</div>'
+    +'<div style="font-size:10px;color:var(--sub);">× R$ '+valorM2.toFixed(2)+'/m²</div></div>'
+    +'<div style="text-align:right;"><div style="font-size:11px;color:var(--sub);">Valor comissao</div>'
+    +'<div style="font-size:20px;font-weight:700;color:var(--gold);">'+fmt(med.valor)+'</div></div>'
+    +'</div>'
+    +'<div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Medicoes dos funcionarios</div>'
+    +itensHtml
+    +'</div></div>';
+  document.body.appendChild(el);
+  el.querySelector('#btn-fecha-det-com').onclick=function(){el.remove();};
+  el.onclick=function(e){if(e.target===el)el.remove();};
+}
+
 function verDetalhesMED(id){
   var med=null; for(var i=0;i<medicoes.length;i++) if(medicoes[i].id===id){med=medicoes[i];break;}
   if(!med) return;
+  // Verificar se é MED de comissão (observacao começa com "Comissao lider")
+  var isComissao=med.observacao&&med.observacao.indexOf('Comissao lider')===0;
+  if(isComissao){
+    verDetalhesMEDComissao(med); return;
+  }
   // Buscar usuario
   var u=null; for(var i=0;i<users.length;i++) if(users[i].id===med.usuario_id||(users[i].apelido===med.nome_func)){u=users[i];break;}
   var uId=u?u.id:null;
