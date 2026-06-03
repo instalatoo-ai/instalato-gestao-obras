@@ -5398,6 +5398,17 @@ function renderComissao(){
         return l&&l.obra_id===cfg.obra_id;
       });
     });
+    // Calcular m2 por medicao e excluir as que ficam com m2=0 (apenas ml/rejunte)
+    medsDaObra=medsDaObra.filter(function(m){
+      var lids=[];try{lids=JSON.parse(m.lanc_ids||'[]');}catch(e){}
+      var m2m=lids.reduce(function(sm,lid){
+        var l=lancs.find(function(l){return l.id===lid;});
+        if(!l||l.obra_id!==cfg.obra_id) return sm;
+        if(isML(l.ambiente)) return sm;
+        return sm+(parseFloat(l.area_m2)||0);
+      },0);
+      return m2m>0;
+    });
     // Para cada medicao, somar apenas m2 dos lancamentos desta obra, excluindo ml
     var m2Total=medsDaObra.reduce(function(s,m){
       var lids=[];try{lids=JSON.parse(m.lanc_ids||'[]');}catch(e){}
@@ -5501,22 +5512,16 @@ function verMedsComissao(medIds,stateKey){
   if(!meds.length){toast('Medicoes nao encontradas. Recarregue a pagina.');return;}
   var el=document.createElement('div');
   el.className='modal-bg show'; el.id='modal-meds-com'; el.style.cssText='z-index:9999;align-items:flex-start;padding-top:0;';
-  // Montar itens via DOM para evitar problemas de aspas
-  var wrapDiv=document.createElement('div');
-  meds.forEach(function(m){
+  var itensHtml=meds.map(function(m){
     var isSel=sel.indexOf(m.id)>=0;
-    var row=document.createElement('div');
-    row.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;background:'+(isSel?'rgba(30,132,73,.05)':'#fff');
-    row.dataset.mid=m.id; row.dataset.key=stateKey;
-    row.onclick=function(){window._comToggleMed(this.dataset.mid,this.dataset.key,this);};
-    row.innerHTML='<input type="checkbox" '+(isSel?'checked':'')+' style="width:16px;height:16px;accent-color:#1e8449;flex-shrink:0;pointer-events:none;">'
+    return '<div class="com-med-row" data-mid="'+m.id+'" data-key="'+stateKey+'" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;background:'+(isSel?'rgba(30,132,73,.05)':'#fff')+'">'
+      +'<input type="checkbox" class="com-chk" '+(isSel?'checked':'')+' style="width:16px;height:16px;accent-color:#1e8449;flex-shrink:0;pointer-events:none;">'
       +'<div style="flex:1;"><div style="font-size:12px;font-weight:700;">'+m.nome_func+'</div>'
-      +'<div style="font-size:10px;color:var(--sub);">'+m.data+' · '+(m.area_m2||0)+'m²'+(m.observacao?' · '+m.observacao:'')+'</div>'
+      +'<div style="font-size:10px;color:var(--sub);">'+m.data+' - '+(m.area_m2||0)+'m2'+(m.observacao?' - '+m.observacao:'')+'</div>'
       +'</div>'
-      +'<span style="font-size:13px;font-weight:700;color:var(--gold);">R$ '+(parseFloat(m.valor)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})+'</span>';
-    wrapDiv.appendChild(row);
-  });
-  var itensHtml=wrapDiv.innerHTML;
+      +'<span style="font-size:13px;font-weight:700;color:var(--gold);">R$ '+(parseFloat(m.valor)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})+'</span>'
+      +'</div>';
+  }).join('');
   el.innerHTML='<div class="modal-sheet" style="border-radius:0 0 20px 20px;">'
     +'<div style="background:#1e8449;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
     +'<span style="font-size:14px;font-weight:700;color:#fff;">Medicoes da comissao</span>'
@@ -5530,6 +5535,21 @@ function verMedsComissao(medIds,stateKey){
   document.body.appendChild(el);
   el.querySelector('#btn-fecha-meds-com').onclick=function(){el.remove();renderComissao();};
   el.querySelector('#btn-ok-meds-com').onclick=function(){el.remove();renderComissao();};
+  // Event delegation para linhas de medicao
+  el.querySelectorAll('.com-med-row').forEach(function(row){
+    row.onclick=function(){
+      var mid=this.getAttribute('data-mid');
+      var key=this.getAttribute('data-key');
+      if(!window._comSelState) window._comSelState={};
+      if(!window._comSelState[key]) window._comSelState[key]=[];
+      var sel2=window._comSelState[key];
+      var idx=sel2.indexOf(mid);
+      if(idx>=0) sel2.splice(idx,1); else sel2.push(mid);
+      var chk=this.querySelector('.com-chk');
+      if(chk) chk.checked=idx<0;
+      this.style.background=idx<0?'rgba(30,132,73,.06)':'#fff';
+    };
+  });
 }
 
 window._comToggleMed=function(medId,stateKey,div){
