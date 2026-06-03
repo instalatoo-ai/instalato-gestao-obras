@@ -5905,7 +5905,7 @@ function verDetalhesMED(id){
   var med=null; for(var i=0;i<medicoes.length;i++) if(medicoes[i].id===id){med=medicoes[i];break;}
   if(!med) return;
   // Verificar se é MED de comissão (observacao começa com "Comissao lider")
-  var isComissao=med.observacao&&med.observacao.indexOf('Comissao lider')===0;
+  var isComissao=(med.observacao&&(med.observacao.indexOf('Comissao lider')===0||med.observacao.toLowerCase().indexOf('comissao')===0||med.observacao.toLowerCase().indexOf('comissão')===0));
   if(isComissao){
     verDetalhesMEDComissao(med); return;
   }
