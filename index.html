@@ -1868,17 +1868,13 @@ function salvarConf(){
   var lancId=getEl('c-lanc-id')?getEl('c-lanc-id').value:null;
   if(!confSt){toast('⚠️ Selecione o resultado.');return;}
   if(!oId||!pId||!apto||!amb){toast('⚠️ Selecione um lançamento acima.');return;}
-  // Blindagem: verificar duplicata por ambiente
-  var ambientes=amb.split(', ');
-  var duplicatas=ambientes.filter(function(a){
-    return confs.some(function(c){
-      return c.obra_id===oId && c.apartamento===apto && c.status==='aprovado' &&
-        c.ambiente&&(c.ambiente===a.trim()||c.ambiente.indexOf(a.trim())>=0);
-    });
-  });
-  if(duplicatas.length){
-    toast('⚠️ Ja existe conferencia aprovada para: '+duplicatas.join(', '));
-    return;
+  // Verificar duplicata apenas pelo lancamento_id especifico
+  if(lancId&&!window._editConfId){
+    var jaConfMesmoLanc=confs.some(function(c){return c.lancamento_id===lancId&&c.status==='aprovado';});
+    if(jaConfMesmoLanc){
+      toast('⚠️ Este lancamento ja possui conferencia aprovada. Desaprove antes de reconferir.');
+      return;
+    }
   }
   // Salvar um registro por ambiente
   var ambientes=amb.split(', ');
