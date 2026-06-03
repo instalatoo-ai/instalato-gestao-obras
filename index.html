@@ -5411,7 +5411,7 @@ function renderComissao(){
         +'</div>'
         +'<div style="text-align:right;">'
         +'<div style="font-size:14px;font-weight:700;color:var(--gold);">R$ '+valSel.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div>'
-        +'<button data-mids="'+encodeURIComponent(JSON.stringify(medIds))+'" data-key="'+key+'" onclick="verMedsComissao(JSON.parse(decodeURIComponent(this.getAttribute(\"data-mids\"))),this.getAttribute(\"data-key\"))" style="font-size:10px;padding:2px 8px;border-radius:20px;border:1px solid #1a3a5c;background:transparent;color:#1a3a5c;cursor:pointer;margin-top:3px;">Detalhes</button>'
+        +'<button class="btn-det-com" data-mids="'+encodeURIComponent(JSON.stringify(medIds))+'" data-key="'+key+'" style="font-size:10px;padding:2px 8px;border-radius:20px;border:1px solid #1a3a5c;background:transparent;color:#1a3a5c;cursor:pointer;margin-top:3px;">Detalhes</button>'
         +'</div></div></div>';
     }).join('');
     // Recalcular total com selecao
@@ -5448,6 +5448,14 @@ function renderComissao(){
     +'<button onclick="abrirConfigComissao()" style="width:100%;padding:11px;border-radius:10px;border:1px dashed #6a0dad;background:#f0e6ff;color:#6a0dad;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px;">&#9881;&#65039; Configurar Comissoes por Obra/Lider</button>'
     +cardsHtml
     +'</div>';
+  // Event delegation para botoes Detalhes
+  el.querySelectorAll('.btn-det-com').forEach(function(btn){
+    btn.onclick=function(){
+      var mids=JSON.parse(decodeURIComponent(this.getAttribute('data-mids')));
+      var key=this.getAttribute('data-key');
+      verMedsComissao(mids,key);
+    };
+  });
 }
 
 function verMedsComissao(medIds,stateKey){
