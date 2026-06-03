@@ -653,7 +653,7 @@ var H = {'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY, 'Content-Type': 'app
 
 // STATE
 var U = null;
-var obras = [], users = [], lancs = [], confs = [], mats = [], desps = [], avs = [], ocorrs = [], pontos = [], clientes = [], marmitas = [], recebimentos = [], medicoes = [], faturamentos = [], comissoesConfig = [];
+var obras = [], users = [], lancs = [], confs = [], mats = [], desps = [], avs = [], ocorrs = [], pontos = [], clientes = [], marmitas = [], recebimentos = [], medicoes = [], faturamentos = [], comissoesConfig = [], logExclusoes = [];
 var editObraId = null, editFuncId = null, editAvId = null;
 var novoTipo = 'func';
 function getOcorrLidas(){
@@ -719,6 +719,24 @@ function dbUpdate(table, id, obj) {
 
 function dbDelete(table, id) {
   var h = Object.assign({}, H); h['Prefer'] = '';
+  // Gravar log de exclusao em background
+  var dadosObj = null;
+  try {
+    if(table==='medicoes') dadosObj=medicoes.find(function(m){return m.id===id;});
+    else if(table==='lancamentos') dadosObj=lancs.find(function(l){return l.id===id;});
+    else if(table==='conferencias') dadosObj=confs.find(function(c){return c.id===id;});
+    else if(table==='despesas') dadosObj=desps.find(function(d){return d.id===id;});
+    else if(table==='faturamentos') dadosObj=faturamentos.find(function(f){return f.id===id;});
+  } catch(e){}
+  if(dadosObj && U) {
+    dbInsert('log_exclusoes',{
+      tabela:table,
+      registro_id:String(id),
+      dados_excluidos:JSON.stringify(dadosObj),
+      excluido_por:U.id,
+      excluido_por_nome:U.apelido||U.nome
+    }).catch(function(){});
+  }
   return dbFetch('/rest/v1/' + table + '?id=eq.' + id, {
     method: 'DELETE', headers: h
   }).then(function(r) { return r.ok; }).catch(function() { return false; });
@@ -861,7 +879,8 @@ function startApp() {
     dbGet('medicoes').then(function(d) { medicoes = d||[]; }).catch(function(){ medicoes=[]; }),
     dbGet('faturamentos').then(function(d) { faturamentos = d||[]; }).catch(function(){ faturamentos=[]; }),
     dbGet('clientes').then(function(d) { clientes = d||[]; }),
-    dbGet('comissoes_config').then(function(d) { comissoesConfig = d||[]; }).catch(function(){ comissoesConfig=[]; })
+    dbGet('comissoes_config').then(function(d) { comissoesConfig = d||[]; }).catch(function(){ comissoesConfig=[]; }),
+    dbGet('log_exclusoes').then(function(d) { logExclusoes = d||[]; }).catch(function(){ logExclusoes=[]; })
   ]).then(function() {
     renderAll();
   });
@@ -893,6 +912,7 @@ function buildNav() {
   if(T==='admin') tabs.push({id:'apagar',i:'💳',l:'A Pagar'});
   if(T==='admin') tabs.push({id:'comissao',i:'🏅',l:'Comissão Líderes'});
   if(T==='admin') tabs.push({id:'relatorio_func',i:'📊',l:'Relatório Financeiro'});
+  if(T==='admin') tabs.push({id:'log_exclusoes',i:'🗑️',l:'Log Exclusões'});
   if(T==='lider'||T==='lider_chefe'||T==='func') tabs.push({id:'meu_financeiro',i:'📊',l:'Demonstrativo'});
   tabs.push({id:'conta',i:'👤',l:'Minha Conta'});
   tabs.forEach(function(t, i) {
@@ -1006,7 +1026,7 @@ function renderAll() {
 }
 
 function renderTab(id) {
-  var map = {lancar:renderLancar,meu:renderMeu,hist:renderHist,conf:renderConf,aptos:renderAptos,ponto:renderPonto,mat:renderMat,meumat:renderMeuMat,ocorr:function(){renderOcorr();if(U&&U.tipo!=='func')marcarOcorrsLidas();},aviso:renderAvisos,marmita:function(){renderMarmita();if(U&&U.tipo==='admin'){marcarMarmitasLidas();verificarBannerMarmita();}},dash:renderDash,desp:renderDesp,fin:renderFinanceiro,receber:renderReceber,apagar:renderAPagar,medicoes:renderMedicoesFuncionario,conta:renderConta,comissao:renderComissao,relatorio_func:renderRelatorioFunc,meu_financeiro:renderMeuFinanceiro};
+  var map = {lancar:renderLancar,meu:renderMeu,hist:renderHist,conf:renderConf,aptos:renderAptos,ponto:renderPonto,mat:renderMat,meumat:renderMeuMat,ocorr:function(){renderOcorr();if(U&&U.tipo!=='func')marcarOcorrsLidas();},aviso:renderAvisos,marmita:function(){renderMarmita();if(U&&U.tipo==='admin'){marcarMarmitasLidas();verificarBannerMarmita();}},dash:renderDash,desp:renderDesp,fin:renderFinanceiro,receber:renderReceber,apagar:renderAPagar,medicoes:renderMedicoesFuncionario,conta:renderConta,comissao:renderComissao,relatorio_func:renderRelatorioFunc,meu_financeiro:renderMeuFinanceiro,log_exclusoes:renderLogExclusoes};
   if(map[id]) map[id]();
 }
 
@@ -5711,6 +5731,96 @@ function enviarRelFuncWhats(){
   texto+='\nTotal: '+fmt(total);
   var tel=u.telefone?u.telefone.replace(/\D/g,''):'';
   window.open('https://wa.me/'+(tel?'55'+tel:'')+'?text='+encodeURIComponent(texto),'_blank');
+}
+
+function renderLogExclusoes(){
+  var el=getEl('t-log_exclusoes'); if(!el) return;
+  if(!window._logFiltro) window._logFiltro={tabela:'',busca:''};
+  var S=window._logFiltro;
+
+  var tabelaOpts=['','lancamentos','medicoes','conferencias','despesas','faturamentos'].map(function(t){
+    var label={'':"Todas",'lancamentos':'Lançamentos','medicoes':'Medições','conferencias':'Conferências','despesas':'Despesas','faturamentos':'Faturamentos'}[t]||t;
+    return '<option value="'+t+'"'+(S.tabela===t?' selected':'')+'>'+label+'</option>';
+  }).join('');
+
+  var lista=logExclusoes.filter(function(l){
+    if(S.tabela&&l.tabela!==S.tabela) return false;
+    if(S.busca){
+      var b=S.busca.toLowerCase();
+      var dados=(l.dados_excluidos||'').toLowerCase();
+      var nome=(l.excluido_por_nome||'').toLowerCase();
+      if(dados.indexOf(b)<0&&nome.indexOf(b)<0) return false;
+    }
+    return true;
+  }).slice(0,100);
+
+  var itensHtml=lista.length?lista.map(function(l){
+    var dados={}; try{dados=JSON.parse(l.dados_excluidos||'{}');}catch(e){}
+    var tabelaLabel={lancamentos:'Lançamento',medicoes:'Medição',conferencias:'Conferência',despesas:'Despesa',faturamentos:'Faturamento'}[l.tabela]||l.tabela;
+    var descricao='';
+    if(l.tabela==='lancamentos') descricao=(dados.ambiente||'')+(dados.apartamento?' · Apto '+dados.apartamento:'')+(dados.total?' · R$ '+parseFloat(dados.total).toLocaleString('pt-BR',{minimumFractionDigits:2}):'');
+    else if(l.tabela==='medicoes') descricao=(dados.nome_func||'')+(dados.valor?' · R$ '+parseFloat(dados.valor).toLocaleString('pt-BR',{minimumFractionDigits:2}):'')+(dados.periodo_ini?' · '+dados.periodo_ini:'');
+    else if(l.tabela==='conferencias') descricao=(dados.apartamento||'')+(dados.ambiente?' · '+dados.ambiente:'')+(dados.status?' · '+dados.status:'');
+    else if(l.tabela==='despesas') descricao=(dados.descricao||'')+(dados.valor?' · R$ '+parseFloat(dados.valor).toLocaleString('pt-BR',{minimumFractionDigits:2}):'');
+    else if(l.tabela==='faturamentos') descricao=(dados.obra||'')+(dados.valor?' · R$ '+parseFloat(dados.valor).toLocaleString('pt-BR',{minimumFractionDigits:2}):'');
+    var dataHora=l.created_at?l.created_at.replace('T',' ').substring(0,16):'';
+    return '<div style="padding:10px 14px;border-bottom:1px solid var(--border);">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;">'
+      +'<div style="flex:1;">'
+      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">'
+      +'<span style="font-size:10px;font-weight:700;background:rgba(192,57,43,.1);color:var(--red);padding:2px 7px;border-radius:20px;">'+tabelaLabel+'</span>'
+      +'<span style="font-size:10px;color:var(--sub);">'+dataHora+'</span>'
+      +'</div>'
+      +'<div style="font-size:12px;font-weight:700;">'+descricao+'</div>'
+      +'<div style="font-size:10px;color:var(--sub);margin-top:2px;">Excluído por: <b>'+l.excluido_por_nome+'</b></div>'
+      +'</div>'
+      +'<button data-lid="'+l.id+'" onclick="verDadosLog(this.dataset.lid)" style="font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid var(--sub);background:transparent;color:var(--sub);cursor:pointer;white-space:nowrap;margin-left:8px;">Ver dados</button>'
+      +'</div></div>';
+  }).join('')
+  :'<div class="empty"><p>Nenhum registro de exclusão encontrado.</p></div>';
+
+  el.innerHTML='<div class="hero" style="background:var(--dark)"><p>Auditoria</p><h2>&#128465; Log de Exclusões</h2></div>'
+    +'<div class="pad">'
+    +'<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">'
+    +'<select class="sel" onchange="window._logFiltro.tabela=this.value;renderLogExclusoes()">'+tabelaOpts+'</select>'
+    +'<input class="inp" type="text" placeholder="Buscar por nome, valor, ambiente..." value="'+S.busca+'" oninput="window._logFiltro.busca=this.value;renderLogExclusoes()">'
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--sub);margin-bottom:8px;">'+lista.length+' registro(s) encontrado(s)</div>'
+    +'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
+    +itensHtml
+    +'</div>'
+    +'</div>';
+
+  // Adicionar listeners para botões "Ver dados"
+  el.querySelectorAll('[data-lid]').forEach(function(btn){
+    btn.onclick=function(){verDadosLog(this.getAttribute('data-lid'));};
+  });
+}
+
+function verDadosLog(logId){
+  var log=logExclusoes.find(function(l){return l.id===logId;}); if(!log) return;
+  var dados={}; try{dados=JSON.parse(log.dados_excluidos||'{}');}catch(e){}
+  var linhas=Object.keys(dados).map(function(k){
+    var v=dados[k];
+    if(v===null||v===undefined||v==='') return '';
+    return '<div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px;">'
+      +'<span style="color:var(--sub);min-width:120px;flex-shrink:0;">'+k+'</span>'
+      +'<span style="font-weight:600;word-break:break-all;">'+v+'</span>'
+      +'</div>';
+  }).filter(Boolean).join('');
+  var el=document.createElement('div');
+  el.className='modal-bg show';el.id='modal-log-dados';el.style.cssText='z-index:9999;align-items:flex-start;padding-top:0;';
+  el.innerHTML='<div class="modal-sheet" style="border-radius:0 0 20px 20px;">'
+    +'<div style="background:var(--dark);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<div><div style="font-size:14px;font-weight:700;color:#fff;">Dados excluídos</div>'
+    +'<div style="font-size:11px;color:rgba(255,255,255,.7);">Por '+log.excluido_por_nome+' · '+(log.created_at||'').substring(0,16).replace('T',' ')+'</div></div>'
+    +'<button id="btn-fecha-log" style="background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;">x</button>'
+    +'</div>'
+    +'<div style="padding:14px 16px;overflow-y:auto;max-height:75vh;">'+linhas+'</div>'
+    +'</div>';
+  document.body.appendChild(el);
+  el.querySelector('#btn-fecha-log').onclick=function(){el.remove();};
+  el.onclick=function(e){if(e.target===el)el.remove();};
 }
 
 function renderComissao(){
