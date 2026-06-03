@@ -6148,14 +6148,24 @@ function renderAPagar(){
           +(venceu?'⚠️ Vencido: ':'Vence: ')+fmtD(m.vencimento)
           +'</div>'
           +(m.observacao?'<div style="font-size:10px;color:var(--sub);margin-top:2px;">'+m.observacao+'</div>':'')
-          +(!isPend&&m.data_pagamento?'<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:3px;">Pago em '+fmtD(m.data_pagamento)+(m.forma_pagamento?' - '+m.forma_pagamento:'')+'</div>':'')
+          +(function(){
+            var pags=[];try{pags=JSON.parse(m.pagamentos_parciais||'[]');}catch(e){}
+            var totalPago=pags.reduce(function(s,p){return s+(parseFloat(p.valor)||0);},0);
+            var restante=parseFloat(m.valor)-totalPago;
+            var isParcial=pags.length>0&&restante>0.01;
+            var pagsHtml=pags.map(function(p){
+              return '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--green);padding:1px 0;">'                +'<span>'+fmtD(p.data)+(p.forma?' · '+p.forma:'')+'</span>'                +'<span style="font-weight:700;">'+fmt(p.valor)+'</span></div>';
+            }).join('');
+            return (pags.length?'<div style="margin-top:4px;background:#e8f5e9;border-radius:6px;padding:4px 8px;">'+pagsHtml+'<div style="border-top:1px solid rgba(30,132,73,.2);margin-top:3px;padding-top:3px;display:flex;justify-content:space-between;font-size:10px;font-weight:700;"><span>Pago: '+fmt(totalPago)+'</span><span style="color:var(--red);">Restante: '+fmt(restante)+'</span></div></div>':'')
+              +(!isPend&&m.data_pagamento&&!isParcial?'<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:3px;">Pago em '+fmtD(m.data_pagamento)+(m.forma_pagamento?' - '+m.forma_pagamento:'')+'</div>':'');
+          }())
           +'</div>'
           +'<div style="text-align:right;">'
           +'<div style="font-size:16px;font-weight:700;color:'+corStatus+';">'+fmt(m.valor)+'</div>'
-          +'<div style="font-size:10px;font-weight:700;color:'+corStatus+';">'+(isPend?'PENDENTE':'✓ PAGO')+'</div>'
+          +'<div style="font-size:10px;font-weight:700;color:'+corStatus+';">'+(isPend?(function(){var pags2=[];try{pags2=JSON.parse(m.pagamentos_parciais||'[]');}catch(e){}var tp=pags2.reduce(function(s,p){return s+(parseFloat(p.valor)||0);},0);return tp>0?'PARCIAL':'PENDENTE';}()):'✓ PAGO')+'</div>'
           +'</div></div>'
           +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
-          +(isPend?'<button data-mid="'+m.id+'" onclick="marcarMedicaoPaga(this.dataset.mid)" style="flex:1;padding:7px;border-radius:20px;border:none;background:var(--green);color:#fff;font-size:11px;font-weight:700;cursor:pointer;">✓ Marcar como Pago</button>':'')
+          +(isPend?'<button data-mid="'+m.id+'" onclick="novaBaixaParcial(this.dataset.mid)" style="flex:1;padding:7px;border-radius:20px;border:none;background:var(--green);color:#fff;font-size:11px;font-weight:700;cursor:pointer;">✓ Dar Baixa</button>':'')
           +'<button data-mid="'+m.id+'" onclick="verDetalhesMED(this.dataset.mid)" style="padding:7px 12px;border-radius:20px;border:1px solid #1a3a5c;background:transparent;color:#1a3a5c;font-size:11px;font-weight:700;cursor:pointer;">🔍 Detalhes</button>'
           +'<button data-mid="'+m.id+'" onclick="reimprMED(this.dataset.mid)" style="padding:7px 12px;border-radius:20px;border:1px solid var(--gold);background:transparent;color:var(--gold);font-size:11px;font-weight:700;cursor:pointer;">📄 MED</button>'
           +(!isPend?'<button data-mid="'+m.id+'" onclick="cancelarPagamentoMed(this.dataset.mid)" style="padding:7px 12px;border-radius:20px;border:1px solid #B8860B;background:transparent;color:#B8860B;font-size:11px;font-weight:700;cursor:pointer;">↩ Cancelar Pag.</button>':'')
@@ -6165,6 +6175,65 @@ function renderAPagar(){
     +'</div>'
     +'</div>';
   el.innerHTML=html;
+}
+
+function novaBaixaParcial(id){
+  var m=medicoes.find(function(m){return m.id===id;}); if(!m) return;
+  var pags=[];try{pags=JSON.parse(m.pagamentos_parciais||'[]');}catch(e){}
+  var totalPago=pags.reduce(function(s,p){return s+(parseFloat(p.valor)||0);},0);
+  var restante=parseFloat(m.valor)-totalPago;
+  var hoje2=new Date().toISOString().split('T')[0];
+  var ex=document.getElementById('modal-baixa');if(ex)ex.remove();
+  var el=document.createElement('div');
+  el.className='modal-bg show';el.id='modal-baixa';el.style.cssText='z-index:9999;align-items:center;padding:20px;';
+  el.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:380px;overflow:hidden;">'
+    +'<div style="background:#1e8449;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<div><div style="font-size:14px;font-weight:700;color:#fff;">Dar Baixa - '+m.nome_func+'</div>'
+    +'<div style="font-size:11px;color:rgba(255,255,255,.7);">Restante: '+fmt(restante)+'</div></div>'
+    +'<button id="btn-fecha-baixa" style="background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;">x</button>'
+    +'</div>'
+    +'<div style="padding:16px;display:flex;flex-direction:column;gap:12px;">'
+    +(pags.length?'<div style="background:#e8f5e9;border-radius:8px;padding:8px 10px;"><div style="font-size:10px;font-weight:700;color:var(--sub);margin-bottom:4px;">BAIXAS ANTERIORES</div>'
+      +pags.map(function(p){return '<div style="display:flex;justify-content:space-between;font-size:11px;"><span>'+fmtD(p.data)+(p.forma?' · '+p.forma:'')+'</span><span style="font-weight:700;color:var(--green);">'+fmt(p.valor)+'</span></div>';}).join('')
+      +'<div style="border-top:1px solid rgba(0,0,0,.1);margin-top:4px;padding-top:4px;font-size:11px;font-weight:700;display:flex;justify-content:space-between;"><span>Total pago:</span><span style="color:var(--green);">'+fmt(totalPago)+'</span></div>'
+      +'</div>':'')
+    +'<div><div class="fl">Valor desta baixa (R$)</div><input class="inp" type="number" id="baixa-valor" value="'+restante.toFixed(2)+'" step="0.01" max="'+restante.toFixed(2)+'"></div>'
+    +'<div><div class="fl">Data</div><input class="inp" type="date" id="baixa-data" value="'+hoje2+'"></div>'
+    +'<div><div class="fl">Forma</div><select class="sel" id="baixa-forma"><option value="PIX">PIX</option><option value="Transferencia">Transferencia</option><option value="Dinheiro">Dinheiro</option><option value="Cheque">Cheque</option><option value="Boleto">Boleto</option></select></div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button id="btn-cancela-baixa" style="flex:1;padding:11px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:13px;cursor:pointer;">Cancelar</button>'
+    +'<button id="btn-ok-baixa" style="flex:2;padding:11px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Confirmar Baixa</button>'
+    +'</div></div></div>';
+  document.body.appendChild(el);
+  el.querySelector('#btn-fecha-baixa').onclick=function(){el.remove();};
+  el.querySelector('#btn-cancela-baixa').onclick=function(){el.remove();};
+  el.querySelector('#btn-ok-baixa').onclick=function(){
+    var valor=parseFloat(document.getElementById('baixa-valor').value)||0;
+    var data=document.getElementById('baixa-data').value;
+    var forma=document.getElementById('baixa-forma').value;
+    if(!valor||valor<=0){toast('Informe o valor.');return;}
+    if(valor>restante+0.01){toast('Valor maior que o restante ('+fmt(restante)+').');return;}
+    if(!data){toast('Informe a data.');return;}
+    var novaPag={valor:valor,data:data,forma:forma};
+    pags.push(novaPag);
+    var novoTotal=pags.reduce(function(s,p){return s+(parseFloat(p.valor)||0);},0);
+    var novoStatus=novoTotal>=parseFloat(m.valor)-0.01?'pago':'pendente';
+    var obj={pagamentos_parciais:JSON.stringify(pags),status:novoStatus};
+    if(novoStatus==='pago'){obj.data_pagamento=data;obj.forma_pagamento=forma;}
+    el.remove();
+    dbUpdate('medicoes',id,obj).then(function(ok){
+      if(ok){
+        for(var i=0;i<medicoes.length;i++) if(medicoes[i].id===id){
+          medicoes[i].pagamentos_parciais=JSON.stringify(pags);
+          medicoes[i].status=novoStatus;
+          if(novoStatus==='pago'){medicoes[i].data_pagamento=data;medicoes[i].forma_pagamento=forma;}
+          break;
+        }
+        toast(novoStatus==='pago'?'Pagamento quitado!':'Baixa de '+fmt(valor)+' registrada!');
+        renderAPagar();
+      } else toast('Erro ao registrar baixa.');
+    });
+  };
 }
 
 function marcarMedicaoPaga(id){
