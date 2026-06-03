@@ -1745,6 +1745,10 @@ function renderConf() {
     +(confs.length?'<div><div class="fl">Histórico</div>'+hist+'</div>':'')
     +'</div>';
   chkState={};
+  if(_pendDiv && _pendDiv.length){
+    var cont=document.getElementById("pend-items-container");
+    if(cont){ _pendDiv.forEach(function(d){cont.appendChild(d);}); }
+  }
 }
 
 function editarConf(confId){
