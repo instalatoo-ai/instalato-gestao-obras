@@ -6702,6 +6702,16 @@ function showModalObra(id){
     }
   }
   getEl('modal-obra').classList.add('show');
+  // Popular select lider apos show (garante que DOM esta pronto)
+  setTimeout(function(){
+    var lSelFinal=document.getElementById('mo-lider-id');
+    if(lSelFinal){
+      var currentVal=lSelFinal.value;
+      lSelFinal.innerHTML='<option value="">Nenhum (qualquer lider usa taxa lider)</option>'
+        +users.filter(function(u){return u.ativo&&(u.tipo==='lider'||u.tipo==='lider_chefe'||u.tipo==='admin'||u.is_lider);}).map(function(u){return '<option value="'+u.id+'">'+u.apelido+'</option>';}).join('');
+      if(currentVal) lSelFinal.value=currentVal;
+    }
+  },50);
 }
 
 function tipoObraChanged(){
