@@ -5012,7 +5012,9 @@ function confirmarFatPeriodo(){
   if(!venc){toast('Informe o vencimento.');return;}
   var obrasList=Object.keys(d.porObra).join(', ');
   var totalM2=d.itensRel.reduce(function(s,i){return s+(i.area||0);},0);
-  var obj={conf_id:null,obra_id:null,obra:obrasList,apto:'Periodo',ambiente:Object.keys(d.porObra).length+' obra(s)',valor:valor,area_m2:totalM2,data:d.ini||hoje(),vencimento:venc,observacao:obs||('Periodo '+fmtD(d.ini)+' a '+fmtD(d.fim)),status:'pendente',criado_por:U.id};
+  // Salvar todos os conf_ids dos itens do período
+  var confIdsPeriodo=d.itensRel?d.itensRel.map(function(i){return i.confId;}).filter(Boolean):[];
+  var obj={conf_id:null,conf_ids:JSON.stringify(confIdsPeriodo),obra_id:null,obra:obrasList,apto:'Periodo',ambiente:Object.keys(d.porObra).length+' obra(s)',valor:valor,area_m2:totalM2,data:d.ini||hoje(),vencimento:venc,observacao:obs||('Periodo '+fmtD(d.ini)+' a '+fmtD(d.fim)),status:'pendente',criado_por:U.id};
   dbInsert('faturamentos',obj).then(function(r){
     if(r){faturamentos=[r].concat(faturamentos);fecharFatPeriodo();toast('Faturamento registrado!');renderReceber();}
   }).catch(function(){
@@ -5243,11 +5245,15 @@ function renderReceber(){
   var totalMl=itens.filter(function(i){return i.unidade==='ml';}).filter(function(i){return !i.valorFixo;}).reduce(function(s,i){return s+i.area;},0);
   var totalFixo=itens.filter(function(i){return i.valorFixo;}).reduce(function(s,i){return s+i.valor;},0);
   var totalGeral=itens.reduce(function(s,i){return s+i.valor;},0);
-  // Recebido = via recebimentos diretos OU via faturamentos pagos vinculados por conf_id
+  // Recebido = via recebimentos diretos OU via faturamentos pagos
+  // Pré-calcular conf_ids de faturamentos pagos
+  var confIdsPagos={};
+  faturamentos.filter(function(f){return f.status==='pago';}).forEach(function(f){
+    if(f.conf_id) confIdsPagos[f.conf_id]=true;
+    if(f.conf_ids){try{JSON.parse(f.conf_ids).forEach(function(c){confIdsPagos[c]=true;});}catch(e){}}
+  });
   var totalRecebido=itens.reduce(function(s,item){
-    if(item.recebido) return s+item.valor;
-    var fatPago=faturamentos.find(function(f){return f.conf_id===item.confId&&f.status==='pago';});
-    if(fatPago) return s+(parseFloat(fatPago.valor_recebido)||parseFloat(fatPago.valor)||0);
+    if(item.recebido||confIdsPagos[item.confId]) return s+item.valor;
     return s;
   },0);
   var totalPendente=totalGeral-totalRecebido;
@@ -5308,8 +5314,7 @@ function renderReceber(){
     +'<div id="detalh-list">'
     +(!itens.length?'<div class="empty"><p>Nenhum ambiente aprovado no periodo.</p></div>'
       :itens.map(function(item){
-        var fatPagoItem=faturamentos.find(function(f){return f.conf_id===item.confId&&f.status==='pago';});
-        var isRecebido=item.recebido||!!fatPagoItem;
+        var isRecebido=item.recebido||!!confIdsPagos[item.confId];
         var cor=isRecebido?'var(--green)':'#1a3a5c';
         var bg=isRecebido?'rgba(30,132,73,.04)':'#fff';
         return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:'+bg+';">'
@@ -5555,7 +5560,22 @@ function marcarFaturamentoPago(id){
     if(obs) obj.observacao=obs;
     dbUpdate('faturamentos',id,obj).then(function(ok){
       for(var i=0;i<faturamentos.length;i++) if(faturamentos[i].id===id){Object.assign(faturamentos[i],obj);break;}
-      toast('Recebimento registrado!');renderReceber();renderFaturamentos();
+      // Criar recebimentos para cada conf_id vinculado
+      var fat=faturamentos.find(function(f){return f.id===id;});
+      var confIds=[];
+      if(fat){
+        if(fat.conf_id) confIds.push(fat.conf_id);
+        if(fat.conf_ids){try{confIds=confIds.concat(JSON.parse(fat.conf_ids));}catch(e){}}
+      }
+      confIds=confIds.filter(function(c){return c&&!recebimentos.some(function(r){return r.conf_id===c;});});
+      var promises=confIds.map(function(cid){
+        return dbInsert('recebimentos',{conf_id:cid,data:data,usuario_id:U.id,valor:null,forma_pagamento:forma,fat_id:id});
+      });
+      Promise.all(promises).then(function(results){
+        results.forEach(function(r){if(r) recebimentos.push(r);});
+        toast('Recebimento registrado! '+confIds.length+' ambiente(s) marcados.');
+        renderReceber();renderFaturamentos();
+      });
     });
   };
 }
