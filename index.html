@@ -5598,6 +5598,42 @@ function cancelarRecebimentoFat(id){
   });
 }
 
+function editarFaturamento(id){
+  var f=faturamentos.find(function(f){return f.id===id;}); if(!f) return;
+  var ex=document.getElementById('modal-edit-fat'); if(ex) ex.remove();
+  var el=document.createElement('div');
+  el.className='modal-bg show'; el.id='modal-edit-fat'; el.style.cssText='z-index:9999;align-items:center;padding:20px;';
+  el.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:380px;overflow:hidden;">'
+    +'<div style="background:#1a3a5c;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<div style="font-size:14px;font-weight:700;color:#fff;">Editar Faturamento</div>'
+    +'<button id="btn-fecha-ef" style="background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;">x</button>'
+    +'</div>'
+    +'<div style="padding:16px;display:flex;flex-direction:column;gap:12px;">'
+    +'<div><div class="fl">Valor (R$)</div><input class="inp" type="number" id="ef-valor" value="'+parseFloat(f.valor).toFixed(2)+'" step="0.01"></div>'
+    +'<div><div class="fl">Vencimento</div><input class="inp" type="date" id="ef-venc" value="'+(f.vencimento||'')+'"></div>'
+    +'<div><div class="fl">Observação</div><input class="inp" type="text" id="ef-obs" value="'+(f.observacao||'')+'" placeholder="Ex: NF 001..."></div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button id="btn-cancela-ef" style="flex:1;padding:11px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:13px;cursor:pointer;">Cancelar</button>'
+    +'<button id="btn-ok-ef" style="flex:2;padding:11px;border-radius:10px;border:none;background:#1a3a5c;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Salvar</button>'
+    +'</div></div></div>';
+  document.body.appendChild(el);
+  el.querySelector('#btn-fecha-ef').onclick=function(){el.remove();};
+  el.querySelector('#btn-cancela-ef').onclick=function(){el.remove();};
+  el.querySelector('#btn-ok-ef').onclick=function(){
+    var valor=parseFloat(document.getElementById('ef-valor').value)||0;
+    var venc=document.getElementById('ef-venc').value;
+    var obs=document.getElementById('ef-obs').value;
+    if(!valor){toast('Informe o valor.');return;}
+    el.remove();
+    dbUpdate('faturamentos',id,{valor:valor,vencimento:venc,observacao:obs}).then(function(ok){
+      if(ok){
+        for(var i=0;i<faturamentos.length;i++) if(faturamentos[i].id===id){faturamentos[i].valor=valor;faturamentos[i].vencimento=venc;faturamentos[i].observacao=obs;break;}
+        toast('Faturamento atualizado!');renderFaturamentos();renderReceber();
+      } else toast('Erro ao salvar.');
+    });
+  };
+}
+
 function excluirFaturamento(id){
   if(!confirm('Excluir este faturamento?')) return;
   dbDelete('faturamentos',id).then(function(){
@@ -7948,6 +7984,8 @@ function renderFaturamentos(){
           +'</div></div>'
           +'<div style="display:flex;gap:6px;">'
           +(isPend?'<button data-fid="'+f.id+'" onclick="marcarFaturamentoPago(this.dataset.fid);renderFaturamentos();" style="flex:1;padding:7px;border-radius:20px;border:none;background:var(--green);color:#fff;font-size:11px;font-weight:700;cursor:pointer;">✓ Marcar Recebido</button>':'')
+          +(!isPend?'<button data-fid="'+f.id+'" onclick="cancelarRecebimentoFat(this.dataset.fid);renderFaturamentos();" style="flex:1;padding:7px;border-radius:20px;border:1px solid #B8860B;background:transparent;color:#B8860B;font-size:11px;font-weight:700;cursor:pointer;">↩ Cancelar recebimento</button>':'')
+          +'<button data-fid="'+f.id+'" onclick="editarFaturamento(this.dataset.fid)" style="padding:7px 12px;border-radius:20px;border:1px solid var(--gold);background:transparent;color:var(--gold);font-size:11px;cursor:pointer;">✏️</button>'
           +'<button data-fid="'+f.id+'" onclick="excluirFaturamento(this.dataset.fid);renderFaturamentos();" style="padding:7px 12px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);font-size:11px;cursor:pointer;">🗑</button>'
           +'</div></div>';
       }).join(''))
