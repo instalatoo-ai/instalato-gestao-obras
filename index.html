@@ -696,7 +696,7 @@ var H = {'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY, 'Content-Type': 'app
 
 // STATE
 var U = null;
-var obras = [], users = [], lancs = [], confs = [], mats = [], desps = [], avs = [], ocorrs = [], pontos = [], clientes = [], marmitas = [], recebimentos = [], medicoes = [], faturamentos = [], comissoesConfig = [], logExclusoes = [];
+var obras = [], users = [], lancs = [], confs = [], mats = [], desps = [], avs = [], ocorrs = [], pontos = [], clientes = [], marmitas = [], recebimentos = [], medicoes = [], faturamentos = [], comissoesConfig = [], logExclusoes = [], fichasMedicas = [];
 var editObraId = null, editFuncId = null, editAvId = null;
 var novoTipo = 'func';
 function getOcorrLidas(){
@@ -923,7 +923,8 @@ function startApp() {
     dbGet('faturamentos').then(function(d) { faturamentos = d||[]; }).catch(function(){ faturamentos=[]; }),
     dbGet('clientes').then(function(d) { clientes = d||[]; }),
     dbGet('comissoes_config').then(function(d) { comissoesConfig = d||[]; }).catch(function(){ comissoesConfig=[]; }),
-    dbGet('log_exclusoes').then(function(d) { logExclusoes = d||[]; }).catch(function(){ logExclusoes=[]; })
+    dbGet('log_exclusoes').then(function(d) { logExclusoes = d||[]; }).catch(function(){ logExclusoes=[]; }),
+    dbGet('fichas_medicas').then(function(d) { fichasMedicas = d||[]; }).catch(function(){ fichasMedicas=[]; })
   ]).then(function() {
     renderAll();
   });
@@ -7623,6 +7624,100 @@ function trocarFotoPerfil(input){
   reader.readAsDataURL(input.files[0]);
 }
 
+function abrirFichaMedica(uid){
+  var u=users.find(function(u){return u.id===uid;}); if(!u) return;
+  var isGestao=U.tipo==='admin'||U.tipo==='lider'||U.tipo==='lider_chefe';
+  var podeEditar=U.tipo==='admin'||U.tipo==='lider'||U.tipo==='lider_chefe';
+  var ficha=fichasMedicas.find(function(f){return f.usuario_id===uid;})||{};
+
+  var el=document.createElement('div');
+  el.className='modal-bg show'; el.id='modal-ficha'; el.style.cssText='z-index:9999;align-items:flex-start;padding-top:0;';
+
+  var camposHtml=podeEditar?
+    '<div style="display:flex;flex-direction:column;gap:10px;">'
+    +'<div class="row2">'
+    +'<div><div class="fl">Tipo sanguíneo</div><select class="sel" id="fm-tipo"><option value="">-</option>'
+    +['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(function(t){return '<option value="'+t+'"'+(ficha.tipo_sanguineo===t?' selected':'')+'>'+t+'</option>';}).join('')
+    +'</select></div>'
+    +'<div><div class="fl">Idade</div><input class="inp" type="number" id="fm-idade" value="'+(ficha.anos_idade||'')+'" placeholder="Ex: 32"></div>'
+    +'</div>'
+    +'<div><div class="fl">Contato de emergência</div><input class="inp" type="text" id="fm-contato" value="'+(ficha.contato_emergencia||'')+'" placeholder="Nome do contato"></div>'
+    +'<div><div class="fl">Telefone de emergência</div><input class="inp" type="tel" id="fm-tel-emerg" value="'+(ficha.telefone_emergencia||'')+'" placeholder="(00) 00000-0000"></div>'
+    +'<div><div class="fl">Alergias</div><textarea class="inp" id="fm-alergias" rows="2" style="resize:none" placeholder="Descreva alergias conhecidas...">'+(ficha.alergias||'')+'</textarea></div>'
+    +'<div><div class="fl">Plano de saúde</div><div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">'
+    +'<label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="fm-plano-radio" id="fm-plano-sim" value="sim" '+(ficha.plano_saude&&ficha.plano_saude!=='Nao'?'checked':'')+'>Sim</label>'
+    +'<label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="fm-plano-radio" id="fm-plano-nao" value="nao" '+((!ficha.plano_saude||ficha.plano_saude==='Nao')?'checked':'')+'>Não</label>'
+    +'</div>'
+    +'<input class="inp" type="text" id="fm-plano-nome" value="'+(ficha.plano_saude&&ficha.plano_saude!=='Nao'?ficha.plano_saude:'')+'" placeholder="Qual plano?" style="'+(ficha.plano_saude&&ficha.plano_saude!=='Nao'?'':'display:none;')+'"></div>'
+    +'<div><div class="fl">Problemas crônicos de saúde</div><textarea class="inp" id="fm-cronicos" rows="2" style="resize:none" placeholder="Ex: Diabetes, Hipertensão...">'+(ficha.problemas_cronicos||'')+'</textarea></div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button id="btn-cancela-ficha" style="flex:1;padding:11px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:13px;cursor:pointer;">Cancelar</button>'
+    +'<button id="btn-salvar-ficha" style="flex:2;padding:11px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Salvar Ficha</button>'
+    +'</div></div>'
+  :
+    '<div style="display:flex;flex-direction:column;gap:8px;">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+    +'<div style="background:var(--gray);border-radius:10px;padding:10px;"><div style="font-size:10px;color:var(--sub);">Tipo sanguíneo</div><div style="font-size:16px;font-weight:700;color:var(--red);">'+(ficha.tipo_sanguineo||'—')+'</div></div>'
+    +'<div style="background:var(--gray);border-radius:10px;padding:10px;"><div style="font-size:10px;color:var(--sub);">Idade</div><div style="font-size:16px;font-weight:700;">'+(ficha.idade||'—')+'</div></div>'
+    +'</div>'
+    +'<div style="background:var(--gray);border-radius:10px;padding:10px;"><div style="font-size:10px;color:var(--sub);margin-bottom:3px;">Contato de emergência</div><div style="font-size:13px;font-weight:700;">'+(ficha.contato_emergencia||'—')+'</div><div style="font-size:11px;color:var(--sub);">'+(ficha.telefone_emergencia||'')+'</div></div>'
+    +(ficha.alergias?'<div style="background:#fff3cd;border-radius:10px;padding:10px;border-left:3px solid #B8860B;"><div style="font-size:10px;font-weight:700;color:#854F0B;margin-bottom:3px;">⚠️ Alergias</div><div style="font-size:12px;">'+ficha.alergias+'</div></div>':'')
+    +'<div style="background:var(--gray);border-radius:10px;padding:10px;"><div style="font-size:10px;color:var(--sub);margin-bottom:3px;">Plano de saúde</div><div style="font-size:13px;font-weight:700;">'+(ficha.plano_saude&&ficha.plano_saude!=='Nao'?'✅ '+ficha.plano_saude:'❌ Sem plano')+'</div></div>'
+    +(ficha.problemas_cronicos?'<div style="background:#fef2f2;border-radius:10px;padding:10px;border-left:3px solid var(--red);"><div style="font-size:10px;font-weight:700;color:var(--red);margin-bottom:3px;">Problemas crônicos</div><div style="font-size:12px;">'+ficha.problemas_cronicos+'</div></div>':'')
+    +'</div>';
+
+  el.innerHTML='<div class="modal-sheet" style="border-radius:0 0 20px 20px;max-height:92vh;">'
+    +'<div style="background:#1e8449;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<div><div style="font-size:15px;font-weight:700;color:#fff;">🏥 Ficha Médica</div>'
+    +'<div style="font-size:11px;color:rgba(255,255,255,.7);">'+u.nome+'</div></div>'
+    +'<button id="btn-fecha-ficha" style="background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;">x</button>'
+    +'</div>'
+    +'<div style="padding:14px 16px;overflow-y:auto;">'+camposHtml+'</div>'
+    +'</div>';
+
+  document.body.appendChild(el);
+  el.querySelector('#btn-fecha-ficha').onclick=function(){el.remove();};
+  el.onclick=function(e){if(e.target===el)el.remove();};
+
+  if(podeEditar){
+    // Toggle plano de saúde
+    var radios=el.querySelectorAll('input[name="fm-plano-radio"]');
+    var planNome=document.getElementById('fm-plano-nome');
+    radios.forEach(function(r){
+      r.onchange=function(){
+        if(planNome) planNome.style.display=this.value==='sim'?'block':'none';
+      };
+    });
+
+    el.querySelector('#btn-cancela-ficha').onclick=function(){el.remove();};
+    el.querySelector('#btn-salvar-ficha').onclick=function(){
+      var planoRadio=el.querySelector('input[name="fm-plano-radio"]:checked');
+      var planoVal=planoRadio&&planoRadio.value==='sim'?(document.getElementById('fm-plano-nome').value||'Sim'):'Nao';
+      var obj={
+        usuario_id:uid,
+        tipo_sanguineo:document.getElementById('fm-tipo').value||'',
+        anos_idade:parseInt(document.getElementById('fm-idade').value)||0,
+        contato_emergencia:document.getElementById('fm-contato').value||'',
+        telefone_emergencia:document.getElementById('fm-tel-emerg').value||'',
+        alergias:document.getElementById('fm-alergias').value||'',
+        plano_saude:planoVal,
+        problemas_cronicos:document.getElementById('fm-cronicos').value||''
+      };
+      if(ficha.id){
+        dbUpdate('fichas_medicas',ficha.id,obj).then(function(ok){
+          if(ok){Object.assign(ficha,obj);toast('Ficha salva!');el.remove();}
+          else toast('Erro ao salvar.');
+        });
+      } else {
+        dbInsert('fichas_medicas',obj).then(function(r){
+          if(r){fichasMedicas.push(r);toast('Ficha criada!');el.remove();}
+          else toast('Erro ao salvar.');
+        });
+      }
+    };
+  }
+}
+
 function renderConta(){
   var el=getEl('t-conta'); if(!el) return;
   var cores=['#B8860B','#185FA5','#1D9E75','#534AB7','#CC0000'];
@@ -7641,7 +7736,9 @@ function renderConta(){
     +'<div style="font-size:18px;font-weight:700;color:#111;">'+U.nome+'</div>'
     +'<div style="font-size:13px;color:var(--sub);margin-top:2px;">@'+U.apelido+'</div>'
     +'<div style="margin-top:6px;"><span class="chip '+(U.tipo==='admin'?'chip-u':U.tipo==='lider'?'chip-g':'chip-i')+'">'+( U.tipo==='admin'?'🛡 Admin':U.tipo==='lider'?'👑 Líder':'👷 Funcionário')+'</span></div>'
-    +'</div></div>'
+    +'</div>'
+    +'<button onclick="abrirFichaMedica(U.id)" style="padding:8px 18px;border-radius:20px;border:1px solid #1e8449;background:transparent;color:#1e8449;font-size:12px;font-weight:700;cursor:pointer;margin-top:4px;">🏥 Minha Ficha Médica</button>'
+    +'</div>'
     // Info pessoal
     +'<div style="background:var(--gray);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px;">'
     +'<div class="fl" style="margin:0 0 4px;">Informações</div>'
@@ -8470,6 +8567,7 @@ function renderFuncs(){
       +'<button class="tb'+(u.tipo==='admin'?' adm':'')+'" type="button" onclick="setTipoUser(\''+u.id+'\',\'admin\')">🛡 Admin</button></div>'
       +'<div style="display:flex;gap:7px">'
       +'<button class="ub edit" type="button" onclick="abrirEditFunc(\''+u.id+'\')">✏️ Editar</button>'
+      +'<button class="ub" type="button" onclick="abrirFichaMedica(\''+u.id+'\')" style="background:#e8f5e9;color:#1e8449;border-color:#1e8449;">🏥 Ficha</button>'
       +'<button class="ub tog2" type="button" onclick="toggleUser(\''+u.id+'\')">'+(u.ativo?'⏸ Desativar':'▶ Ativar')+'</button>'
       +'<button class="ub del" type="button" onclick="delUser(\''+u.id+'\')">🗑 Excluir</button></div></div>';
   }).join('')||'<div class="empty"><p>Nenhum funcionário.</p></div>';
