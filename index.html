@@ -1293,31 +1293,29 @@ function renderHome(){
     });
     var cores2=['#B8860B','#185FA5','#1D9E75','#534AB7','#c0392b'];
     var obraKeys=Object.keys(porObra2).filter(function(k){return k!=='sem';}).concat(Object.keys(porObra2).filter(function(k){return k==='sem';}));
-    var rows=obraKeys.map(function(ok,oi){
+    // Lista plana: online primeiro, nome + obra + status
+    var todosUsers=[];
+    obraKeys.forEach(function(ok,oi){
       var g=porObra2[ok];
       var cor=ok==='sem'?'#888':cores2[oi%cores2.length];
-      var header='<div style="display:flex;align-items:center;gap:6px;padding:5px 12px;background:var(--gray);border-bottom:1px solid var(--border);">'
-        +'<div style="width:8px;height:8px;border-radius:2px;background:'+cor+';flex-shrink:0;"></div>'
-        +'<span style="font-size:10px;font-weight:700;color:'+cor+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+g.nome+'</span>'
+      g.users.forEach(function(item){
+        todosUsers.push({u:item.u,lancsU:item.lancsU,obraNome:ok==='sem'?'':g.nome,cor:cor,online:item.lancsU.length>0});
+      });
+    });
+    todosUsers.sort(function(a,b){return (b.online?1:0)-(a.online?1:0);});
+    var rows=todosUsers.map(function(item){
+      var u2=item.u; var cor=item.cor; var online=item.online;
+      return '<div style="display:flex;gap:8px;align-items:center;padding:7px 12px;border-bottom:1px solid var(--border);">'
+        +'<div style="width:26px;height:26px;border-radius:50%;background:'+cor+';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0;position:relative;">'
+        +u2.apelido.slice(0,2).toUpperCase()
+        +'<div style="width:7px;height:7px;border-radius:50%;background:'+(online?'#1e8449':'#ccc')+';border:1.5px solid #fff;position:absolute;bottom:-1px;right:-1px;"></div>'
+        +'</div>'
+        +'<div style="flex:1;min-width:0;display:flex;align-items:center;gap:6px;">'
+        +'<span style="font-size:11px;font-weight:700;">'+u2.apelido+'</span>'
+        +(item.obraNome?'<span style="font-size:10px;color:'+cor+';font-weight:700;background:rgba(0,0,0,.05);padding:1px 6px;border-radius:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px;">'+item.obraNome+'</span>':'')
+        +'</div>'
+        +'<span style="font-size:9px;font-weight:700;color:'+(online?'#1e8449':'#aaa')+';white-space:nowrap;">'+(online?'● Online':'○ Offline')+'</span>'
         +'</div>';
-      var items=g.users.map(function(item){
-        var u2=item.u; var ll=item.lancsU;
-        var online=ll.length>0;
-        var m2u=ll.reduce(function(s,l){return s+(parseFloat(l.area_m2)||0);},0);
-        var lastApto=ll.length?ll[ll.length-1].apartamento:'';
-        return '<div style="display:flex;gap:8px;align-items:center;padding:7px 12px;border-bottom:1px solid var(--border);">'
-          +'<div style="width:26px;height:26px;border-radius:50%;background:'+cor+';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0;position:relative;">'
-          +u2.apelido.slice(0,2).toUpperCase()
-          +'<div style="width:7px;height:7px;border-radius:50%;background:'+(online?'#1e8449':'#ccc')+';border:1.5px solid #fff;position:absolute;bottom:-1px;right:-1px;"></div>'
-          +'</div>'
-          +'<div style="flex:1;min-width:0;">'
-          +'<div style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+u2.apelido+'</div>'
-          +'<div style="font-size:10px;color:var(--sub);">'+(online?m2u.toFixed(0)+'m² hoje'+(lastApto?' · Apto '+lastApto:''):'Sem lançamento')+'</div>'
-          +'</div>'
-          +'<div style="font-size:9px;font-weight:700;color:'+(online?'#1e8449':'#aaa')+'">'+(online?'● Online':'● Offline')+'</div>'
-          +'</div>';
-      }).join('');
-      return header+items;
     }).join('');
     equipeHtml='<div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;padding:8px 10px 4px;">Equipe online agora</div>'
       +'<div style="background:#fff;border-radius:12px;margin:0 10px 8px;border:1px solid var(--border);overflow:hidden;">'+rows+'</div>';
@@ -1336,26 +1334,10 @@ function renderHome(){
     +'<div style="font-size:9px;color:rgba(255,255,255,.4);margin-top:3px;">'+bv.r+'</div>'
     +'</div>'
     +statsHtml
-    +'</div>'
++'</div>'
+    +(metaValor||metaM2val?'<div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;padding:8px 10px 4px;">Meu resultado — '+meses2[pIni.getMonth()]+'</div>'+'<div style="background:#fff;border-radius:12px;margin:0 10px 8px;padding:14px;border:1px solid var(--border);">'+'<div style="display:flex;justify-content:space-between;margin-bottom:10px;">'+'<div><div style="font-size:18px;font-weight:700;">'+fmt(totalP)+'</div><div style="font-size:10px;color:var(--sub);">de '+fmt(metaValor)+' meta</div></div>'+'<div style="text-align:right;"><div style="font-size:18px;font-weight:700;color:#185FA5;">'+m2P.toFixed(0)+'m²</div><div style="font-size:10px;color:var(--sub);">de '+metaM2val+'m² meta</div></div>'+'</div>'+'<canvas id="'+chartId1+'" height="80"></canvas>'+'<div style="display:flex;justify-content:space-between;margin-top:8px;">'+'<div style="display:flex;align-items:center;gap:4px;"><div style="width:10px;height:10px;border-radius:2px;background:#B8860B;"></div><span style="font-size:9px;color:var(--sub);">Valor ('+pctV+'%)</span></div>'+'<div style="display:flex;align-items:center;gap:4px;"><div style="width:10px;height:10px;border-radius:2px;background:#185FA5;"></div><span style="font-size:9px;color:var(--sub);">m² ('+pctM+'%)</span></div>'+'</div></div>'+'<div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;padding:4px 10px 4px;">Histórico de metas</div>'+'<div style="background:#fff;border-radius:12px;margin:0 10px 8px;padding:14px;border:1px solid var(--border);">'+'<canvas id="'+chartId2+'" height="80"></canvas>'+'<div style="display:flex;justify-content:space-between;margin-top:8px;">'+'<div style="display:flex;align-items:center;gap:4px;"><div style="width:10px;height:10px;border-radius:2px;background:#B8860B;"></div><span style="font-size:9px;color:var(--sub);">Valor %</span></div>'+'<div style="display:flex;align-items:center;gap:4px;"><div style="width:10px;height:10px;border-radius:2px;background:#185FA5;"></div><span style="font-size:9px;color:var(--sub);">m² %</span></div>'+'</div></div>':'')
     +equipeHtml
-    +(metaValor||metaM2val?'<div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;padding:8px 10px 4px;">Meu resultado — '+meses2[pIni.getMonth()]+'</div>'
-    +'<div style="background:#fff;border-radius:12px;margin:0 10px 8px;padding:14px;border:1px solid var(--border);">'
-    +'<div style="display:flex;justify-content:space-between;margin-bottom:10px;">'
-    +'<div><div style="font-size:18px;font-weight:700;">'+fmt(totalP)+'</div><div style="font-size:10px;color:var(--sub);">de '+fmt(metaValor)+' meta</div></div>'
-    +'<div style="text-align:right;"><div style="font-size:18px;font-weight:700;color:#185FA5;">'+m2P.toFixed(0)+'m²</div><div style="font-size:10px;color:var(--sub);">de '+metaM2val+'m² meta</div></div>'
-    +'</div>'
-    +'<canvas id="'+chartId1+'" height="80"></canvas>'
-    +'<div style="display:flex;justify-content:space-between;margin-top:8px;">'
-    +'<div style="display:flex;align-items:center;gap:4px;"><div style="width:10px;height:10px;border-radius:2px;background:#B8860B;"></div><span style="font-size:9px;color:var(--sub);">Valor ('+pctV+'%)</span></div>'
-    +'<div style="display:flex;align-items:center;gap:4px;"><div style="width:10px;height:10px;border-radius:2px;background:#185FA5;"></div><span style="font-size:9px;color:var(--sub);">m² ('+pctM+'%)</span></div>'
-    +'</div></div>'
-    +'<div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;padding:4px 10px 4px;">Histórico de metas</div>'
-    +'<div style="background:#fff;border-radius:12px;margin:0 10px 8px;padding:14px;border:1px solid var(--border);">'
-    +'<canvas id="'+chartId2+'" height="80"></canvas>'
-    +'<div style="display:flex;justify-content:space-between;margin-top:8px;">'
-    +'<div style="display:flex;align-items:center;gap:4px;"><div style="width:10px;height:10px;border-radius:2px;background:#B8860B;"></div><span style="font-size:9px;color:var(--sub);">Valor %</span></div>'
-    +'<div style="display:flex;align-items:center;gap:4px;"><div style="width:10px;height:10px;border-radius:2px;background:#185FA5;"></div><span style="font-size:9px;color:var(--sub);">m² %</span></div>'
-    +'</div></div>':'')
+    +(isGestao?+'<div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;padding:8px 10px 4px;">Ações rápidas</div>'+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 10px 8px;">'+'<div onclick="goTab(\'lancar\')" style="background:#fff;border-radius:12px;padding:10px;border:1px solid var(--border);cursor:pointer;"><div style="font-size:18px;margin-bottom:4px;">➕</div><div style="font-size:12px;font-weight:700;">Lançar</div><div style="font-size:10px;color:var(--sub);">Produção</div></div>'+'<div onclick="goTab(\'hist\')" style="background:#fff;border-radius:12px;padding:10px;border:1px solid var(--border);cursor:pointer;"><div style="font-size:18px;margin-bottom:4px;">📋</div><div style="font-size:12px;font-weight:700;">Histórico</div><div style="font-size:10px;color:var(--sub);">Equipe</div></div>'+'<div onclick="goTab(\'ocorr\')" style="background:#fff;border-radius:12px;padding:10px;border:1px solid var(--border);cursor:pointer;"><div style="font-size:18px;margin-bottom:4px;">⚠️</div><div style="font-size:12px;font-weight:700;">Ocorrências</div><div style="font-size:10px;color:var(--sub);">Ver e registrar</div></div>'+'<div onclick="goTab(\'aviso\')" style="background:#fff;border-radius:12px;padding:10px;border:1px solid var(--border);cursor:pointer;"><div style="font-size:18px;margin-bottom:4px;">📢</div><div style="font-size:12px;font-weight:700;">Avisos</div><div style="font-size:10px;color:var(--sub);">Comunicados</div></div>'+'</div>':'')
     +'<div style="height:12px;"></div>';
 
   // Renderizar charts se Chart.js disponivel
