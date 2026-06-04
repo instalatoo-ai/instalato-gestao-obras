@@ -5180,7 +5180,10 @@ function renderReceber(){
         est.andares&&est.andares.forEach(function(andar){
           andar.aptos&&andar.aptos.forEach(function(apto){
             (apto.ambientes||[]).forEach(function(a){
-              if(a.nome===c.ambiente||(c.ambiente&&c.ambiente.indexOf(a.nome)>=0)){
+              var cAmb=(c.ambiente||'').toLowerCase().trim();
+              var aNome=(a.nome||'').toLowerCase().trim();
+              // Match exato, parcial ou por prefixo
+              if(aNome===cAmb||cAmb===aNome||cAmb.indexOf(aNome)>=0||aNome.indexOf(cAmb)>=0){
                 ambCad=a;unidade=a.unidade||'m2';
               }
             });
