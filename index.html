@@ -7332,7 +7332,7 @@ function renderFinanceiro(){
     var ul=new Date(hj.getFullYear(),hj.getMonth()+1,0);
     S.fFim=ul.toISOString().split('T')[0];
   }
-  var funcAtivos=users.filter(function(u){return u.ativo&&u.tipo!=='admin';});
+  var funcAtivos=users.filter(function(u){return u.ativo;});
   if(!S.funcSel&&funcAtivos.length) S.funcSel=funcAtivos[0];
   function fmtM(v){return 'R$ '+(parseFloat(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
   function fmtDs(d){if(!d)return '--';var p=d.split('-');return p[2]+'/'+p[1];}
