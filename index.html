@@ -926,7 +926,7 @@ function buildNav() {
   if(T==='admin'||T==='lider'||T==='lider_chefe') tabs.push({id:'lancar',i:'➕',l:'Lançar'});
   tabs.push({id:'meu',i:'📊',l:'Meu Resultado'});
   tabs.push({id:'medicoes',i:'📋',l:'Medicoes'});
-  if(T==='admin'||T==='lider'||T==='lider_chefe') tabs.push({id:'hist',i:'📋',l:'Histórico'});
+  tabs.push({id:'hist',i:'📋',l:'Histórico'});
   if(T==='admin') tabs.push({id:'conf',i:'✅',l:'Conferência'});
   tabs.push({id:'ponto',i:'📍',l:'Ponto'});
   if(T==='admin'||T==='lider'||T==='lider_chefe') tabs.push({id:'mat',i:'📦',l:'Materiais'});
@@ -1073,6 +1073,7 @@ function marcarOcorrsLidas(){
 function renderAll() {
   var T = U.tipo;
   if(T==='admin'||T==='lider'||T==='lider_chefe') { renderLancar(); renderHist(); }
+  if(T==='func') renderHist();
   renderPonto();
   renderMedicoesFuncionario();
   if(T==='admin'||T==='lider'||T==='lider_chefe') renderMat();
@@ -1719,15 +1720,18 @@ function salvarEdicaoLanc(id){
 
 function renderHist() {
   var el=getEl('t-hist'); if(!el) return;
+  var isAdmin=U&&(U.tipo==='admin'||U.tipo==='lider_chefe');
   var oOpts=obras.map(function(o){return '<option value="'+o.id+'">'+o.nome+'</option>';}).join('');
   var fOpts=users.filter(function(u){return u.ativo;}).map(function(u){return '<option value="'+u.id+'">'+u.apelido+'</option>';}).join('');
-  el.innerHTML='<div class="hero" style="background:var(--dark)"><p>Todos os registros</p><h2>Histórico Geral</h2></div>'
+  var lancsFiltrados=isAdmin?lancs:lancs.filter(function(l){return l.usuario_id===U.id;});
+  el.innerHTML='<div class="hero" style="background:var(--dark)"><p>Todos os registros</p><h2>'+(isAdmin?'Histórico Geral':'Meu Histórico')+'</h2></div>'
     +'<div class="pad"><div class="fil-row">'
     +'<select id="hf-obra" onchange="renderHistFiltro()"><option value="">Todas as obras</option>'+oOpts+'</select>'
-    +'<select id="hf-func" onchange="renderHistFiltro()"><option value="">Todos</option>'+fOpts+'</select></div>'
+    +(isAdmin?'<select id="hf-func" onchange="renderHistFiltro()"><option value="">Todos</option>'+fOpts+'</select>':'<input type="hidden" id="hf-func" value="'+U.id+'">')
+    +'</div>'
     +'<div id="hist-tot" style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;">'
-    +'<span style="font-size:11px;color:var(--sub)">'+lancs.length+' registros</span>'
-    +'<span style="font-size:13px;font-weight:700;color:var(--gold)">'+fmtK(lancs.reduce(function(s,l){return s+(parseFloat(l.total)||0);},0))+' total</span></div>'
+    +'<span style="font-size:11px;color:var(--sub)">'+lancsFiltrados.length+' registros</span>'
+    +'<span style="font-size:13px;font-weight:700;color:var(--gold)">'+fmtK(lancsFiltrados.reduce(function(s,l){return s+(parseFloat(l.total)||0);},0))+' total</span></div>'
     +'<div id="hist-list"></div></div>';
   renderHistFiltro();
 }
@@ -1770,7 +1774,9 @@ function confirmarDesaprovar(confId){
 function renderHistFiltro() {
   var oId=getEl('hf-obra')?getEl('hf-obra').value:'';
   var fId=getEl('hf-func')?getEl('hf-func').value:'';
-  var lista=lancs;
+  var isAdmin=U&&(U.tipo==='admin'||U.tipo==='lider_chefe');
+  // lider/func so veem os proprios lancamentos
+  var lista=isAdmin?lancs:lancs.filter(function(l){return l.usuario_id===U.id;});
   if(oId) lista=lista.filter(function(l){return l.obra_id===oId;});
   if(fId) lista=lista.filter(function(l){return l.usuario_id===fId;});
   var total=lista.reduce(function(s,l){return s+(parseFloat(l.total)||0);},0);
