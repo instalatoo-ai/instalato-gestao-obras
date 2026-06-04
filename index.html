@@ -6047,9 +6047,7 @@ function renderMeuFinanceiro(){
   // Todas despesas vinculadas
   var despsFunc=desps.filter(function(d){
     if(!(d.data>=ini&&d.data<=fim)) return false;
-    if(d.usuario_id===funcId) return true;
-    if(d.responsavel&&(d.responsavel===u.apelido||d.responsavel===u.nome)) return true;
-    return false;
+    return d.usuario_id===funcId;
   });
   var despsPorCat={};
   despsFunc.forEach(function(d){
@@ -6196,11 +6194,7 @@ function renderRelFuncResultado(){
   // Todas as despesas vinculadas ao funcionario no periodo
   var despsFunc=desps.filter(function(d){
     if(!(d.data>=ini&&d.data<=fim)) return false;
-    // Buscar por usuario_id ou por responsavel/apelido
-    if(d.usuario_id===funcId) return true;
-    if(u&&d.responsavel&&d.responsavel===u.apelido) return true;
-    if(u&&d.responsavel&&d.responsavel===u.nome) return true;
-    return false;
+    return d.usuario_id===funcId;
   });
   // Agrupar por categoria para exibir no relatorio
   var despsPorCat={};
