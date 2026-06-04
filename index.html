@@ -2426,7 +2426,9 @@ function renderOcorr(){
 
   var colabField=isFunc
     ?'<div><div class="fl">Ocorrencia sobre (colaborador)</div><select class="sel" id="oc-colab"><option value="'+U.id+'">'+U.apelido+' (eu mesmo)</option>'+fOpts+'</select></div>'
-    :'<div><div class="fl">Ocorrencia sobre (colaborador)</div><select class="sel" id="oc-colab"><option value="">Selecione</option>'+fOpts+'</select></div>';
+    :(U.tipo==='admin'||U.tipo==='lider_chefe'||U.tipo==='lider')
+      ?'<div><div class="fl">Ocorrencia sobre (colaborador)</div><select class="sel" id="oc-colab"><option value="">Selecione</option>'+fOpts+'</select></div>'
+      :'<div><div class="fl">Ocorrencia sobre (colaborador)</div><select class="sel" id="oc-colab"><option value="">Selecione</option>'+fOpts+'</select></div>';
 
   var minhasOcorrs=isFunc?ocorrs.filter(function(oc){return oc.colaborador_id===U.id||oc.registrado_por===U.id;}):[];
   var minhasHtml=minhasOcorrs.map(function(oc){
@@ -2466,16 +2468,11 @@ function renderOcorr(){
     +colabField
     +'<div><div class="fl">Obra</div><select class="sel" id="oc-obra"><option value="">Selecione a obra</option>'+oOpts+'</select></div>'
     +'<div><div class="fl">Descricao</div><textarea class="inp" id="oc-obs" rows="3" style="resize:none" placeholder="Descreva detalhadamente..."></textarea></div>'
-    +'<div style="margin-top:4px;"><div class="fl">Foto (opcional)</div><label id="oc-foto-label" style="display:flex;align-items:center;gap:10px;background:#f9f9f9;border:1px dashed var(--border);border-radius:10px;padding:10px 12px;cursor:pointer;"><span style="font-size:22px;">&#128247;</span><div><div style="font-size:12px;font-weight:700;">Anexar foto</div><div style="font-size:10px;color:var(--sub);" id="oc-foto-nome">Nenhuma foto selecionada</div></div><input type="file" id="oc-foto" accept="image/*" style="display:none;"></label></div>'
+    +'<div><div class="fl">Foto (opcional)</div><input type="file" id="oc-foto" accept="image/*" style="font-size:12px;width:100%;padding:6px;border:1px solid var(--border);border-radius:10px;background:#f9f9f9;"></div>'
     +'<button class="btn-pri" type="button" style="background:#8B0000" onclick="salvarOcorr()">Registrar ocorrencia</button>'
     +'</div></div>'
     +historicoHtml
     +'</div>';
-  setTimeout(function(){
-    var inp=document.getElementById('oc-foto');
-    var nome=document.getElementById('oc-foto-nome');
-    if(inp&&nome) inp.onchange=function(){nome.textContent=this.files[0]?this.files[0].name:'Nenhuma foto selecionada';};
-  },100);
 }
 function selOcorrTipo(t){
   if(t==='marmita'){
@@ -2727,11 +2724,11 @@ function abrirOcorrFunc(id){
 }
 
 function salvarOcorr(){
-  if(!ocorrTipo){toast('Selecione o tipo.');return;}
+  if(!ocorrTipo){toast('Selecione o tipo de ocorrencia primeiro.');return;}
   var cId=val('oc-colab');
   var oId=val('oc-obra'), obs=val('oc-obs');
-  if(!cId){toast('Selecione o colaborador.');return;}
-  if(!obs){toast('Descreva a ocorrencia.');return;}
+  if(!cId||cId===''){toast('Selecione o colaborador.');return;}
+  if(!obs||!obs.trim()){toast('Descreva a ocorrencia.');return;}
   var fotoInput=document.getElementById('oc-foto');
   function doSalvar(fotoB64){
     var obj={colaborador_id:cId,obra_id:oId||null,tipo:ocorrTipo,observacao:obs,registrado_por:U.id,data:hoje(),hora:horaAgora()};
@@ -2741,8 +2738,22 @@ function salvarOcorr(){
     });
   }
   if(fotoInput&&fotoInput.files&&fotoInput.files[0]){
+    // Comprimir imagem antes de salvar
     var reader=new FileReader();
-    reader.onload=function(e){doSalvar(e.target.result);};
+    reader.onload=function(e){
+      var img=new Image();
+      img.onload=function(){
+        var canvas=document.createElement('canvas');
+        var maxW=800,maxH=800;
+        var w=img.width,h=img.height;
+        if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
+        if(h>maxH){w=Math.round(w*maxH/h);h=maxH;}
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        doSalvar(canvas.toDataURL('image/jpeg',0.7));
+      };
+      img.src=e.target.result;
+    };
     reader.readAsDataURL(fotoInput.files[0]);
   } else {
     doSalvar(null);
