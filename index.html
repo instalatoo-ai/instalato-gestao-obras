@@ -5159,7 +5159,20 @@ function renderReceber(){
 
   // Montar lista de ambientes aprovados
   var itens=[];
+  // Deduplicar por lancamento_id - manter apenas a conf mais recente por lancamento
+  var confsUnicas=[];
+  var lancIdsVistos={};
   confs.filter(function(c){return c.status==='aprovado';}).forEach(function(c){
+    if(c.lancamento_id){
+      if(!lancIdsVistos[c.lancamento_id]){
+        lancIdsVistos[c.lancamento_id]=true;
+        confsUnicas.push(c);
+      }
+    } else {
+      confsUnicas.push(c);
+    }
+  });
+  confsUnicas.forEach(function(c){
     // Verificar periodo
     if(_fIni && c.data<_fIni) return;
     if(_fFim && c.data>_fFim) return;
