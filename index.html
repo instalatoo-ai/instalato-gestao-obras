@@ -5244,7 +5244,13 @@ function renderReceber(){
   var totalMl=itens.filter(function(i){return i.unidade==='ml';}).filter(function(i){return !i.valorFixo;}).reduce(function(s,i){return s+i.area;},0);
   var totalFixo=itens.filter(function(i){return i.valorFixo;}).reduce(function(s,i){return s+i.valor;},0);
   var totalGeral=itens.reduce(function(s,i){return s+i.valor;},0);
-  var totalRecebido=itens.filter(function(i){return i.recebido;}).reduce(function(s,i){return s+i.valor;},0);
+  // Recebido = via recebimentos diretos OU via faturamentos pagos vinculados por conf_id
+  var totalRecebido=itens.reduce(function(s,item){
+    if(item.recebido) return s+item.valor;
+    var fatPago=faturamentos.find(function(f){return f.conf_id===item.confId&&f.status==='pago';});
+    if(fatPago) return s+(parseFloat(fatPago.valor_recebido)||parseFloat(fatPago.valor)||0);
+    return s;
+  },0);
   var totalPendente=totalGeral-totalRecebido;
 
   // HTML
@@ -5296,11 +5302,17 @@ function renderReceber(){
 
     // Lista de itens
     +'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
-    +'<div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;">Detalhamento</div>'
+    +'<div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">'
+    +'<span style="font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;">Detalhamento</span>'
+    +'<button onclick="var d=document.getElementById(\'detalh-list\');var b=this;if(d.style.display===\'none\'){d.style.display=\'block\';b.textContent=\'− Ocultar\';}else{d.style.display=\'none\';b.textContent=\'+ Mostrar\';}" style="font-size:10px;padding:2px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--sub);cursor:pointer;">− Ocultar</button>'
+    +'</div>'
+    +'<div id="detalh-list">'
     +(!itens.length?'<div class="empty"><p>Nenhum ambiente aprovado no periodo.</p></div>'
       :itens.map(function(item){
-        var cor=item.recebido?'var(--green)':'#1a3a5c';
-        var bg=item.recebido?'rgba(30,132,73,.04)':'#fff';
+        var fatPagoItem=faturamentos.find(function(f){return f.conf_id===item.confId&&f.status==='pago';});
+        var isRecebido=item.recebido||!!fatPagoItem;
+        var cor=isRecebido?'var(--green)':'#1a3a5c';
+        var bg=isRecebido?'rgba(30,132,73,.04)':'#fff';
         return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:'+bg+';">'
           +'<div style="flex:1;">'
           +'<div style="font-size:13px;font-weight:700;">'+item.apto+' · '+item.amb+'</div>'
@@ -5310,12 +5322,12 @@ function renderReceber(){
           +'<div style="text-align:right;">'
           +'<div style="font-size:14px;font-weight:700;color:'+cor+';">'+fmt(item.valor)+'</div>'
           +'<div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;">'
-          +'<button data-cid="'+item.confId+'" onclick="toggleReceber(this.dataset.cid)" style="padding:3px 10px;border-radius:20px;border:1px solid '+(item.recebido?'var(--green)':'#1a3a5c')+';background:'+(item.recebido?'var(--green)':'transparent')+';color:'+(item.recebido?'#fff':'#1a3a5c')+';font-size:10px;font-weight:700;cursor:pointer;">'+(item.recebido?'✓ Recebido':'Marcar recebido')+'</button>'
+          +'<button data-cid="'+item.confId+'" onclick="toggleReceber(this.dataset.cid)" style="padding:3px 10px;border-radius:20px;border:1px solid '+(isRecebido?'var(--green)':'#1a3a5c')+';background:'+(isRecebido?'var(--green)':'transparent')+';color:'+(isRecebido?'#fff':'#1a3a5c')+';font-size:10px;font-weight:700;cursor:pointer;">'+(isRecebido?'✓ Recebido':'Marcar recebido')+'</button>'
           +'<button data-cid="'+item.confId+'" data-obra="'+item.obra+'" data-apto="'+item.apto+'" data-amb="'+item.amb+'" data-valor="'+item.valor.toFixed(2)+'" data-area="'+item.area.toFixed(1)+'" data-data="'+item.data+'" onclick="abrirFaturamento(this)" style="padding:3px 10px;border-radius:20px;border:1px solid #1a3a5c;background:transparent;color:#1a3a5c;font-size:10px;font-weight:700;cursor:pointer;">📋 Faturar</button>'
           +'</div>'
           +'</div></div>';
       }).join(''))
-    +'</div>'
+    +'</div></div>'
     +'</div>';
 
   // Adicionar secao faturamentos
@@ -5352,6 +5364,8 @@ function renderReceber(){
           +'<div style="font-size:14px;font-weight:700;color:'+cor+';">'+fmt(f.valor)+'</div>'
           +'<div style="display:flex;gap:4px;margin-top:4px;flex-direction:column;">'
           +(isPend?'<button data-fid="'+f.id+'" onclick="marcarFaturamentoPago(this.dataset.fid)" style="padding:3px 8px;border-radius:20px;border:none;background:var(--green);color:#fff;font-size:10px;font-weight:700;cursor:pointer;">✓ Recebido</button>':'')
+          +(!isPend?'<button data-fid="'+f.id+'" onclick="cancelarRecebimentoFat(this.dataset.fid)" style="padding:3px 8px;border-radius:20px;border:1px solid #B8860B;background:transparent;color:#B8860B;font-size:10px;cursor:pointer;">↩ Cancelar</button>':'')
+          +(f.forma_pagamento&&!isPend?'<div style="font-size:9px;color:var(--sub);">'+f.forma_pagamento+'</div>':'')
           +'<button data-fid="'+f.id+'" onclick="excluirFaturamento(this.dataset.fid)" style="padding:3px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);font-size:10px;cursor:pointer;">🗑</button>'
           +'</div></div></div>';
       }).join('')
@@ -5499,12 +5513,69 @@ function confirmarFaturamento(btn){
 }
 
 function marcarFaturamentoPago(id){
-  dbUpdate('faturamentos',id,{status:'pago',data_recebimento:hoje()}).then(function(ok){
-    for(var i=0;i<faturamentos.length;i++) if(faturamentos[i].id===id){faturamentos[i].status='pago';faturamentos[i].data_recebimento=hoje();break;}
-    toast('Marcado como recebido!');renderReceber();
-  }).catch(function(){
-    for(var i=0;i<faturamentos.length;i++) if(faturamentos[i].id===id){faturamentos[i].status='pago';faturamentos[i].data_recebimento=hoje();break;}
-    toast('Marcado como recebido!');renderReceber();
+  var f=faturamentos.find(function(f){return f.id===id;}); if(!f) return;
+  var ex=document.getElementById('modal-fat-pago'); if(ex) ex.remove();
+  var el=document.createElement('div');
+  el.className='modal-bg show'; el.id='modal-fat-pago'; el.style.cssText='z-index:9999;align-items:center;padding:20px;';
+  el.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:380px;overflow:hidden;">'
+    +'<div style="background:var(--green);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<div style="font-size:14px;font-weight:700;color:#fff;">Registrar Recebimento</div>'
+    +'<button id="btn-fecha-fat-pago" style="background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;">x</button>'
+    +'</div>'
+    +'<div style="padding:16px;display:flex;flex-direction:column;gap:12px;">'
+    +'<div style="background:#e8f5e9;border-radius:10px;padding:10px 12px;text-align:center;">'
+    +'<div style="font-size:11px;color:var(--sub);">'+f.obra+' · Apto '+(f.apto||'--')+'</div>'
+    +'<div style="font-size:22px;font-weight:700;color:var(--green);">'+fmt(f.valor)+'</div>'
+    +'</div>'
+    +'<div><div class="fl">Valor recebido (R$)</div><input class="inp" type="number" id="fat-rec-valor" value="'+parseFloat(f.valor).toFixed(2)+'" step="0.01"></div>'
+    +'<div><div class="fl">Data do recebimento</div><input class="inp" type="date" id="fat-rec-data" value="'+hoje()+'"></div>'
+    +'<div><div class="fl">Forma de pagamento</div><select class="sel" id="fat-rec-forma">'
+    +'<option value="PIX">PIX</option>'
+    +'<option value="Transferencia">Transferência</option>'
+    +'<option value="Dinheiro">Dinheiro</option>'
+    +'<option value="Cheque">Cheque</option>'
+    +'<option value="Boleto">Boleto</option>'
+    +'</select></div>'
+    +'<div><div class="fl">Observação (opcional)</div><input class="inp" type="text" id="fat-rec-obs" placeholder="Ex: Pagamento parcial"></div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button id="btn-cancela-fat-pago" style="flex:1;padding:11px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:13px;cursor:pointer;">Cancelar</button>'
+    +'<button id="btn-ok-fat-pago" style="flex:2;padding:11px;border-radius:10px;border:none;background:var(--green);color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Confirmar</button>'
+    +'</div></div></div>';
+  document.body.appendChild(el);
+  el.querySelector('#btn-fecha-fat-pago').onclick=function(){el.remove();};
+  el.querySelector('#btn-cancela-fat-pago').onclick=function(){el.remove();};
+  el.querySelector('#btn-ok-fat-pago').onclick=function(){
+    var valor=parseFloat(document.getElementById('fat-rec-valor').value)||0;
+    var data=document.getElementById('fat-rec-data').value;
+    var forma=document.getElementById('fat-rec-forma').value;
+    var obs=document.getElementById('fat-rec-obs').value;
+    if(!valor){toast('Informe o valor.');return;}
+    if(!data){toast('Informe a data.');return;}
+    el.remove();
+    var obj={status:'pago',data_recebimento:data,valor_recebido:valor,forma_pagamento:forma};
+    if(obs) obj.observacao=obs;
+    dbUpdate('faturamentos',id,obj).then(function(ok){
+      for(var i=0;i<faturamentos.length;i++) if(faturamentos[i].id===id){Object.assign(faturamentos[i],obj);break;}
+      toast('Recebimento registrado!');renderReceber();renderFaturamentos();
+    });
+  };
+}
+
+function cancelarRecebimentoFat(id){
+  var senha=prompt('Digite a senha do admin para cancelar o recebimento:');
+  if(!senha) return;
+  // Verificar senha do admin
+  var admin=users.find(function(u){return u.tipo==='admin';});
+  if(!admin||senha!==admin.senha){toast('Senha incorreta.');return;}
+  dbUpdate('faturamentos',id,{status:'pendente',data_recebimento:null,valor_recebido:null,forma_pagamento:null}).then(function(ok){
+    for(var i=0;i<faturamentos.length;i++) if(faturamentos[i].id===id){
+      faturamentos[i].status='pendente';
+      faturamentos[i].data_recebimento=null;
+      faturamentos[i].valor_recebido=null;
+      faturamentos[i].forma_pagamento=null;
+      break;
+    }
+    toast('Recebimento cancelado!');renderReceber();renderFaturamentos();
   });
 }
 
