@@ -2413,11 +2413,11 @@ function renderOcorr(){
     return '<div data-ocid="'+oc.id+'" onclick="abrirOcorr(this.dataset.ocid)" style="cursor:pointer;border-left:3px solid '+(jaNaoLida?'#8B0000':'var(--border)')+';" class="hi">'
       +'<div class="hi-ico">'+(tObj?tObj.i:'⚠️')+'</div>'
       +'<div class="hi-b">'
-    +'<div class="hi-t">'+(u?u.apelido:'--')+' · '+(tObj?tObj.l:oc.tipo||'--')+'</div>'
+      +'<div class="hi-t">'+(u?u.apelido:'--')+' · '+(tObj?tObj.l:oc.tipo||'--')+'</div>'
       +'<div class="hi-s">'+(o?o.nome:'Sem obra')+'</div>'
       +(reg5&&reg5.id!==oc.colaborador_id?'<div style="font-size:10px;color:var(--gold);font-weight:700;">Registrado por: '+reg5.apelido+'</div>':'')
       +(oc.observacao?'<div class="hi-s" style="font-style:italic;">"'+oc.observacao.substring(0,60)+'"</div>':'')
-      +(comentarios.length?'<div style="font-size:10px;color:var(--sub);margin-top:2px;">💬 '+comentarios.length+' comentario(s)</div>':'')
+      +(comentarios.length?'<div style="font-size:10px;color:var(--sub);margin-top:2px;">&#128172; '+comentarios.length+' comentario(s)</div>':'')
       +'</div>'
       +'<div class="hi-r"><div class="hi-d">'+fmtD(oc.data)+'</div>'
       +(jaNaoLida?'<div style="width:8px;height:8px;border-radius:50%;background:#8B0000;margin:4px auto 0;"></div>':'')
