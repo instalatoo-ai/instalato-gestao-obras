@@ -1107,7 +1107,18 @@ function goTab(id) {
   var n = getEl('n-'+id); var t = getEl('t-'+id);
   if(n) n.classList.add('on');
   if(t) { t.classList.add('on'); t.scrollTop = 0; }
+  // Se tab nao existe ainda, criar dinamicamente
+  if(!t) {
+    var tc=getEl('tabs');
+    if(tc){
+      var d=document.createElement('div');
+      d.className='tab on'; d.id='t-'+id;
+      d.style.cssText='position:absolute;inset:0;overflow-y:auto;';
+      tc.appendChild(d);
+    }
+  }
   renderTab(id);
+  updateSidebarActive(id);
 }
 
 function atualizarBadgeAvisos(){
@@ -1208,6 +1219,7 @@ function renderTab(id) {
 
 // ── LANÇAR ──
 function renderHome(){
+  try{
   var el=getEl('t-home'); if(!el) return;
   var T=U.tipo;
   var isGestao=T==='admin'||T==='lider'||T==='lider_chefe';
@@ -1340,6 +1352,7 @@ function renderHome(){
     +(isGestao?+'<div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;padding:8px 10px 4px;">Ações rápidas</div>'+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 10px 8px;">'+'<div onclick="goTab(\'lancar\')" style="background:#fff;border-radius:12px;padding:10px;border:1px solid var(--border);cursor:pointer;"><div style="font-size:18px;margin-bottom:4px;">➕</div><div style="font-size:12px;font-weight:700;">Lançar</div><div style="font-size:10px;color:var(--sub);">Produção</div></div>'+'<div onclick="goTab(\'hist\')" style="background:#fff;border-radius:12px;padding:10px;border:1px solid var(--border);cursor:pointer;"><div style="font-size:18px;margin-bottom:4px;">📋</div><div style="font-size:12px;font-weight:700;">Histórico</div><div style="font-size:10px;color:var(--sub);">Equipe</div></div>'+'<div onclick="goTab(\'ocorr\')" style="background:#fff;border-radius:12px;padding:10px;border:1px solid var(--border);cursor:pointer;"><div style="font-size:18px;margin-bottom:4px;">⚠️</div><div style="font-size:12px;font-weight:700;">Ocorrências</div><div style="font-size:10px;color:var(--sub);">Ver e registrar</div></div>'+'<div onclick="goTab(\'aviso\')" style="background:#fff;border-radius:12px;padding:10px;border:1px solid var(--border);cursor:pointer;"><div style="font-size:18px;margin-bottom:4px;">📢</div><div style="font-size:12px;font-weight:700;">Avisos</div><div style="font-size:10px;color:var(--sub);">Comunicados</div></div>'+'</div>':'')
     +'<div style="height:12px;"></div>';
 
+  } catch(e){ var el2=getEl('t-home'); if(el2) el2.innerHTML='<div class="pad" style="padding:20px;"><div style="color:var(--red);font-size:12px;">Erro ao carregar início: '+e.message+'</div></div>'; console.error('renderHome:',e); return; }
   // Renderizar charts se Chart.js disponivel
   setTimeout(function(){
     if(typeof Chart==='undefined'){
