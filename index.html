@@ -2409,10 +2409,10 @@ function renderOcorr(){
     var tObj=null; for(var i=0;i<tipos.length;i++) if(tipos[i].k===oc.tipo){tObj=tipos[i];break;}
     var jaNaoLida=isGestao&&!lidas[oc.id];
     var comentarios=[]; try{comentarios=JSON.parse(oc.comentarios||'[]');}catch(e){}
+    var reg5=null; for(var ri=0;ri<users.length;ri++) if(users[ri].id===oc.registrado_por){reg5=users[ri];break;}
     return '<div data-ocid="'+oc.id+'" onclick="abrirOcorr(this.dataset.ocid)" style="cursor:pointer;border-left:3px solid '+(jaNaoLida?'#8B0000':'var(--border)')+';" class="hi">'
       +'<div class="hi-ico">'+(tObj?tObj.i:'⚠️')+'</div>'
       +'<div class="hi-b">'
-      var reg5=null; for(var ri=0;ri<users.length;ri++) if(users[ri].id===oc.registrado_por){reg5=users[ri];break;}
     +'<div class="hi-t">'+(u?u.apelido:'--')+' · '+(tObj?tObj.l:oc.tipo||'--')+'</div>'
       +'<div class="hi-s">'+(o?o.nome:'Sem obra')+'</div>'
       +(reg5&&reg5.id!==oc.colaborador_id?'<div style="font-size:10px;color:var(--gold);font-weight:700;">Registrado por: '+reg5.apelido+'</div>':'')
