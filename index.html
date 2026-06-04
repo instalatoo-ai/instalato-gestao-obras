@@ -7551,15 +7551,11 @@ function renderConta(){
     +'<div class="pad">'
     // Avatar e info
     +'<div style="display:flex;flex-direction:column;align-items:center;padding:20px;background:var(--gray);border-radius:14px;gap:10px;">'
-    +'<div style="position:relative;width:72px;height:72px;">'
     +(U.foto_perfil
       ?'<img src="'+U.foto_perfil+'" style="width:72px;height:72px;border-radius:50%;object-fit:cover;">'
       :'<div style="width:72px;height:72px;border-radius:50%;background:'+cor+';display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#fff;">'+U.apelido.slice(0,2).toUpperCase()+'</div>')
-    +'<div id="btn-trocar-foto" style="position:absolute;bottom:0;right:0;width:24px;height:24px;border-radius:50%;background:#1a3a5c;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid #fff;">'
-    +'<span style="color:#fff;font-size:13px;">&#128247;</span>'
-    +'</div>'
+    +'<div id="btn-trocar-foto" style="background:#1a3a5c;color:#fff;border:none;border-radius:20px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;margin-top:4px;">&#128247; Trocar foto</div>'
     +'<input type="file" id="input-foto-perfil" accept="image/*" style="display:none;">'
-    +'</div>'
     +'<div style="text-align:center;">'
     +'<div style="font-size:18px;font-weight:700;color:#111;">'+U.nome+'</div>'
     +'<div style="font-size:13px;color:var(--sub);margin-top:2px;">@'+U.apelido+'</div>'
