@@ -1169,6 +1169,7 @@ function renderLancar() {
     +'<button class="btn-gold" type="button" onclick="salvarLanc()">✅ Salvar produção</button></div>';
   renderBonusList();
   // Injetar ressalva para lider/admin via DOM
+  setTimeout(function(){
   if(U.tipo==='lider'||U.tipo==='lider_chefe'||U.tipo==='admin'){
     var rw=document.getElementById('ressalva-wrap');
     if(rw){
@@ -1192,6 +1193,7 @@ function renderLancar() {
       window._ressalvaTipo='';
     }
   }
+  },50);
 }
 
 function toggleRessalva(){
