@@ -2466,11 +2466,16 @@ function renderOcorr(){
     +colabField
     +'<div><div class="fl">Obra</div><select class="sel" id="oc-obra"><option value="">Selecione a obra</option>'+oOpts+'</select></div>'
     +'<div><div class="fl">Descricao</div><textarea class="inp" id="oc-obs" rows="3" style="resize:none" placeholder="Descreva detalhadamente..."></textarea></div>'
-    +'<div><div class="fl">Foto (opcional)</div><input type="file" id="oc-foto" accept="image/*" capture="environment" style="font-size:12px;padding:8px;border-radius:10px;border:1px solid var(--border);width:100%;cursor:pointer;"></div>'
+    +'<div style="margin-top:4px;"><div class="fl">Foto (opcional)</div><label id="oc-foto-label" style="display:flex;align-items:center;gap:10px;background:#f9f9f9;border:1px dashed var(--border);border-radius:10px;padding:10px 12px;cursor:pointer;"><span style="font-size:22px;">&#128247;</span><div><div style="font-size:12px;font-weight:700;">Anexar foto</div><div style="font-size:10px;color:var(--sub);" id="oc-foto-nome">Nenhuma foto selecionada</div></div><input type="file" id="oc-foto" accept="image/*" style="display:none;"></label></div>'
     +'<button class="btn-pri" type="button" style="background:#8B0000" onclick="salvarOcorr()">Registrar ocorrencia</button>'
     +'</div></div>'
     +historicoHtml
     +'</div>';
+  setTimeout(function(){
+    var inp=document.getElementById('oc-foto');
+    var nome=document.getElementById('oc-foto-nome');
+    if(inp&&nome) inp.onchange=function(){nome.textContent=this.files[0]?this.files[0].name:'Nenhuma foto selecionada';};
+  },100);
 }
 function selOcorrTipo(t){
   if(t==='marmita'){
