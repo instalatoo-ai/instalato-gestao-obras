@@ -5236,6 +5236,9 @@ function renderReceber(){
     });
   });
 
+  // Cache para o modal de recebimento
+  window.itens_receber_cache=itens;
+
   // Totais
   var totalM2=itens.filter(function(i){return !i.unidade||i.unidade==='m2';}).filter(function(i){return !i.valorFixo;}).reduce(function(s,i){return s+i.area;},0);
   var totalMl=itens.filter(function(i){return i.unidade==='ml';}).filter(function(i){return !i.valorFixo;}).reduce(function(s,i){return s+i.area;},0);
@@ -5517,16 +5520,58 @@ function excluirFaturamento(id){
 function toggleReceber(confId){
   var jaRec=recebimentos.find(function(r){return r.conf_id===confId;});
   if(jaRec){
-    // Remover recebimento
+    if(!confirm('Remover este recebimento?')) return;
     dbDelete('recebimentos',jaRec.id).then(function(ok){
-      if(ok){recebimentos=recebimentos.filter(function(r){return r.id!==jaRec.id;});renderReceber();}
+      if(ok){recebimentos=recebimentos.filter(function(r){return r.id!==jaRec.id;});renderReceber();toast('Recebimento removido.');}
     });
-  } else {
-    // Marcar como recebido
-    dbInsert('recebimentos',{conf_id:confId,data:hoje(),usuario_id:U.id}).then(function(r){
-      if(r){recebimentos=[r].concat(recebimentos);renderReceber();toast('Marcado como recebido!');}
-    });
+    return;
   }
+  // Abrir modal de recebimento
+  var item=itens_receber_cache?itens_receber_cache.find(function(i){return i.confId===confId;}):null;
+  var valorTotal=item?item.valor:0;
+  var ex=document.getElementById('modal-receber-baixa'); if(ex) ex.remove();
+  var el=document.createElement('div');
+  el.className='modal-bg show'; el.id='modal-receber-baixa'; el.style.cssText='z-index:9999;align-items:center;padding:20px;';
+  el.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:380px;overflow:hidden;">'
+    +'<div style="background:#1a3a5c;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<div style="font-size:14px;font-weight:700;color:#fff;">Registrar Recebimento</div>'
+    +'<button id="btn-fecha-rec-baixa" style="background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;">x</button>'
+    +'</div>'
+    +'<div style="padding:16px;display:flex;flex-direction:column;gap:12px;">'
+    +(valorTotal?'<div style="background:#e8f0fb;border-radius:10px;padding:10px 12px;text-align:center;">'
+      +'<div style="font-size:11px;color:var(--sub);">Valor total do item</div>'
+      +'<div style="font-size:22px;font-weight:700;color:#1a3a5c;">'+fmt(valorTotal)+'</div>'
+      +'</div>':'')
+    +'<div><div class="fl">Valor recebido (R$)</div><input class="inp" type="number" id="rec-valor" value="'+(valorTotal?valorTotal.toFixed(2):'')+ '" step="0.01" placeholder="Valor recebido"></div>'
+    +'<div><div class="fl">Data do recebimento</div><input class="inp" type="date" id="rec-data" value="'+hoje()+'"></div>'
+    +'<div><div class="fl">Forma de pagamento</div><select class="sel" id="rec-forma">'
+    +'<option value="PIX">PIX</option>'
+    +'<option value="Transferencia">Transferência</option>'
+    +'<option value="Dinheiro">Dinheiro</option>'
+    +'<option value="Cheque">Cheque</option>'
+    +'<option value="Boleto">Boleto</option>'
+    +'</select></div>'
+    +'<div><div class="fl">Observação (opcional)</div><input class="inp" type="text" id="rec-obs" placeholder="Ex: Pagamento parcial 1/2"></div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button id="btn-cancela-rec-baixa" style="flex:1;padding:11px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:13px;cursor:pointer;">Cancelar</button>'
+    +'<button id="btn-ok-rec-baixa" style="flex:2;padding:11px;border-radius:10px;border:none;background:#1a3a5c;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Confirmar Recebimento</button>'
+    +'</div></div></div>';
+  document.body.appendChild(el);
+  el.querySelector('#btn-fecha-rec-baixa').onclick=function(){el.remove();};
+  el.querySelector('#btn-cancela-rec-baixa').onclick=function(){el.remove();};
+  el.querySelector('#btn-ok-rec-baixa').onclick=function(){
+    var valor=parseFloat(document.getElementById('rec-valor').value)||0;
+    var data=document.getElementById('rec-data').value;
+    var forma=document.getElementById('rec-forma').value;
+    var obs=document.getElementById('rec-obs').value;
+    if(!valor){toast('Informe o valor recebido.');return;}
+    if(!data){toast('Informe a data.');return;}
+    el.remove();
+    dbInsert('recebimentos',{conf_id:confId,data:data,usuario_id:U.id,valor:valor,forma_pagamento:forma,observacao:obs||null}).then(function(r){
+      if(r){recebimentos=[r].concat(recebimentos);renderReceber();toast('Recebimento registrado!');}
+      else toast('Erro ao registrar.');
+    });
+  };
 }
 
 function abrirRelatorioFinanceiro(){
