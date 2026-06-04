@@ -414,7 +414,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div><div class="fl">Obra</div><select class="sel" id="nf-obra"><option value="">Selecione</option></select></div>
     <div class="row2">
       <div><div class="fl">R$/m²</div><input class="inp" id="nf-rate" type="number" placeholder="35"></div>
-      <div><div class="fl">Meta R$</div><input class="inp" id="nf-meta" type="number" placeholder="12000"></div>
+      <div class="row2">
+        <div><div class="fl">Meta R$ mensal</div><input class="inp" id="nf-meta" type="number" placeholder="12000"></div>
+        <div><div class="fl">Meta m² mensal</div><input class="inp" id="nf-meta-m2" type="number" placeholder="200"></div>
+      </div>
     </div>
     <div><div class="fl">Senha</div><input class="inp" id="nf-senha" type="password" placeholder="Mínimo 6 caracteres"></div>
     <div id="nf-lider-wrap" style="display:none;background:#f0e6ff;border-radius:10px;padding:10px 12px;border-left:3px solid #6a0dad;">
@@ -647,7 +650,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div><div class="fl">Obra</div><select class="sel" id="ef-obra"><option value="">Sem obra</option></select></div>
       <div class="row2">
         <div><div class="fl">R$/m²</div><input class="inp" id="ef-rate" type="number"></div>
-        <div><div class="fl">Meta R$</div><input class="inp" id="ef-meta" type="number"></div>
+        <div class="row2">
+          <div><div class="fl">Meta R$</div><input class="inp" id="ef-meta" type="number"></div>
+          <div><div class="fl">Meta m²</div><input class="inp" id="ef-meta-m2" type="number"></div>
+        </div>
       </div>
       <div><div class="fl">Tipo</div>
         <div class="row3">
@@ -1590,8 +1596,48 @@ function renderMeu() {
 
   var m2=meus.reduce(function(s,l){return s+(parseFloat(l.area_m2)||0);},0);
   var meta=parseFloat(U.meta_mensal)||0;
+  var metaM2=parseFloat(U.meta_m2)||0;
   var pct=meta>0?Math.min(Math.round((totalBruto/meta)*100),100):0;
+  var pctM2=metaM2>0?Math.min(Math.round((m2/metaM2)*100),100):0;
   var bonMedia=meus.length?Math.round(meus.reduce(function(s,l){return s+(l.bonus_pct||0);},0)/meus.length):0;
+  // Periodo atual: dia 5 deste mes ao dia 4 do proximo
+  var agora=new Date();
+  var anoAtual=agora.getFullYear(), mesAtual=agora.getMonth();
+  var diaAtual=agora.getDate();
+  // Se antes do dia 5, o periodo iniciou no mes anterior
+  var periodoIniDate, periodoFimDate;
+  if(diaAtual>=5){
+    periodoIniDate=new Date(anoAtual,mesAtual,5);
+    periodoFimDate=new Date(anoAtual,mesAtual+1,4);
+  } else {
+    periodoIniDate=new Date(anoAtual,mesAtual-1,5);
+    periodoFimDate=new Date(anoAtual,mesAtual,4);
+  }
+  function toDateStr(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  var periodoIni=toDateStr(periodoIniDate), periodoFim=toDateStr(periodoFimDate);
+  // Producao do periodo atual (dia 5 ao 4)
+  var meusPeriodo=meusTodos.filter(function(l){return l.data>=periodoIni&&l.data<=periodoFim;});
+  var totalPeriodo=meusPeriodo.reduce(function(s,l){return s+(parseFloat(l.total)||0);},0);
+  var m2Periodo=meusPeriodo.reduce(function(s,l){return s+(parseFloat(l.area_m2)||0);},0);
+  var pctPeriodo=meta>0?Math.min(Math.round((totalPeriodo/meta)*100),100):0;
+  var pctM2Periodo=metaM2>0?Math.min(Math.round((m2Periodo/metaM2)*100),100):0;
+  // Historico das ultimas 6 metas (periodos anteriores)
+  var historicoPeriodos=[];
+  for(var mp=1;mp<=6;mp++){
+    var hIniDate=new Date(periodoIniDate.getFullYear(),periodoIniDate.getMonth()-mp,5);
+    var hFimDate=new Date(periodoIniDate.getFullYear(),periodoIniDate.getMonth()-mp+1,4);
+    var hIni=toDateStr(hIniDate), hFim=toDateStr(hFimDate);
+    var hLancs=meusTodos.filter(function(l){return l.data>=hIni&&l.data<=hFim;});
+    var hTotal=hLancs.reduce(function(s,l){return s+(parseFloat(l.total)||0);},0);
+    var hM2=hLancs.reduce(function(s,l){return s+(parseFloat(l.area_m2)||0);},0);
+    var meses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    historicoPeriodos.push({
+      label:meses[hIniDate.getMonth()]+'/'+hIniDate.getFullYear(),
+      total:hTotal, m2:hM2,
+      pct:meta>0?Math.min(Math.round((hTotal/meta)*100),100):0,
+      pctM2:metaM2>0?Math.min(Math.round((hM2/metaM2)*100),100):0
+    });
+  }
 
   // Filtro periodo
   var filtroPeriodo='<div style="background:#fff;border-radius:14px;border:1px solid var(--border);padding:12px 14px;">'
@@ -1613,9 +1659,50 @@ function renderMeu() {
       +'<div class="hi-r"><div class="hi-v">'+fmt(l.total)+'</div><div class="hi-d">'+fmtD(l.data)+'</div></div></div>';
   }).join('');
 
-  el.innerHTML='<div class="hero" style="background:var(--gold)"><p>Visualizacao · somente leitura</p><h2>Meu resultado</h2></div>'
-    +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'
-    +filtroPeriodo
+  // Card meta periodo atual
+  var nomeMeses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  var metaCardHtml='<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
+    +'<div style="background:var(--dark);padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<div style="font-size:13px;font-weight:700;color:#fff;">🎯 Meta — '+nomeMeses[periodoIniDate.getMonth()]+'</div>'
+    +'<div style="font-size:10px;color:rgba(255,255,255,.6);">'+periodoIni+' a '+periodoFim+'</div>'
+    +'</div>'
+    +'<div style="padding:12px 14px;display:flex;flex-direction:column;gap:10px;">'
+    // Meta Valor
+    +(meta>0?'<div>'
+      +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;">'
+      +'<span style="color:var(--sub);">Valor: '+fmt(totalPeriodo)+' / '+fmt(meta)+'</span>'
+      +'<span style="font-weight:700;color:'+(pctPeriodo>=100?'var(--green)':'var(--gold)')+';">'+pctPeriodo+'%</span>'
+      +'</div>'
+      +'<div style="background:var(--border);border-radius:20px;height:8px;">'
+      +'<div style="background:'+(pctPeriodo>=100?'var(--green)':'var(--gold)')+';width:'+pctPeriodo+'%;height:8px;border-radius:20px;transition:width .3s;"></div>'
+      +'</div></div>':'')
+    // Meta m²
+    +(metaM2>0?'<div>'
+      +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;">'
+      +'<span style="color:var(--sub);">m²: '+m2Periodo.toFixed(1)+' / '+metaM2+'m²</span>'
+      +'<span style="font-weight:700;color:'+(pctM2Periodo>=100?'var(--green)':'#1a3a5c')+';">'+pctM2Periodo+'%</span>'
+      +'</div>'
+      +'<div style="background:var(--border);border-radius:20px;height:8px;">'
+      +'<div style="background:'+(pctM2Periodo>=100?'var(--green)':'#1a3a5c')+';width:'+pctM2Periodo+'%;height:8px;border-radius:20px;transition:width .3s;"></div>'
+      +'</div></div>':'')
+    +((!meta&&!metaM2)?'<div style="font-size:11px;color:var(--sub);">Nenhuma meta definida. Configure em Minha Conta.</div>':'')
+    +'</div>'
+    // Historico ultimas 6 metas
+    +(historicoPeriodos.some(function(h){return h.total>0;})?
+      '<div style="border-top:1px solid var(--border);padding:10px 14px;">'
+      +'<div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Últimas metas</div>'
+      +historicoPeriodos.filter(function(h){return h.total>0||h.m2>0;}).map(function(h){
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);">'
+          +'<span style="font-size:12px;font-weight:700;">'+h.label+'</span>'
+          +'<div style="text-align:right;">'
+          +(meta>0?'<div style="font-size:11px;color:var(--gold);">'+fmt(h.total)+' <span style="color:'+(h.pct>=100?'var(--green)':'var(--sub)')+';">('+h.pct+'%)</span></div>':'')
+          +(metaM2>0?'<div style="font-size:10px;color:var(--sub);">'+h.m2.toFixed(1)+'m² ('+h.pctM2+'%)</div>':'')
+          +'</div></div>';
+      }).join('')
+      +'</div>':'')
+    +'</div>';
+
+  el.innerHTML='<div class="hero" style="background:var(--gold)"><p>Visualizacao · somente leitura</p><h2>Meu resultado</h2></div>'    +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'    +metaCardHtml    +filtroPeriodo
     +'<div class="stat3">'
     +'<div class="stat"><div class="sv">'+fmtK(totalBruto)+'</div><div class="sl">Bruto</div></div>'
     +'<div class="stat"><div class="sv" style="color:var(--red);">'+fmtK(totalDescontos)+'</div><div class="sl">Descontos</div></div>'
@@ -2288,7 +2375,7 @@ function renderOcorr(){
   var tipoGrid=tipos.map(function(t){return '<div class="cat-btn'+(ocorrTipo===t.k?' on':'')+'" data-tk="'+t.k+'" onclick="selOcorrTipo(this.dataset.tk)"><span style="font-size:20px">'+t.i+'</span>'+t.l+'</div>';}).join('');
 
   var lidas=getOcorrLidas();
-  var naoLidas=isGestao?ocorrs.filter(function(oc){return !lidas[oc.id];}):[];
+  var naoLidas=isGestao?ocorrs.filter(function(oc){return !lidas[oc.id];}):ocorrs.filter(function(oc){return (oc.colaborador_id===U.id||oc.registrado_por===U.id)&&!lidas[oc.id];});
 
   // Alertas
   var alertasHtml='';
@@ -2304,7 +2391,7 @@ function renderOcorr(){
         return '<div data-ocid="'+oc.id+'" onclick="abrirOcorr(this.dataset.ocid)" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:#fff8f8;">'
           +'<div style="font-size:24px;">'+(tObj?tObj.i:'⚠️')+'</div>'
           +'<div style="flex:1;">'
-          +'<div style="font-size:13px;font-weight:700;">'+(u?u.apelido:'--')+' registrou uma ocorrencia</div>'
+          +'<div style="font-size:13px;font-weight:700;">'+(function(){var rp=null;for(var ri=0;ri<users.length;ri++)if(users[ri].id===oc.registrado_por){rp=users[ri];break;}return rp?rp.apelido:u?u.apelido:'--';}())+' registrou ocorrencia sobre '+(u?u.apelido:'--')+'</div>'
           +'<div style="font-size:11px;color:var(--sub);">'+(tObj?tObj.l:oc.tipo||'--')+' · '+fmtD(oc.data)+'</div>'
           +'<div style="font-size:11px;color:#8B0000;font-style:italic;margin-top:2px;">"'+(oc.observacao||'').substring(0,60)+'"</div>'
           +'</div>'
@@ -2315,7 +2402,8 @@ function renderOcorr(){
   }
 
   // Historico
-  var hist=ocorrs.slice(0,30).map(function(oc){
+  var ocorrsFiltradas=(isFunc?ocorrs.filter(function(oc){return oc.colaborador_id===U.id||oc.registrado_por===U.id;}):ocorrs);
+  var hist=ocorrsFiltradas.slice(0,30).map(function(oc){
     var u=null; for(var i=0;i<users.length;i++) if(users[i].id===oc.colaborador_id){u=users[i];break;}
     var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===oc.obra_id){o=obras[i];break;}
     var tObj=null; for(var i=0;i<tipos.length;i++) if(tipos[i].k===oc.tipo){tObj=tipos[i];break;}
@@ -2324,8 +2412,10 @@ function renderOcorr(){
     return '<div data-ocid="'+oc.id+'" onclick="abrirOcorr(this.dataset.ocid)" style="cursor:pointer;border-left:3px solid '+(jaNaoLida?'#8B0000':'var(--border)')+';" class="hi">'
       +'<div class="hi-ico">'+(tObj?tObj.i:'⚠️')+'</div>'
       +'<div class="hi-b">'
-      +'<div class="hi-t">'+(u?u.apelido:'--')+' · '+(tObj?tObj.l:oc.tipo||'--')+'</div>'
+      var reg5=null; for(var ri=0;ri<users.length;ri++) if(users[ri].id===oc.registrado_por){reg5=users[ri];break;}
+    +'<div class="hi-t">'+(u?u.apelido:'--')+' · '+(tObj?tObj.l:oc.tipo||'--')+'</div>'
       +'<div class="hi-s">'+(o?o.nome:'Sem obra')+'</div>'
+      +(reg5&&reg5.id!==oc.colaborador_id?'<div style="font-size:10px;color:var(--gold);font-weight:700;">Registrado por: '+reg5.apelido+'</div>':'')
       +(oc.observacao?'<div class="hi-s" style="font-style:italic;">"'+oc.observacao.substring(0,60)+'"</div>':'')
       +(comentarios.length?'<div style="font-size:10px;color:var(--sub);margin-top:2px;">💬 '+comentarios.length+' comentario(s)</div>':'')
       +'</div>'
@@ -2335,10 +2425,10 @@ function renderOcorr(){
   }).join('');
 
   var colabField=isFunc
-    ?'<div><div class="fl">Colaborador</div><div class="inp" style="color:var(--sub);">'+U.apelido+' (voce)</div></div>'
-    :'<div><div class="fl">Colaborador</div><select class="sel" id="oc-colab"><option value="">Selecione</option>'+fOpts+'</select></div>';
+    ?'<div><div class="fl">Ocorrencia sobre (colaborador)</div><select class="sel" id="oc-colab"><option value="'+U.id+'">'+U.apelido+' (eu mesmo)</option>'+fOpts+'</select></div>'
+    :'<div><div class="fl">Ocorrencia sobre (colaborador)</div><select class="sel" id="oc-colab"><option value="">Selecione</option>'+fOpts+'</select></div>';
 
-  var minhasOcorrs=isFunc?ocorrs.filter(function(oc){return oc.colaborador_id===U.id;}):[];
+  var minhasOcorrs=isFunc?ocorrs.filter(function(oc){return oc.colaborador_id===U.id||oc.registrado_por===U.id;}):[];
   var minhasHtml=minhasOcorrs.map(function(oc){
     var tObj2=null; for(var i=0;i<tipos.length;i++) if(tipos[i].k===oc.tipo){tObj2=tipos[i];break;}
     var respostas2=[]; try{respostas2=JSON.parse(oc.respostas||'[]');}catch(e){}
@@ -2376,6 +2466,7 @@ function renderOcorr(){
     +colabField
     +'<div><div class="fl">Obra</div><select class="sel" id="oc-obra"><option value="">Selecione a obra</option>'+oOpts+'</select></div>'
     +'<div><div class="fl">Descricao</div><textarea class="inp" id="oc-obs" rows="3" style="resize:none" placeholder="Descreva detalhadamente..."></textarea></div>'
+    +'<div><div class="fl">Foto (opcional)</div><input type="file" id="oc-foto" accept="image/*" capture="environment" style="font-size:12px;padding:8px;border-radius:10px;border:1px solid var(--border);width:100%;cursor:pointer;"></div>'
     +'<button class="btn-pri" type="button" style="background:#8B0000" onclick="salvarOcorr()">Registrar ocorrencia</button>'
     +'</div></div>'
     +historicoHtml
@@ -2486,6 +2577,8 @@ function abrirOcorr(id){
     +'</div>'
     +'<div style="font-size:12px;color:var(--sub);margin-bottom:4px;">'+(o?o.nome:'Sem obra')+'</div>'
     +'<div style="font-size:13px;font-style:italic;color:#333;">"'+(oc.observacao||'')+'"</div>'
+    +(function(){var rp=null;for(var ri=0;ri<users.length;ri++)if(users[ri].id===oc.registrado_por){rp=users[ri];break;}return rp&&rp.id!==oc.colaborador_id?'<div style="font-size:10px;color:var(--gold);font-weight:700;margin-top:4px;">Registrado por: '+rp.apelido+'</div>':'';}())
+    +(oc.foto?'<div style="margin-top:8px;"><img src="'+oc.foto+'" style="width:100%;border-radius:10px;max-height:200px;object-fit:cover;"></div>':'')
     +'</div>'
     // Lidas por (so gestao ve)
     +(isGestao?'<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:6px;">Lido por</div>'
@@ -2630,13 +2723,25 @@ function abrirOcorrFunc(id){
 
 function salvarOcorr(){
   if(!ocorrTipo){toast('Selecione o tipo.');return;}
-  var isFunc=(U.tipo==='func');
-  var cId=isFunc?U.id:val('oc-colab');
+  var cId=val('oc-colab');
   var oId=val('oc-obra'), obs=val('oc-obs');
   if(!cId){toast('Selecione o colaborador.');return;}
   if(!obs){toast('Descreva a ocorrencia.');return;}
-  dbInsert('ocorrencias',{colaborador_id:cId,obra_id:oId||null,tipo:ocorrTipo,observacao:obs,registrado_por:U.id,data:hoje(),hora:horaAgora()})
-  .then(function(r){if(r){toast('Ocorrencia registrada!');ocorrs=[r].concat(ocorrs);ocorrTipo='';renderOcorr();atualizarBadgeOcorr();}});
+  var fotoInput=document.getElementById('oc-foto');
+  function doSalvar(fotoB64){
+    var obj={colaborador_id:cId,obra_id:oId||null,tipo:ocorrTipo,observacao:obs,registrado_por:U.id,data:hoje(),hora:horaAgora()};
+    if(fotoB64) obj.foto=fotoB64;
+    dbInsert('ocorrencias',obj).then(function(r){
+      if(r){toast('Ocorrencia registrada!');ocorrs=[r].concat(ocorrs);ocorrTipo='';renderOcorr();atualizarBadgeOcorr();}
+    });
+  }
+  if(fotoInput&&fotoInput.files&&fotoInput.files[0]){
+    var reader=new FileReader();
+    reader.onload=function(e){doSalvar(e.target.result);};
+    reader.readAsDataURL(fotoInput.files[0]);
+  } else {
+    doSalvar(null);
+  }
 }
 
 function delOcorr(id){
@@ -8235,7 +8340,8 @@ function cadastrarFunc(){
   if(!pw||pw.length<6){toast('⚠️ Senha mínimo 6 caracteres.');return;}
   var isLiderCb=getEl('nf-is-lider');
   var isLiderVal=isLiderCb?isLiderCb.checked:false;
-  dbInsert('usuarios',{nome:nome,apelido:ap,telefone:val('nf-tel'),tipo:novoTipo,is_lider:isLiderVal,
+  var metaM2Nf=parseFloat(getEl('nf-meta-m2')?getEl('nf-meta-m2').value:0)||0;
+  dbInsert('usuarios',{nome:nome,apelido:ap,telefone:val('nf-tel'),tipo:novoTipo,is_lider:isLiderVal,meta_m2:metaM2Nf,
     obra_id:val('nf-obra')||null,rate_m2:parseFloat(getEl('nf-rate').value)||35,
     meta_mensal:parseFloat(getEl('nf-meta').value)||0,senha:pw,ativo:true})
   .then(function(r){
@@ -8259,6 +8365,7 @@ function abrirEditFunc(id){
   sel.innerHTML='<option value="">Sem obra</option>'+obras.map(function(o){return '<option value="'+o.id+'"'+(u.obra_id===o.id?' selected':'')+'>'+o.nome+'</option>';}).join('');
   // Carregar tipo atual
   novoTipoEdit=u.tipo||'func';
+  var efMetaM2=getEl('ef-meta-m2'); if(efMetaM2) efMetaM2.value=u.meta_m2||'';
   var etLiderWrap=getEl('et-lider-wrap');
   if(etLiderWrap) etLiderWrap.style.display=(novoTipoEdit==='admin'||novoTipoEdit==='lider_chefe')?'block':'none';
   var etIsLider=getEl('et-is-lider');
@@ -8276,7 +8383,8 @@ function salvarEditFunc(){
   var obj={nome:nome,apelido:apelido,telefone:val('ef-tel'),obra_id:val('ef-obra')||null,
     rate_m2:parseFloat(getEl('ef-rate').value)||35,meta_mensal:parseFloat(getEl('ef-meta').value)||0,
     tipo:novoTipoEdit||'func',
-    is_lider:etIsLiderCb?etIsLiderCb.checked:false};
+    is_lider:etIsLiderCb?etIsLiderCb.checked:false,
+    meta_m2:parseFloat(document.getElementById('ef-meta-m2')?document.getElementById('ef-meta-m2').value:0)||0};
   var pw=val('ef-senha');
   if(pw){if(pw.length<6){toast('⚠️ Senha mínimo 6 caracteres.');return;}obj.senha=pw;}
   dbUpdate('usuarios',editFuncId,obj).then(function(ok){
