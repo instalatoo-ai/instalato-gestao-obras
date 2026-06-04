@@ -326,6 +326,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="sec-lbl">Portal do Cliente</div>
     <div class="cfg-item" onclick="openSub('clientes')"><div class="ci-ico" style="background:#e8f0fb">👥</div><div><div class="ci-nm">Clientes</div><div class="ci-ds">Gerenciar acessos ao portal</div></div><span style="color:#ccc;font-size:20px;margin-left:auto">›</span></div>
     <div class="cfg-item" onclick="openSub('novocliente')"><div class="ci-ico" style="background:#eafaf1">➕</div><div><div class="ci-nm">Cadastrar cliente</div><div class="ci-ds">Novo acesso ao portal</div></div><span style="color:#ccc;font-size:20px;margin-left:auto">›</span></div>
+    <div class="sec-lbl">Equipe</div>
+    <div class="cfg-item" onclick="openSub('metas')"><div class="ci-ico" style="background:#e8f5e9">🎯</div><div><div class="ci-nm">Metas</div><div class="ci-ds">Definir meta R$ e m² por funcionário</div></div><span style="color:#ccc;font-size:20px;margin-left:auto">›</span></div>
     <div class="sec-lbl">Financeiro</div>
     <div class="cfg-item" onclick="openSub('cfg-marmita');atualizarValorMarmitaCfg()"><div class="ci-ico" style="background:#fdf3e3">🍱</div><div><div class="ci-nm">Valor da Marmita</div><div class="ci-ds">Preco cobrado por refeicao</div></div><span style="color:#ccc;font-size:20px;margin-left:auto">›</span></div>
     <div class="sec-lbl">Conta</div>
@@ -437,6 +439,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="sub-body"><div class="pad"><div id="clientes-list"></div></div></div>
 </div>
 
+<div class="sub-pg" id="sub-metas">
+  <div class="sub-hdr"><button class="btn-bk" type="button" onclick="closeSub('metas')">&#8592;</button><div><div class="sub-t">Metas dos Funcionarios</div></div></div>
+  <div class="sub-body"><div class="pad" id="metas-lista" style="display:flex;flex-direction:column;gap:8px;"></div></div>
+</div>
 <div class="sub-pg" id="sub-novocliente">
   <div class="sub-hdr"><button class="btn-bk" type="button" onclick="closeSub('novocliente')">←</button><div><div class="sub-t">Novo Cliente</div></div></div>
   <div class="sub-body"><div class="pad">
@@ -898,7 +904,7 @@ function startApp() {
   var s = getEl('shell');
   s.style.display = 'flex'; s.style.flexDirection = 'column';
   getEl('tb-info').textContent = U.apelido + ' · ' + (U.tipo === 'admin' ? 'Admin' : U.tipo === 'lider' ? 'Líder' : 'Funcionário');
-  if(U.tipo === 'admin') { getEl('btn-cfg').style.display = 'block'; getEl('btn-cfg').onclick = function() { openSub('cfg'); }; }
+  if(U.tipo==='admin'||U.tipo==='lider'||U.tipo==='lider_chefe') { getEl('btn-cfg').style.display = 'block'; getEl('btn-cfg').onclick = function() { openSub(U.tipo==='admin'?'cfg':'metas'); }; }
   buildNav();
   carregarLogoSalva();
   Promise.all([
@@ -933,7 +939,7 @@ function buildNav() {
   tabs.push({id:'meu',i:'📊',l:'Meu Resultado'});
   tabs.push({id:'medicoes',i:'📋',l:'Medicoes'});
   tabs.push({id:'hist',i:'📋',l:'Histórico'});
-  if(T==='admin') tabs.push({id:'conf',i:'✅',l:'Conferência'});
+  if(T==='admin'||T==='lider_chefe') tabs.push({id:'conf',i:'✅',l:'Conferência'});
   tabs.push({id:'ponto',i:'📍',l:'Ponto'});
   if(T==='admin'||T==='lider'||T==='lider_chefe') tabs.push({id:'mat',i:'📦',l:'Materiais'});
   tabs.push({id:'meumat',i:'📦',l:'Meus Mat.'});
@@ -1079,6 +1085,7 @@ function marcarOcorrsLidas(){
 function renderAll() {
   var T = U.tipo;
   if(T==='admin'||T==='lider'||T==='lider_chefe') { renderLancar(); renderHist(); }
+  if(T==='admin'||T==='lider_chefe') renderConf();
   if(T==='func') renderHist();
   renderPonto();
   renderMedicoesFuncionario();
@@ -1861,8 +1868,8 @@ function confirmarDesaprovar(confId){
 function renderHistFiltro() {
   var oId=getEl('hf-obra')?getEl('hf-obra').value:'';
   var fId=getEl('hf-func')?getEl('hf-func').value:'';
-  var isAdmin=U&&(U.tipo==='admin'||U.tipo==='lider_chefe');
-  // lider/func so veem os proprios lancamentos
+  var isAdmin=U&&(U.tipo==='admin'||U.tipo==='lider'||U.tipo==='lider_chefe');
+  // func so vee os proprios lancamentos; lider e admin veem todos
   var lista=isAdmin?lancs:lancs.filter(function(l){return l.usuario_id===U.id;});
   if(oId) lista=lista.filter(function(l){return l.obra_id===oId;});
   if(fId) lista=lista.filter(function(l){return l.usuario_id===fId;});
@@ -4268,12 +4275,41 @@ function delAviso(id){
 }
 
 // ── CONFIG ──
+function renderMetasCfg(){
+  var el=document.getElementById('metas-lista'); if(!el) return;
+  var lista=users.filter(function(u){return u.ativo;});
+  el.innerHTML=lista.map(function(u){
+    return '<div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:12px 14px;">'
+      +'<div style="font-size:13px;font-weight:700;margin-bottom:8px;">'+u.apelido+'</div>'
+      +'<div class="row2">'
+      +'<div><div class="fl">Meta R$/mês</div><input class="inp" type="number" id="meta-r-'+u.id+'" value="'+(u.meta_mensal||'')+'" placeholder="Ex: 12000"></div>'
+      +'<div><div class="fl">Meta m²/mês</div><input class="inp" type="number" id="meta-m-'+u.id+'" value="'+(u.meta_m2||'')+'" placeholder="Ex: 200"></div>'
+      +'</div>'
+      +'<button data-uid="'+u.id+'" onclick="salvarMetaFunc(this.dataset.uid)" style="margin-top:8px;width:100%;padding:9px;border-radius:10px;border:none;background:var(--green);color:#fff;font-size:12px;font-weight:700;cursor:pointer;">Salvar</button>'
+      +'</div>';
+  }).join('');
+}
+
+function salvarMetaFunc(uid){
+  var r=parseFloat(document.getElementById('meta-r-'+uid)?document.getElementById('meta-r-'+uid).value:0)||0;
+  var m=parseFloat(document.getElementById('meta-m-'+uid)?document.getElementById('meta-m-'+uid).value:0)||0;
+  dbUpdate('usuarios',uid,{meta_mensal:r,meta_m2:m}).then(function(ok){
+    if(ok){
+      for(var i=0;i<users.length;i++) if(users[i].id===uid){users[i].meta_mensal=r;users[i].meta_m2=m;break;}
+      // Atualizar U se for o proprio usuario
+      if(U.id===uid){U.meta_mensal=r;U.meta_m2=m;}
+      toast('Meta salva!');
+    } else toast('Erro ao salvar.');
+  });
+}
+
 function openSub(id){
   getEl('sub-'+id).classList.add('on');
   if(id==='obras') renderObrasCfg();
   if(id==='funcs') renderFuncs();
   if(id==='empresa') setTimeout(carregarLogoSalva, 50);
   if(id==='clientes') renderClientesCfg();
+  if(id==='metas') renderMetasCfg();
   if(id==='novocliente'){
     var ncLista=getEl('nc-obras-lista');
     if(ncLista) ncLista.innerHTML=obras.map(function(o){
