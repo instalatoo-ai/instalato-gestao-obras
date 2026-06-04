@@ -7512,6 +7512,36 @@ function salvarFaturamentoManual(){
   });
 }
 
+function trocarFotoPerfil(input){
+  if(!input.files||!input.files[0]) return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var img=new Image();
+    img.onload=function(){
+      var canvas=document.createElement('canvas');
+      var size=200;
+      canvas.width=size; canvas.height=size;
+      var ctx=canvas.getContext('2d');
+      // Crop centro
+      var sx=0,sy=0,sw=img.width,sh=img.height;
+      if(img.width>img.height){sx=(img.width-img.height)/2;sw=img.height;}
+      else{sy=(img.height-img.width)/2;sh=img.width;}
+      ctx.drawImage(img,sx,sy,sw,sh,0,0,size,size);
+      var b64=canvas.toDataURL('image/jpeg',0.8);
+      dbUpdate('usuarios',U.id,{foto_perfil:b64}).then(function(ok){
+        if(ok){
+          U.foto_perfil=b64;
+          for(var i=0;i<users.length;i++) if(users[i].id===U.id){users[i].foto_perfil=b64;break;}
+          toast('Foto atualizada!');
+          renderConta();
+        } else toast('Erro ao salvar foto.');
+      });
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
 function renderConta(){
   var el=getEl('t-conta'); if(!el) return;
   var cores=['#B8860B','#185FA5','#1D9E75','#534AB7','#CC0000'];
@@ -7521,7 +7551,15 @@ function renderConta(){
     +'<div class="pad">'
     // Avatar e info
     +'<div style="display:flex;flex-direction:column;align-items:center;padding:20px;background:var(--gray);border-radius:14px;gap:10px;">'
-    +'<div style="width:72px;height:72px;border-radius:50%;background:'+cor+';display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#fff;">'+U.apelido.slice(0,2).toUpperCase()+'</div>'
+    +'<div style="position:relative;width:72px;height:72px;">'
+    +(U.foto_perfil
+      ?'<img src="'+U.foto_perfil+'" style="width:72px;height:72px;border-radius:50%;object-fit:cover;">'
+      :'<div style="width:72px;height:72px;border-radius:50%;background:'+cor+';display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#fff;">'+U.apelido.slice(0,2).toUpperCase()+'</div>')
+    +'<div id="btn-trocar-foto" style="position:absolute;bottom:0;right:0;width:24px;height:24px;border-radius:50%;background:#1a3a5c;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid #fff;">'
+    +'<span style="color:#fff;font-size:13px;">&#128247;</span>'
+    +'</div>'
+    +'<input type="file" id="input-foto-perfil" accept="image/*" style="display:none;">'
+    +'</div>'
     +'<div style="text-align:center;">'
     +'<div style="font-size:18px;font-weight:700;color:#111;">'+U.nome+'</div>'
     +'<div style="font-size:13px;color:var(--sub);margin-top:2px;">@'+U.apelido+'</div>'
@@ -7548,6 +7586,13 @@ function renderConta(){
     // Sair
     +'<button type="button" onclick="doLogout()" style="width:100%;padding:13px;background:transparent;color:var(--red);border:1.5px solid var(--red);border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">🚪 Sair do sistema</button>'
     +'</div>';
+  // Listener foto perfil
+  var btnFoto=document.getElementById('btn-trocar-foto');
+  var inputFoto=document.getElementById('input-foto-perfil');
+  if(btnFoto&&inputFoto){
+    btnFoto.onclick=function(){inputFoto.click();};
+    inputFoto.onchange=function(){trocarFotoPerfil(this);};
+  }
 }
 
 function alterarSenha(){
@@ -8336,7 +8381,9 @@ function renderFuncs(){
   el.innerHTML=lista.map(function(u,idx){
     return '<div class="u-card" style="opacity:'+(u.ativo?1:.55)+'">'
       +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
-      +'<div class="u-av" style="background:'+cores[idx%5]+'">'+u.apelido.slice(0,2).toUpperCase()+'</div>'
+      +(u.foto_perfil
+        ?'<img src="'+u.foto_perfil+'" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;">'
+        :'<div class="u-av" style="background:'+cores[idx%5]+'">'+u.apelido.slice(0,2).toUpperCase()+'</div>')
       +'<div style="flex:1"><div style="font-size:13px;font-weight:700">'+u.apelido+' <span class="chip chip-g">'+(u.tipo==='admin'?'Admin':u.tipo==='lider_chefe'?'L.Chefe':u.tipo==='lider'?'Líder':'Func.')+'</span></div>'
       +'<div style="font-size:11px;color:var(--sub)">'+u.nome+(u.ativo?'':' · Desativado')+'</div>'
       +(u.telefone?'<div style="font-size:11px;color:var(--sub)">'+u.telefone+'</div>':'')+'</div></div>'
