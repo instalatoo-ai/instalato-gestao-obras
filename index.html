@@ -1165,8 +1165,64 @@ function renderLancar() {
     +'</label>'
     +'<button type="button" id="l-foto-remover" onclick="removerFoto()" style="display:none;padding:10px 14px;border-radius:10px;border:1px solid var(--red);background:transparent;color:var(--red);font-size:11px;font-weight:700;cursor:pointer;">✕</button>'
     +'</div></div>'
+    +'<div id="ressalva-wrap"></div>'
     +'<button class="btn-gold" type="button" onclick="salvarLanc()">✅ Salvar produção</button></div>';
   renderBonusList();
+  // Injetar ressalva para lider/admin via DOM
+  if(U.tipo==='lider'||U.tipo==='lider_chefe'||U.tipo==='admin'){
+    var rw=document.getElementById('ressalva-wrap');
+    if(rw){
+      var el2=document.createElement('div');
+      el2.style.cssText='background:#fff3cd;border-radius:10px;border-left:3px solid #B8860B;padding:10px 12px;margin-bottom:8px;';
+      el2.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;">'
+        +'<div style="font-size:11px;font-weight:700;color:#854F0B;">&#9888; Ressalva (opcional)</div>'
+        +'<button type="button" id="btn-toggle-ressalva" style="font-size:10px;padding:2px 8px;border-radius:20px;border:1px solid #B8860B;background:transparent;color:#B8860B;cursor:pointer;">+ Adicionar</button>'
+        +'</div>'
+        +'<div id="ressalva-campos" style="display:none;flex-direction:column;gap:8px;margin-top:8px;">'
+        +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+        +'<button type="button" class="res-opt" data-v="Pendente de reparo" style="font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid #B8860B;background:transparent;color:#B8860B;cursor:pointer;">Pendente de reparo</button>'
+        +'<button type="button" class="res-opt" data-v="Inacabado" style="font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid #B8860B;background:transparent;color:#B8860B;cursor:pointer;">Inacabado</button>'
+        +'<button type="button" class="res-opt" data-v="Outros" style="font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid #B8860B;background:transparent;color:#B8860B;cursor:pointer;">Outros</button>'
+        +'</div>'
+        +'<input class="inp" type="text" id="ressalva-texto" placeholder="Detalhe a ressalva..." style="display:none;">'
+        +'</div>';
+      rw.appendChild(el2);
+      document.getElementById('btn-toggle-ressalva').onclick=toggleRessalva;
+      rw.querySelectorAll('.res-opt').forEach(function(b){b.onclick=function(){selRessalva(this);};});
+      window._ressalvaTipo='';
+    }
+  }
+}
+
+function toggleRessalva(){
+  var campos=document.getElementById('ressalva-campos');
+  var btn=document.getElementById('btn-toggle-ressalva');
+  if(!campos) return;
+  var show=campos.style.display==='none'||campos.style.display==='';
+  campos.style.display=show?'flex':'none';
+  if(btn) btn.textContent=show?'✕ Remover':'+ Adicionar';
+  if(!show){
+    document.querySelectorAll('.res-opt').forEach(function(b){b.style.background='transparent';b.style.color='#B8860B';});
+    var txt=document.getElementById('ressalva-texto');
+    if(txt){txt.style.display='none';txt.value='';}
+    window._ressalvaTipo='';
+  }
+}
+
+function selRessalva(btn){
+  document.querySelectorAll('.res-opt').forEach(function(b){b.style.background='transparent';b.style.color='#B8860B';b.style.fontWeight='';});
+  btn.style.background='#B8860B'; btn.style.color='#fff'; btn.style.fontWeight='700';
+  window._ressalvaTipo=btn.getAttribute('data-v');
+  var txt=document.getElementById('ressalva-texto');
+  if(txt) txt.style.display=window._ressalvaTipo==='Outros'?'block':'none';
+}
+
+function getRessalva(){
+  var campos=document.getElementById('ressalva-campos');
+  if(!campos||campos.style.display==='none'||campos.style.display==='') return null;
+  if(!window._ressalvaTipo) return null;
+  var obs=window._ressalvaTipo==='Outros'?(document.getElementById('ressalva-texto')?document.getElementById('ressalva-texto').value.trim():''):window._ressalvaTipo;
+  return obs||window._ressalvaTipo;
 }
 
 function renderBonusList() {
@@ -1562,7 +1618,8 @@ function salvarLanc() {
   pct=Math.min(pct,10);
   var bval=base*(pct/100), tot=base+extTotal+bval;
   var fotoData=window._fotoBase64||null;
-  dbInsert('lancamentos',{obra_id:oId,usuario_id:fId,lancado_por:U.id,apartamento:apto,ambiente:amb,area_m2:area,rate_m2:rate,valor_base:base,extras:JSON.stringify(extras),extras_total:extTotal,bonus_pct:pct,bonus_valor:bval,total:tot,data:hoje(),hora:horaAgora(),foto:fotoData})
+  var ressalvaVal=getRessalva();
+  dbInsert('lancamentos',{obra_id:oId,usuario_id:fId,lancado_por:U.id,apartamento:apto,ambiente:amb,area_m2:area,rate_m2:rate,valor_base:base,extras:JSON.stringify(extras),extras_total:extTotal,bonus_pct:pct,bonus_valor:bval,total:tot,data:hoje(),hora:horaAgora(),foto:fotoData,ressalva:ressalvaVal||null})
   .then(function(r) {
     if(r){toast('✅ Producao salva! '+fmt(tot));window._fotoBase64=null;lancs=[r].concat(lancs);renderLancar();renderMeu();}
   });
@@ -1830,6 +1887,18 @@ function renderHist() {
   renderHistFiltro();
 }
 
+function removerRessalva(lancId){
+  if(!confirm('Confirmar que a ressalva foi resolvida e remover?')) return;
+  dbUpdate('lancamentos',lancId,{ressalva:null}).then(function(ok){
+    if(ok){
+      for(var i=0;i<lancs.length;i++) if(lancs[i].id===lancId){lancs[i].ressalva=null;break;}
+      toast('Ressalva removida! Lançamento pode ser aprovado.');
+      renderHistFiltro();
+      renderConf();
+    } else toast('Erro ao remover ressalva.');
+  });
+}
+
 function desaprovarConf(confId){
   var c=null; for(var i=0;i<confs.length;i++) if(confs[i].id===confId){c=confs[i];break;}
   if(!c) return;
@@ -1900,6 +1969,7 @@ function renderHistFiltro() {
           +'<button type="button" data-lid="'+l.id+'" onclick="editarLanc(this.dataset.lid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;font-weight:700;">Editar</button>'
           +'<button type="button" data-lid="'+l.id+'" onclick="excluirLanc(this.dataset.lid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;font-weight:700;">Excluir</button>'
           +(confReg&&confStatus==='aprovado'?'<button type="button" data-cid="'+confReg.id+'" onclick="desaprovarConf(this.dataset.cid)" style="flex:1;font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--sub);background:transparent;color:var(--sub);cursor:pointer;font-weight:700;">Desaprovar</button>':'')
+          +(l.ressalva?'<button type="button" data-lid="'+l.id+'" onclick="removerRessalva(this.dataset.lid)" style="font-size:10px;padding:4px 10px;border-radius:20px;border:1px solid #B8860B;background:#fff3cd;color:#854F0B;cursor:pointer;font-weight:700;">&#10003; Resolver Ressalva</button>':'')
           +'</div>';
       }
     }
@@ -1907,6 +1977,7 @@ function renderHistFiltro() {
       +'<div class="hi-t">'+(u?u.apelido:'--')+' - '+(l.ambiente||'--')+' - Apto '+(l.apartamento||'--')+'</div>'
       +'<div class="hi-s">'+(o?o.nome:'--')+' - '+l.area_m2+'m2 - bonus '+l.bonus_pct+'%</div>'
       +'<div style="font-size:10px;font-weight:700;color:'+statusCor+';margin-top:2px;">'+statusTxt+'</div>'
+      +(l.ressalva?'<div style="font-size:10px;background:#fff3cd;color:#854F0B;font-weight:700;padding:2px 8px;border-radius:20px;display:inline-block;margin-top:3px;">⚠️ Ressalva: '+l.ressalva+'</div>':'')
       +btns+'</div>'
       +'<div class="hi-r"><div class="hi-v">'+fmt(l.total)+'</div><div class="hi-d">'+fmtD(l.data)+'</div></div></div>';
   }).join('') || '<div class="empty"><p>Nenhum registro encontrado.</p></div>';
@@ -2125,6 +2196,14 @@ function salvarConf(){
   if(lancId&&!window._editConfId){
     var jaConf=confs.some(function(c){return c.lancamento_id===lancId&&c.status==='aprovado';});
     if(jaConf){toast('Este lancamento ja tem conferencia aprovada. Desaprove antes.');return;}
+  }
+  // Bloquear aprovacao se lancamento tem ressalva ativa
+  if(confSt==='aprovado'&&lancId){
+    var lRessalva=lancs.find(function(l){return l.id===lancId;});
+    if(lRessalva&&lRessalva.ressalva){
+      toast('⚠️ Ressalva ativa: "'+lRessalva.ressalva+'". Resolva antes de aprovar.');
+      return;
+    }
   }
   var ambientes=amb.split(', ');
   var promises=ambientes.map(function(ambUnico){
