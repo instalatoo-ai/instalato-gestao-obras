@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0044)file:///C:/Users/Inae/Downloads/index_7.html -->
+<!-- saved from url=(0044)file:///C:/Users/Inae/Downloads/index_8.html -->
 <html lang="pt-BR"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
   <link href="file:///C:/Users/Inae/Downloads/index_files/css2" rel="stylesheet">
@@ -266,8 +266,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <button class="btn-entrar" id="btn-entrar" type="button">Entrar</button>
   <div class="verse-box">
     <div class="vl">✨ Palavra do dia</div>
-    <div class="vt" id="vt">"Com paciência corramos a carreira que nos está proposta, olhando para Jesus."</div>
-    <div class="vr" id="vr">-- Hebreus 12:1-2</div>
+    <div class="vt" id="vt">"Buscai primeiro o reino de Deus e a sua justiça, e todas essas coisas vos serão acrescentadas."</div>
+    <div class="vr" id="vr">-- Mateus 6:33</div>
   </div>
   <div style="margin:14px 0;display:flex;align-items:center;gap:10px;width:100%;">
     <div style="flex:1;height:1px;background:var(--border);"></div>
@@ -1262,15 +1262,15 @@ function renderHome(){
   var metaValor=parseFloat(U.meta_mensal)||0;
   var metaM2val=parseFloat(U.meta_m2)||0;
   var agora2=new Date(); var d2=agora2.getDate(); var mes2=agora2.getMonth(); var ano2=agora2.getFullYear();
-  var pIni=new Date(ano2,d2>=5?mes2:mes2-1,5);
+  var pIni=new Date(ano2,d2>=5?mes2:mes2-1,5); if(isNaN(pIni.getTime())) pIni=new Date();
   var pFim=new Date(ano2,d2>=5?mes2+1:mes2,4);
   function td(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
   var piStr=td(pIni),pfStr=td(pFim);
   var meusPeriodo=lancs.filter(function(l){return l.usuario_id===U.id&&l.data>=piStr&&l.data<=pfStr;});
   var totalP=meusPeriodo.reduce(function(s,l){return s+(parseFloat(l.total)||0);},0);
   var m2P=meusPeriodo.reduce(function(s,l){return s+(parseFloat(l.area_m2)||0);},0);
-  var pctV=metaValor>0?Math.min(Math.round(totalP/metaValor*100),150):0;
-  var pctM=metaM2val>0?Math.min(Math.round(m2P/metaM2val*100),150):0;
+  var pctV=metaValor>0&&!isNaN(totalP)?Math.min(Math.round(totalP/metaValor*100),150):0;
+  var pctM=metaM2val>0&&!isNaN(m2P)?Math.min(Math.round(m2P/metaM2val*100),150):0;
   var meses2=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   var histV=[]; var histM=[];
   for(var hp=5;hp>=0;hp--){
@@ -1279,8 +1279,8 @@ function renderHome(){
     var hL=lancs.filter(function(l){var hi=td(hIni),hf=td(hFim);return l.usuario_id===U.id&&l.data>=hi&&l.data<=hf;});
     var hT=hL.reduce(function(s,l){return s+(parseFloat(l.total)||0);},0);
     var hM2=hL.reduce(function(s,l){return s+(parseFloat(l.area_m2)||0);},0);
-    histV.push(metaValor>0?Math.min(Math.round(hT/metaValor*100),150):0);
-    histM.push(metaM2val>0?Math.min(Math.round(hM2/metaM2val*100),150):0);
+    histV.push(metaValor>0&&!isNaN(hT)?Math.min(Math.round(hT/metaValor*100),150):0);
+    histM.push(metaM2val>0&&!isNaN(hM2)?Math.min(Math.round(hM2/metaM2val*100),150):0);
   }
   var histLabels=[];
   for(var hp2=5;hp2>=0;hp2--){
@@ -1292,7 +1292,7 @@ function renderHome(){
   var equipeHtml='';
   if(isGestao){
     var hoje3=hoje();
-    var usersAtivos=users.filter(function(u){return u.ativo&&u.tipo!=='admin';});
+    var usersAtivos=users.filter(function(u){return u.ativo;});
     // Agrupar por obra
     var porObra2={};
     usersAtivos.forEach(function(u){
@@ -1313,6 +1313,8 @@ function renderHome(){
         todosUsers.push({u:item.u,lancsU:item.lancsU,obraNome:ok==='sem'?'':g.nome,cor:cor,online:item.lancsU.length>0});
       });
     });
+    // Mostrar apenas online
+    todosUsers=todosUsers.filter(function(item){return item.online;});
     todosUsers.sort(function(a,b){return (b.online?1:0)-(a.online?1:0);});
     var rows=todosUsers.map(function(item){
       var u2=item.u; var cor=item.cor; var online=item.online;
@@ -1328,8 +1330,10 @@ function renderHome(){
         +'<span style="font-size:9px;font-weight:700;color:'+(online?'#1e8449':'#aaa')+';white-space:nowrap;">'+(online?'● Online':'○ Offline')+'</span>'
         +'</div>';
     }).join('');
-    equipeHtml='<div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;padding:8px 10px 4px;">Equipe online agora</div>'
-      +'<div style="background:#fff;border-radius:12px;margin:0 10px 8px;border:1px solid var(--border);overflow:hidden;">'+rows+'</div>';
+    if(rows){
+      equipeHtml='<div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;padding:8px 10px 4px;">Equipe online agora</div>'
+        +'<div style="background:#fff;border-radius:12px;margin:0 10px 8px;border:1px solid var(--border);overflow:hidden;">'+rows+'</div>';
+    }
   }
 
   // Graficos html
