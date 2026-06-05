@@ -5704,7 +5704,7 @@ function abrirRelatorioFinanceiro(){
   var existing=document.getElementById('modal-rel-fin');
   if(existing) existing.remove();
 
-  var fOpts=users.filter(function(u){return u.ativo&&u.tipo!=='admin';}).map(function(u){
+  var fOpts=users.filter(function(u){return u.ativo;}).map(function(u){
     return '<option value="'+u.id+'">'+u.apelido+'</option>';
   }).join('');
 
@@ -5720,6 +5720,8 @@ function abrirRelatorioFinanceiro(){
     +'<div class="mf">'
     +'<div><div class="fl">Funcionario</div>'
     +'<select class="sel" id="rel-func"><option value="">Todos</option>'+fOpts+'</select></div>'
+    +'<div><div class="fl">Obra</div>'
+    +'<select class="sel" id="rel-obra"><option value="">Todas as obras</option>'+obras.map(function(o){return '<option value="'+o.id+'">'+o.nome+'</option>';}).join('')+'</select></div>'
     +'<div class="row2">'
     +'<div><div class="fl">Data inicio</div><input class="inp" type="date" id="rel-ini" value="'+hoje()+'"></div>'
     +'<div><div class="fl">Data fim</div><input class="inp" type="date" id="rel-fim" value="'+hoje()+'"></div>'
@@ -5745,9 +5747,11 @@ function gerarRelatorioFin(){
   var fim=document.getElementById('rel-fim').value;
   if(!ini||!fim){toast('Informe o periodo.');return;}
 
+  var obraId=document.getElementById('rel-obra')?document.getElementById('rel-obra').value:'';
   // Filtrar lancamentos COM conferencia aprovada
   var lista=lancs.filter(function(l){
     var dentroData=l.data>=ini&&l.data<=fim;
+    if(obraId&&l.obra_id!==obraId) return false;
     var funcOk=!funcId||l.usuario_id===funcId;
     if(!dentroData||!funcOk) return false;
     var temConf=confs.some(function(c){return c.lancamento_id===l.id&&c.status==='aprovado';});
@@ -7252,10 +7256,29 @@ function darBaixaGeral(){
 
     Promise.all(promises.concat(descPromises)).then(function(){
       if(S.descsMarc) S.descsMarc={};
-      var msg='Baixa registrada!';
-      if(restantePag>0) msg+=' Sobrou '+fmt(restantePag)+' não distribuído.';
-      toast(msg);
-      renderAPagar();
+      // Se sobrou valor — gerar vale/crédito como despesa negativa
+      if(restantePag>0.01){
+        dbInsert('despesas',{
+          usuario_id:S.funcId,
+          categoria:'Vale',
+          descricao:'Vale gerado — pagamento a maior em '+fmtD(dataPag),
+          valor:restantePag,
+          data:dataPag,
+          tipo:'vale',
+          descontado:false
+        }).then(function(r){
+          if(r){desps=[r].concat(desps);}
+          toast('Baixa registrada! Vale de '+fmt(restantePag)+' gerado automaticamente.');
+          renderAPagar();
+        });
+      } else if(restantePag<-0.01){
+        // Faltou pagar — fica pendente nos MEDs automaticamente
+        toast('Baixa registrada! Resta '+fmt(Math.abs(restantePag))+' a pagar.');
+        renderAPagar();
+      } else {
+        toast('Baixa registrada! Tudo quitado.');
+        renderAPagar();
+      }
     });
   };
 }
