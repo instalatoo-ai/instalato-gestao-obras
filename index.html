@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<!-- saved from url=(0044)file:///C:/Users/Inae/Downloads/index_3.html -->
+<!-- saved from url=(0044)file:///C:/Users/Inae/Downloads/index_2.html -->
 <html lang="pt-BR"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
-  <link href="file:///C:/Users/Inae/Downloads/index_files/css2" rel="stylesheet">
+  <link href="./index_files/css2" rel="stylesheet">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>GESTOR INSTALATO</title>
 <style>
@@ -266,8 +266,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <button class="btn-entrar" id="btn-entrar" type="button">Entrar</button>
   <div class="verse-box">
     <div class="vl">✨ Palavra do dia</div>
-    <div class="vt" id="vt">"Aquele que semeia com lágrimas ceifará com alegria."</div>
-    <div class="vr" id="vr">-- Salmos 126:5</div>
+    <div class="vt" id="vt">"Com paciência corramos a carreira que nos está proposta, olhando para Jesus."</div>
+    <div class="vr" id="vr">-- Hebreus 12:1-2</div>
   </div>
   <div style="margin:14px 0;display:flex;align-items:center;gap:10px;width:100%;">
     <div style="flex:1;height:1px;background:var(--border);"></div>
@@ -386,7 +386,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="fl">Logo da empresa</div>
       <div id="logo-zone" style="background:var(--gray);border-radius:14px;padding:20px;display:flex;flex-direction:column;align-items:center;gap:10px;border:2px dashed var(--border);cursor:pointer;" onclick="document.getElementById(&#39;logo-input&#39;).click()">
         <div id="logo-preview" style="width:80px;height:80px;border-radius:16px;background:var(--dark);display:flex;align-items:center;justify-content:center;overflow:hidden;">
-          <img id="logo-img" src="./index_files/index_2.html" style="width:100%;height:100%;object-fit:cover;display:none;">
+          <img id="logo-img" src="file:///C:/Users/Inae/Downloads/index_2.html" style="width:100%;height:100%;object-fit:cover;display:none;">
           <span style="font-size:32px;">🏠</span>
         </div>
         <span id="logo-txt" style="font-size:12px;color:var(--sub)">Toque para enviar o logo</span>
@@ -7098,9 +7098,11 @@ function _renderAPagarResultado(){
     +'<span style="font-size:12px;color:var(--sub);">Pendente bruto</span><span style="font-size:13px;font-weight:700;">'+fmt(totalPendente)+'</span></div>'
     +(totalDescMarcado?'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
     +'<span style="font-size:12px;color:var(--red);">Descontos marcados</span><span style="font-size:13px;font-weight:700;color:var(--red);">-'+fmt(totalDescMarcado)+'</span></div>':'')
-    +'<div style="display:flex;justify-content:space-between;align-items:center;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
     +'<span style="font-size:14px;font-weight:700;">Líquido a pagar</span>'
     +'<span style="font-size:20px;font-weight:700;color:'+(liquido>0?'var(--green)':'var(--red)')+';">'+fmt(Math.max(0,liquido))+'</span>'
+    +'</div>'
+    +(totalPendente>0?'<button onclick="darBaixaGeral()" style="width:100%;padding:12px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">✓ Dar Baixa — '+fmt(Math.max(0,liquido))+'</button>':'')
     +'</div></div>'
     +'</div>';
 }
@@ -7140,6 +7142,120 @@ function _renderAPagarCards(el, lista, S){
       +'</div></div>';
   }).join('');
 }
+function darBaixaGeral(){
+  var S=window._pagarState||{};
+  if(!S.funcId){toast('Selecione um funcionário.');return;}
+  var u=users.find(function(u){return u.id===S.funcId;}); if(!u) return;
+
+  // Calcular valores
+  var lista=medicoes.filter(function(m){
+    if(m.usuario_id!==S.funcId&&m.nome_func!==u.apelido) return false;
+    if(S.ini&&m.data<S.ini) return false;
+    if(S.fim&&m.data>S.fim) return false;
+    return m.status!=='pago';
+  });
+  var totalPendente=lista.reduce(function(s,m){
+    var pags=[];try{pags=JSON.parse(m.pagamentos_parciais||'[]');}catch(e){}
+    var pago=pags.reduce(function(s2,p){return s2+(parseFloat(p.valor)||0);},0);
+    return s+(parseFloat(m.valor)-pago);
+  },0);
+  var despsDisp=desps.filter(function(d){
+    if(d.usuario_id!==S.funcId) return false;
+    if(S.ini&&d.data<S.ini) return false;
+    if(S.fim&&d.data>S.fim) return false;
+    return !d.descontado;
+  });
+  var marmsDisp=marmitas.filter(function(m){
+    if(m.usuario_id!==S.funcId) return false;
+    if(S.ini&&m.data<S.ini) return false;
+    if(S.fim&&m.data>S.fim) return false;
+    return true;
+  });
+  var valorMarmita=15;
+  var totalMarms=marmsDisp.length*valorMarmita;
+  var totalDescMarcado=0;
+  despsDisp.forEach(function(d){if(S.descsMarc&&S.descsMarc[d.id]) totalDescMarcado+=parseFloat(d.valor)||0;});
+  if(S.descsMarc&&S.descsMarc['marmitas']) totalDescMarcado+=totalMarms;
+  var liquido=Math.max(0,totalPendente-totalDescMarcado);
+
+  var el=document.createElement('div');
+  el.className='modal-bg show'; el.id='modal-baixa-geral'; el.style.cssText='z-index:9999;align-items:center;padding:20px;';
+  el.innerHTML='<div style="background:#fff;border-radius:16px;width:100%;max-width:380px;overflow:hidden;">'
+    +'<div style="background:#1e8449;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<div><div style="font-size:14px;font-weight:700;color:#fff;">Dar Baixa — '+u.apelido+'</div>'
+    +'<div style="font-size:11px;color:rgba(255,255,255,.7);">'+lista.length+' MED(s) pendente(s)</div></div>'
+    +'<button id="btn-fecha-bg" style="background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;">x</button>'
+    +'</div>'
+    +'<div style="padding:16px;display:flex;flex-direction:column;gap:12px;">'
+    +'<div style="background:#e8f5e9;border-radius:10px;padding:10px 12px;">'
+    +'<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-bottom:3px;"><span>Bruto pendente</span><span>'+fmt(totalPendente)+'</span></div>'
+    +(totalDescMarcado?'<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--red);margin-bottom:3px;"><span>Descontos marcados</span><span>-'+fmt(totalDescMarcado)+'</span></div>':'')
+    +'<div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;"><span>Líquido</span><span style="color:#1e8449;">'+fmt(liquido)+'</span></div>'
+    +'</div>'
+    +'<div><div class="fl">Valor pago (R$)</div><input class="inp" type="number" id="bg-valor" value="'+liquido.toFixed(2)+'" step="0.01"></div>'
+    +'<div><div class="fl">Data do pagamento</div><input class="inp" type="date" id="bg-data" value="'+hoje()+'"></div>'
+    +'<div><div class="fl">Forma</div><select class="sel" id="bg-forma">'
+    +'<option value="PIX">PIX</option><option value="Transferencia">Transferência</option>'
+    +'<option value="Dinheiro">Dinheiro</option><option value="Cheque">Cheque</option>'
+    +'</select></div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button id="btn-cancela-bg" style="flex:1;padding:11px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:13px;cursor:pointer;">Cancelar</button>'
+    +'<button id="btn-ok-bg" style="flex:2;padding:11px;border-radius:10px;border:none;background:#1e8449;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Confirmar Pagamento</button>'
+    +'</div></div></div>';
+  document.body.appendChild(el);
+  el.querySelector('#btn-fecha-bg').onclick=function(){el.remove();};
+  el.querySelector('#btn-cancela-bg').onclick=function(){el.remove();};
+  el.querySelector('#btn-ok-bg').onclick=function(){
+    var valorPago=parseFloat(document.getElementById('bg-valor').value)||0;
+    var dataPag=document.getElementById('bg-data').value;
+    var formaPag=document.getElementById('bg-forma').value;
+    if(!valorPago){toast('Informe o valor.');return;}
+    if(!dataPag){toast('Informe a data.');return;}
+    el.remove();
+
+    // Distribuir pagamento entre MEDs pendentes (do mais antigo para o mais recente)
+    var restantePag=valorPago;
+    var promises=[];
+    lista.forEach(function(m){
+      if(restantePag<=0) return;
+      var pags=[];try{pags=JSON.parse(m.pagamentos_parciais||'[]');}catch(e){}
+      var totalPagoMed=pags.reduce(function(s,p){return s+(parseFloat(p.valor)||0);},0);
+      var restanteMed=parseFloat(m.valor)-totalPagoMed;
+      if(restanteMed<=0) return;
+      var valorEste=Math.min(restantePag, restanteMed);
+      restantePag-=valorEste;
+      pags.push({valor:valorEste,data:dataPag,forma:formaPag});
+      var novoTotal=pags.reduce(function(s,p){return s+(parseFloat(p.valor)||0);},0);
+      var novoStatus=novoTotal>=parseFloat(m.valor)-0.01?'pago':'pendente';
+      var obj={pagamentos_parciais:JSON.stringify(pags),status:novoStatus};
+      if(novoStatus==='pago'){obj.data_pagamento=dataPag;obj.forma_pagamento=formaPag;}
+      promises.push(dbUpdate('medicoes',m.id,obj).then(function(ok){
+        if(ok) for(var i=0;i<medicoes.length;i++) if(medicoes[i].id===m.id){Object.assign(medicoes[i],obj);break;}
+      }));
+    });
+
+    // Marcar descontos como descontados
+    var descPromises=[];
+    if(S.descsMarc){
+      despsDisp.forEach(function(d){
+        if(S.descsMarc[d.id]){
+          descPromises.push(dbUpdate('despesas',d.id,{descontado:true}).then(function(){
+            for(var i=0;i<desps.length;i++) if(desps[i].id===d.id){desps[i].descontado=true;break;}
+          }));
+        }
+      });
+    }
+
+    Promise.all(promises.concat(descPromises)).then(function(){
+      if(S.descsMarc) S.descsMarc={};
+      var msg='Baixa registrada!';
+      if(restantePag>0) msg+=' Sobrou '+fmt(restantePag)+' não distribuído.';
+      toast(msg);
+      renderAPagar();
+    });
+  };
+}
+
 function _pagarToggleDesc(did, checked){
   if(!window._pagarState) window._pagarState={descsMarc:{}};
   if(!window._pagarState.descsMarc) window._pagarState.descsMarc={};
