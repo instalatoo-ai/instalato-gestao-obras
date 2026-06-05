@@ -7689,6 +7689,10 @@ function renderFinanceiro(){
       +'</div></div>';
   }
   function rebuild(){
+    // Select para facilitar quando tem muitos funcionários
+    var selectFunc='<select onchange="window._finSF(this.value)" style="width:100%;margin-bottom:8px;">'
+      +funcAtivos.map(function(u){return '<option value="'+u.id+'"'+(S.funcSel&&u.id===S.funcSel.id?' selected':'')+'>'+u.apelido+' ('+(u.tipo==='admin'?'Admin':u.tipo==='lider_chefe'?'L.Chefe':u.tipo==='lider'?'Lider':'Func')+')</option>';}).join('')
+      +'</select>';
     var chips=funcAtivos.map(function(u){
       var on=S.funcSel&&u.id===S.funcSel.id;
       return '<div onclick="window._finSF(\''+u.id+'\')" style="padding:6px 12px;border-radius:20px;border:1px solid '+(on?'#2C1F00':'var(--border)')+';background:'+(on?'#2C1F00':'#fff')+';color:'+(on?'#fff':'var(--sub)')+';font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">'+u.apelido+'</div>';
@@ -7711,7 +7715,8 @@ function renderFinanceiro(){
     el.innerHTML='<div class="hero" style="background:var(--dark)"><p>Admin</p><h2>Financeiro</h2></div>'+'<div style="padding:10px 14px 0;"><button onclick="abrirRelatorioFinanceiro()" style="width:100%;padding:11px;border-radius:12px;border:1.5px solid #1a3a5c;background:transparent;color:#1a3a5c;font-size:13px;font-weight:700;cursor:pointer;">Gerar Relatorio de Producao</button></div>'+'<div class="pad">'
       +'<div style="background:#fff;border-radius:14px;border:1px solid var(--lg);overflow:hidden;">'
       +'<div style="padding:10px 14px;border-bottom:1px solid var(--lg);font-size:13px;font-weight:700;">Funcionario</div>'
-      +'<div style="display:flex;gap:6px;padding:12px 14px;overflow-x:auto;">'+chips+'</div>'
+      +selectFunc
+      +'<div style="display:flex;gap:6px;padding:4px 14px 12px;overflow-x:auto;">'+chips+'</div>'
       +'<div style="padding:10px 14px;border-top:1px solid var(--lg);background:var(--lg);">'
       +'<div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:7px;">Periodo</div>'
       +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'+pChips+'</div>'+customHtml+'</div></div>'
