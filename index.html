@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0045)file:///C:/Users/Inae/Downloads/index_10.html -->
+<!-- saved from url=(0045)file:///C:/Users/Inae/Downloads/index_11.html -->
 <html lang="pt-BR"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
   <link href="file:///C:/Users/Inae/Downloads/index_files/css2" rel="stylesheet">
@@ -266,8 +266,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <button class="btn-entrar" id="btn-entrar" type="button">Entrar</button>
   <div class="verse-box">
     <div class="vl">✨ Palavra do dia</div>
-    <div class="vt" id="vt">"Não temas, porque eu sou contigo; não te assombres, porque eu sou teu Deus."</div>
-    <div class="vr" id="vr">-- Isaías 41:10</div>
+    <div class="vt" id="vt">"Nenhuma arma forjada contra ti prosperará."</div>
+    <div class="vr" id="vr">-- Isaías 54:17</div>
   </div>
   <div style="margin:14px 0;display:flex;align-items:center;gap:10px;width:100%;">
     <div style="flex:1;height:1px;background:var(--border);"></div>
@@ -954,7 +954,41 @@ function startApp() {
     dbGet('fichas_medicas').then(function(d) { fichasMedicas = d||[]; }).catch(function(){ fichasMedicas=[]; })
   ]).then(function() {
     renderAll();
+    // Aviso de marmita para funcionários e líderes
+    setTimeout(function(){ verificarAvisoMarmitaFunc(); }, 1500);
   });
+}
+
+function verificarAvisoMarmitaFunc(){
+  if(!U||U.tipo==='admin') return;
+  var agora=new Date();
+  var horaAtual=agora.getHours()*60+agora.getMinutes();
+  if(horaAtual<5*60||horaAtual>9*60) return; // só entre 05h e 09h
+  var hojeStr=hoje();
+  try{ if(localStorage.getItem('instalato_marm_perguntou_'+U.id+'_'+hojeStr)) return; }catch(e){}
+  var jaPediu=marmitas.some(function(m){return m.usuario_id===U.id&&m.data===hojeStr;});
+  if(jaPediu) return;
+  var bateuPonto=pontos.some(function(p){return p.usuario_id===U.id&&(p.data===hojeStr||(p.created_at&&p.created_at.startsWith(hojeStr)));});
+  if(!bateuPonto) return;
+  // Mostrar popup
+  var ex=document.getElementById('popup-marmita-func'); if(ex) ex.remove();
+  var el=document.createElement('div');
+  el.id='popup-marmita-func';
+  el.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:400px;background:#1a3a5c;border-radius:14px;padding:14px 16px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.3);display:flex;align-items:center;gap:12px;';
+  el.innerHTML='<div style="font-size:28px;flex-shrink:0;">🍱</div>'
+    +'<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:#fff;">Deseja pedir marmita hoje?</div>'
+    +'<div style="font-size:11px;color:rgba(255,255,255,.7);margin-top:2px;">Pedidos até 09h00</div></div>'
+    +'<div style="display:flex;flex-direction:column;gap:6px;">'
+    +'<button id="btn-sim-marm" style="padding:7px 14px;border-radius:20px;border:none;background:#25D366;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">Sim</button>'
+    +'<button id="btn-nao-marm" style="padding:5px 14px;border-radius:20px;border:1px solid rgba(255,255,255,.3);background:transparent;color:rgba(255,255,255,.7);font-size:10px;cursor:pointer;">Não</button>'
+    +'</div>';
+  document.body.appendChild(el);
+  try{ localStorage.setItem('instalato_marm_perguntou_'+U.id+'_'+hojeStr,'1'); }catch(e){}
+  el.querySelector('#btn-nao-marm').onclick=function(){el.remove();};
+  el.querySelector('#btn-sim-marm').onclick=function(){
+    el.remove();
+    goTab('marmita');
+  };
 }
 
 function buildNav() {
