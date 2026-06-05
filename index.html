@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0045)file:///C:/Users/Inae/Downloads/index_15.html -->
+<!-- saved from url=(0045)file:///C:/Users/Inae/Downloads/index_16.html -->
 <html lang="pt-BR"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
   <link href="file:///C:/Users/Inae/Downloads/index_files/css2" rel="stylesheet">
@@ -266,8 +266,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <button class="btn-entrar" id="btn-entrar" type="button">Entrar</button>
   <div class="verse-box">
     <div class="vl">✨ Palavra do dia</div>
-    <div class="vt" id="vt">"Mas os que esperam no Senhor renovarão as suas forças; subirão com asas como águias."</div>
-    <div class="vr" id="vr">-- Isaías 40:31</div>
+    <div class="vt" id="vt">"O jovem se cansa e se fatiga, mas os que esperam no Senhor renovam as suas forças."</div>
+    <div class="vr" id="vr">-- Isaías 40:30-31</div>
   </div>
   <div style="margin:14px 0;display:flex;align-items:center;gap:10px;width:100%;">
     <div style="flex:1;height:1px;background:var(--border);"></div>
@@ -1303,8 +1303,8 @@ function renderHome(){
   var meusPeriodo=lancs.filter(function(l){return l.usuario_id===U.id&&l.data>=piStr&&l.data<=pfStr;});
   var totalP=meusPeriodo.reduce(function(s,l){return s+(parseFloat(l.total)||0);},0);
   var m2P=meusPeriodo.reduce(function(s,l){return s+(parseFloat(l.area_m2)||0);},0);
-  var pctV=metaValor>0&&!isNaN(totalP)?Math.min(Math.round(totalP/metaValor*100),150):0;
-  var pctM=metaM2val>0&&!isNaN(m2P)?Math.min(Math.round(m2P/metaM2val*100),150):0;
+  var pctV=metaValor>0?Math.min(Math.round((totalP||0)/metaValor*100),150):0; if(isNaN(pctV))pctV=0;
+  var pctM=metaM2val>0?Math.min(Math.round((m2P||0)/metaM2val*100),150):0; if(isNaN(pctM))pctM=0;
   var meses2=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   var histV=[]; var histM=[];
   for(var hp=5;hp>=0;hp--){
@@ -1324,70 +1324,44 @@ function renderHome(){
 
   // Equipe online (lider/admin)
   var equipeHtml='';
-  try{
   if(isGestao){
-    var hoje3=hoje();
-    var usersAtivos=users.filter(function(u){return u.ativo;});
-    // Agrupar por obra
-    var porObra2={};
-    usersAtivos.forEach(function(u){
-      var lancsU=lancs.filter(function(l){return l.usuario_id===u.id&&l.data===hoje3;});
-      var obraId='sem'; var obraNome='';
-      if(lancsU.length){
-        var ox=obras.find(function(o){return o.id===lancsU[0].obra_id;});
-        if(ox){obraId=ox.id;obraNome=ox.nome;}
-      } else {
-        // Usar última obra do usuário (qualquer data)
-        var ultimoLanc=lancs.filter(function(l){return l.usuario_id===u.id;}).sort(function(a,b){return b.data>a.data?1:-1;})[0];
-        if(ultimoLanc){var ox2=obras.find(function(o){return o.id===ultimoLanc.obra_id;});if(ox2){obraId=ox2.id;obraNome=ox2.nome;}}
-        // Se é lider de obra, pegar a obra vinculada
-        if(!obraNome){var obraLider=obras.find(function(o){return o.lider_id===u.id;});if(obraLider){obraId=obraLider.id;obraNome=obraLider.nome;}}
-      }
-      if(!porObra2[obraId]) porObra2[obraId]={nome:obraNome,users:[]};
-      porObra2[obraId].users.push({u:u,lancsU:lancsU});
-    });
-    var cores2=['#B8860B','#185FA5','#1D9E75','#534AB7','#c0392b'];
-    var obraKeys=Object.keys(porObra2).filter(function(k){return k!=='sem';}).concat(Object.keys(porObra2).filter(function(k){return k==='sem';}));
-    // Lista plana: online primeiro, nome + obra + status
-    var todosUsers=[];
-    obraKeys.forEach(function(ok,oi){
-      var g=porObra2[ok];
-      var cor=ok==='sem'?'#888':cores2[oi%cores2.length];
-      g.users.forEach(function(item){
-        // Admin logado = sempre online; outros = online se lançou hoje
-        // Online = bateu ponto hoje sem saída
-        var uItem=item.u;
-        var pontosHoje=pontos.filter(function(p){return p.usuario_id===uItem.id&&p.data===hoje3&&p.entrada_hora&&!p.saida_hora;});
-        var isOnline=pontosHoje.length>0;
-        // Obra = obra do ponto ou do último lançamento
-        var obraOnline=item.obraNome||g.nome||'';
-        if(pontosHoje.length&&pontosHoje[0].obra_id){var pObra=obras.find(function(o){return o.id===pontosHoje[0].obra_id;});if(pObra)obraOnline=pObra.nome;}
-        todosUsers.push({u:item.u,lancsU:item.lancsU,obraNome:obraOnline,cor:cor,online:isOnline});
+    try{
+      var hoje3=hoje();
+      // Montar lista de usuários com ponto de entrada hoje sem saída
+      var onlineList=[];
+      users.filter(function(usr){return usr.ativo;}).forEach(function(usr){
+        var ptHoje=pontos.filter(function(p){return p.usuario_id===usr.id&&p.data===hoje3&&p.entrada_hora&&!p.saida_hora;});
+        if(!ptHoje.length) return;
+        // Obra do ponto ou do último lançamento
+        var obraStr='';
+        if(ptHoje[0].obra_id){var ob=obras.find(function(o){return o.id===ptHoje[0].obra_id;});if(ob)obraStr=ob.nome;}
+        if(!obraStr){
+          var ll=lancs.filter(function(l){return l.usuario_id===usr.id&&l.data===hoje3;});
+          if(ll.length){var ob2=obras.find(function(o){return o.id===ll[0].obra_id;});if(ob2)obraStr=ob2.nome;}
+        }
+        var cores3=['#B8860B','#185FA5','#1D9E75','#534AB7','#c0392b'];
+        var cor3=cores3[onlineList.length%cores3.length];
+        onlineList.push({u:usr,obraNome:obraStr,cor:cor3});
       });
-    });
-    // Mostrar apenas online
-    todosUsers=todosUsers.filter(function(item){return item.online;});
-    todosUsers.sort(function(a,b){return (b.online?1:0)-(a.online?1:0);});
-    var rows=todosUsers.map(function(item){
-      var u2=item.u; var cor=item.cor; var online=item.online;
-      return '<div style="display:flex;gap:8px;align-items:center;padding:7px 12px;border-bottom:1px solid var(--border);">'
-        +'<div style="width:26px;height:26px;border-radius:50%;background:'+cor+';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0;position:relative;">'
-        +u2.apelido.slice(0,2).toUpperCase()
-        +'<div style="width:7px;height:7px;border-radius:50%;background:'+(online?'#1e8449':'#ccc')+';border:1.5px solid #fff;position:absolute;bottom:-1px;right:-1px;"></div>'
-        +'</div>'
-        +'<div style="flex:1;min-width:0;display:flex;align-items:center;gap:6px;">'
-        +'<span style="font-size:11px;font-weight:700;">'+u2.apelido+'</span>'
-        +(item.obraNome?'<span style="font-size:10px;color:'+cor+';font-weight:700;background:rgba(0,0,0,.05);padding:1px 6px;border-radius:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px;">'+item.obraNome+'</span>':'')
-        +'</div>'
-        +'<span style="font-size:9px;font-weight:700;color:'+(online?'#1e8449':'#aaa')+';white-space:nowrap;">'+(online?'● Online':'○ Offline')+'</span>'
-        +'</div>';
-    }).join('');
-    if(rows){
-      equipeHtml='<div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;padding:8px 10px 4px;">Equipe online agora</div>'
-        +'<div style="background:#fff;border-radius:12px;margin:0 10px 8px;border:1px solid var(--border);overflow:hidden;">'+rows+'</div>';
-    }
+      if(onlineList.length){
+        var rowsHtml=onlineList.map(function(item){
+          return '<div style="display:flex;gap:8px;align-items:center;padding:7px 12px;border-bottom:1px solid var(--border);">'
+            +'<div style="width:26px;height:26px;border-radius:50%;background:'+item.cor+';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0;position:relative;">'
+            +item.u.apelido.slice(0,2).toUpperCase()
+            +'<div style="width:7px;height:7px;border-radius:50%;background:#1e8449;border:1.5px solid #fff;position:absolute;bottom:-1px;right:-1px;"></div>'
+            +'</div>'
+            +'<div style="flex:1;min-width:0;display:flex;align-items:center;gap:6px;">'
+            +'<span style="font-size:11px;font-weight:700;">'+item.u.apelido+'</span>'
+            +(item.obraNome?'<span style="font-size:10px;color:'+item.cor+';font-weight:700;background:rgba(0,0,0,.05);padding:1px 6px;border-radius:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px;">'+item.obraNome+'</span>':'')
+            +'</div>'
+            +'<span style="font-size:9px;font-weight:700;color:#1e8449;white-space:nowrap;">● Online</span>'
+            +'</div>';
+        }).join('');
+        equipeHtml='<div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;padding:8px 10px 4px;">Equipe online agora</div>'
+          +'<div style="background:#fff;border-radius:12px;margin:0 10px 8px;border:1px solid var(--border);overflow:hidden;">'+rowsHtml+'</div>';
+      }
+    }catch(eqErr){console.warn('equipe err:',eqErr.message);}
   }
-  }catch(eqErr){console.error('equipe erro:',eqErr); equipeHtml='';}
 
   // Graficos html
   var chartId1='hc-meta-'+Date.now();
