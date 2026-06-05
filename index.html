@@ -6946,99 +6946,213 @@ function excluirConfigComissao(cfgId){
 
 function renderAPagar(){
   var el=getEl('t-apagar'); if(!el) return;
-  var _fIniP=window._pagarIni||''; var _fFimP=window._pagarFim||'';
-  var _fStatusP=window._pagarStatus||'';
-  // Filtrar medicoes
+  if(!window._pagarState) window._pagarState={funcId:'',ini:'',fim:'',descsMarc:{}};
+  var S=window._pagarState;
+
+  // Selects
+  var fOpts='<option value="">Todos os funcionarios</option>'+users.filter(function(u){return u.ativo;}).map(function(u){
+    return '<option value="'+u.id+'"'+(u.id===S.funcId?' selected':'')+'>'+u.apelido+'</option>';
+  }).join('');
+
+  el.innerHTML='<div class="hero" style="background:#1e8449"><p>Gestao financeira</p><h2>💳 Contas a Pagar</h2></div>'
+    +'<div class="pad" style="display:flex;flex-direction:column;gap:10px;">'
+    +'<div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:12px;">'
+    +'<div class="fl">Funcionário</div>'
+    +'<select class="sel" id="pagar-func" onchange="window._pagarState.funcId=this.value;renderAPagar()">'+fOpts+'</select>'
+    +'<div class="row2" style="margin-top:8px;">'
+    +'<div><div class="fl">De (opcional)</div><input class="inp" type="date" id="pagar-ini" value="'+S.ini+'" onchange="window._pagarState.ini=this.value;renderAPagar()" style="margin:0;"></div>'
+    +'<div><div class="fl">Até (opcional)</div><input class="inp" type="date" id="pagar-fim" value="'+S.fim+'" onchange="window._pagarState.fim=this.value;renderAPagar()" style="margin:0;"></div>'
+    +'</div>'
+    +'</div>'
+    +'<div id="pagar-resultado"></div>'
+    +'<div style="text-align:center;margin-top:4px;">'
+    +'<button onclick="abrirNovoLancamentoPagar()" style="padding:11px 20px;border-radius:12px;border:1.5px solid #1e8449;background:transparent;color:#1e8449;font-size:13px;font-weight:700;cursor:pointer;">+ Novo Lançamento</button>'
+    +'</div></div>';
+
+  _renderAPagarResultado();
+}
+
+function _renderAPagarResultado(){
+  var el=document.getElementById('pagar-resultado'); if(!el) return;
+  var S=window._pagarState||{};
+
+  // MEDs filtrados
   var lista=medicoes.filter(function(m){
-    if(_fIniP&&m.periodo_ini<_fIniP) return false;
-    if(_fFimP&&m.periodo_fim>_fFimP) return false;
-    if(_fStatusP&&m.status!==_fStatusP) return false;
+    if(S.funcId&&m.usuario_id!==S.funcId){
+      var u=users.find(function(u){return u.id===S.funcId;});
+      if(!u||m.nome_func!==u.apelido) return false;
+    }
+    if(S.ini&&m.data<S.ini) return false;
+    if(S.fim&&m.data>S.fim) return false;
     return true;
   });
-  var totalPendente=lista.filter(function(m){return m.status==='pendente';}).reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
+
+  if(!S.funcId){
+    // Sem funcionário selecionado - mostrar cards normais
+    _renderAPagarCards(el, lista, S);
+    return;
+  }
+
+  // Com funcionário selecionado - mostrar resumo com descontos selecionáveis
+  var u=users.find(function(u){return u.id===S.funcId;});
+  if(!u){_renderAPagarCards(el, lista, S); return;}
+
+  // Descontos disponíveis: despesas vinculadas + marmitas
+  var despsDisp=desps.filter(function(d){
+    if(d.usuario_id!==S.funcId) return false;
+    if(S.ini&&d.data<S.ini) return false;
+    if(S.fim&&d.data>S.fim) return false;
+    return true;
+  });
+  var marmsDisp=marmitas.filter(function(m){
+    if(m.usuario_id!==S.funcId) return false;
+    if(S.ini&&m.data<S.ini) return false;
+    if(S.fim&&m.data>S.fim) return false;
+    return true;
+  });
+  var valorMarmita=15;
+  var totalMarms=marmsDisp.length*valorMarmita;
+
+  // Calcular totais
+  var totalMEDs=lista.reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
   var totalPago=lista.filter(function(m){return m.status==='pago';}).reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
-  var totalGeral=lista.reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
-  var fOpts=users.filter(function(u){return u.ativo&&u.tipo!=='admin';}).map(function(u){return '<option value="'+u.id+'">'+u.apelido+'</option>';}).join('');
-  var html='<div class="hero" style="background:#1e8449"><p>Gestao financeira</p><h2>💳 Contas a Pagar</h2></div>'
-    +'<div style="padding:10px 14px 0;">'
-    +'<button onclick="abrirNovoLancamentoPagar()" style="width:100%;padding:11px;border-radius:12px;border:1.5px solid #1e8449;background:transparent;color:#1e8449;font-size:13px;font-weight:700;cursor:pointer;">+ Novo Lançamento</button>'
+  var totalPendente=lista.filter(function(m){return m.status!=='pago';}).reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
+
+  // Descontos marcados
+  if(!S.descsMarc) S.descsMarc={};
+  var totalDescMarcado=0;
+  despsDisp.forEach(function(d){if(S.descsMarc[d.id]) totalDescMarcado+=parseFloat(d.valor)||0;});
+  if(S.descsMarc['marmitas']) totalDescMarcado+=totalMarms;
+
+  var liquido=totalPendente-totalDescMarcado;
+
+  // HTML dos MEDs
+  var medsHtml=lista.length?lista.map(function(m){
+    var isPend=m.status!=='pago';
+    var pags=[];try{pags=JSON.parse(m.pagamentos_parciais||'[]');}catch(e){}
+    var totalPagoMed=pags.reduce(function(s,p){return s+(parseFloat(p.valor)||0);},0);
+    var restante=parseFloat(m.valor)-totalPagoMed;
+    var statusCor=m.status==='pago'?'var(--green)':m.status==='parcial'?'#B8860B':'var(--red)';
+    var statusTxt=m.status==='pago'?'✓ PAGO':m.status==='parcial'?'PARCIAL':'PENDENTE';
+    return '<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;">'
+      +'<div style="flex:1;">'
+      +'<div style="font-size:12px;font-weight:700;">'+(m.observacao||m.nome_func)+'</div>'
+      +'<div style="font-size:10px;color:var(--sub);">'+(m.periodo_ini?fmtD(m.periodo_ini)+' a '+fmtD(m.periodo_fim):fmtD(m.data))+'</div>'
+      +(pags.length&&restante>0.01?'<div style="font-size:10px;color:#B8860B;">Pago: '+fmt(totalPagoMed)+' · Restante: '+fmt(restante)+'</div>':'')
+      +'</div>'
+      +'<div style="text-align:right;">'
+      +'<div style="font-size:14px;font-weight:700;">'+fmt(m.valor)+'</div>'
+      +'<div style="font-size:10px;font-weight:700;color:'+statusCor+';">'+statusTxt+'</div>'
+      +'</div></div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">'
+      +(isPend?'<button data-mid="'+m.id+'" onclick="novaBaixaParcial(this.dataset.mid)" style="font-size:10px;padding:4px 10px;border-radius:20px;border:none;background:var(--green);color:#fff;font-weight:700;cursor:pointer;">✓ Dar Baixa</button>':'')
+      +'<button data-mid="'+m.id+'" onclick="verDetalhesMED(this.dataset.mid)" style="font-size:10px;padding:4px 10px;border-radius:20px;border:1px solid #1a3a5c;background:transparent;color:#1a3a5c;cursor:pointer;">🔍 Detalhes</button>'
+      +'<button data-mid="'+m.id+'" onclick="verDetalhesMED(this.dataset.mid)" style="font-size:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--sub);background:transparent;color:var(--sub);cursor:pointer;">MED</button>'
+      +'<button data-mid="'+m.id+'" onclick="excluirMED(this.dataset.mid)" style="font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;">&#128465;</button>'
+      +'</div></div>';
+  }).join(''):'<div style="font-size:12px;color:var(--sub);padding:10px 0;">Nenhum MED encontrado.</div>';
+
+  // HTML dos descontos
+  var descsHtml='';
+  if(despsDisp.length||marmsDisp.length){
+    descsHtml='<div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin:10px 0 6px;">Descontos disponíveis</div>';
+    despsDisp.forEach(function(d){
+      var marc=!!S.descsMarc[d.id];
+      descsHtml+='<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">'
+      +'<input type="checkbox" data-did="'+d.id+'" '+(marc?'checked':'')+' style="width:16px;height:16px;accent-color:#c0392b;cursor:pointer;" onchange="window._pagarToggleDesc(this.dataset.did,this.checked);_renderAPagarResultado();">'
+        +'<div style="flex:1;"><div style="font-size:11px;font-weight:700;">'+d.descricao+'</div>'
+        +'<div style="font-size:10px;color:var(--sub);">'+d.categoria+' · '+fmtD(d.data)+'</div></div>'
+        +'<span style="font-size:13px;font-weight:700;color:var(--red);">-'+fmt(d.valor)+'</span>'
+        +'</div>';
+    });
+    if(marmsDisp.length){
+      var marcMarm=!!S.descsMarc['marmitas'];
+      descsHtml+='<div style="display:flex;align-items:center;gap:8px;padding:6px 0;">'
+        +'<input type="checkbox" data-did="marmitas" '+(marcMarm?'checked':'')+' style="width:16px;height:16px;accent-color:#c0392b;cursor:pointer;" onchange="window._pagarToggleDesc(this.dataset.did,this.checked);_renderAPagarResultado();">'
+        +'<div style="flex:1;"><div style="font-size:11px;font-weight:700;">Marmitas ('+marmsDisp.length+'x)</div>'
+        +'<div style="font-size:10px;color:var(--sub);">R$ '+valorMarmita+'/un</div></div>'
+        +'<span style="font-size:13px;font-weight:700;color:var(--red);">-'+fmt(totalMarms)+'</span>'
+        +'</div>';
+    }
+  }
+
+  el.innerHTML='<div style="background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden;">'
+    // Header funcionário
+    +'<div style="background:var(--dark);padding:12px 14px;">'
+    +'<div style="font-size:15px;font-weight:700;color:#fff;">'+u.apelido+'</div>'
     +'</div>'
-    +'<div class="pad" style="display:flex;flex-direction:column;gap:12px;">'
-    // Filtros
-    +'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);padding:12px 14px;display:flex;flex-direction:column;gap:10px;">'
-    +'<div class="row2">'
-    +'<div><div class="fl">De</div><input class="inp" type="date" id="pagar-ini" value="'+_fIniP+'" onchange="window._pagarIni=this.value;renderAPagar()" style="margin:0;"></div>'
-    +'<div><div class="fl">Ate</div><input class="inp" type="date" id="pagar-fim" value="'+_fFimP+'" onchange="window._pagarFim=this.value;renderAPagar()" style="margin:0;"></div>'
-    +'</div>'
-    +'<div style="display:flex;gap:8px;">'
-    +'<button data-s="" onclick="filtrarPagar(this)" style="padding:6px 14px;border-radius:20px;border:1px solid '+(!_fStatusP?'#1a3a5c':'var(--border)')+';background:'+(!_fStatusP?'#1a3a5c':'transparent')+';color:'+(!_fStatusP?'#fff':'var(--sub)')+';font-size:11px;font-weight:700;cursor:pointer;">Todos</button>'
-    +'<button data-s="pendente" onclick="filtrarPagar(this)" style="padding:6px 14px;border-radius:20px;border:1px solid '+(_fStatusP==='pendente'?'var(--red)':'var(--border)')+';background:'+(_fStatusP==='pendente'?'var(--red)':'transparent')+';color:'+(_fStatusP==='pendente'?'#fff':'var(--sub)')+';font-size:11px;font-weight:700;cursor:pointer;">Pendentes</button>'
-    +'<button data-s="pago" onclick="filtrarPagar(this)" style="padding:6px 14px;border-radius:20px;border:1px solid '+(_fStatusP==='pago'?'var(--green)':'var(--border)')+';background:'+(_fStatusP==='pago'?'var(--green)':'transparent')+';color:'+(_fStatusP==='pago'?'#fff':'var(--sub)')+';font-size:11px;font-weight:700;cursor:pointer;">Pagos</button>'
-    +'</div></div>'
     // Resumo
-    +'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
-    +'<div style="padding:10px 14px;background:#1e8449;">'
-    +'<div style="font-size:12px;color:rgba(255,255,255,.7);margin-bottom:2px;">Resumo</div>'
-    +'<div style="font-size:22px;font-weight:700;color:#fff;">'+fmt(totalGeral)+'</div>'
+    +'<div style="padding:10px 14px;background:#f9f9f9;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;border-bottom:1px solid var(--border);">'
+    +'<div style="text-align:center;"><div style="font-size:10px;color:var(--sub);">Total MEDs</div><div style="font-size:14px;font-weight:700;">'+fmt(totalMEDs)+'</div></div>'
+    +'<div style="text-align:center;"><div style="font-size:10px;color:var(--green);">Pago</div><div style="font-size:14px;font-weight:700;color:var(--green);">'+fmt(totalPago)+'</div></div>'
+    +'<div style="text-align:center;"><div style="font-size:10px;color:var(--red);">Pendente</div><div style="font-size:14px;font-weight:700;color:var(--red);">'+fmt(totalPendente)+'</div></div>'
     +'</div>'
-    +'<div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px;">'
-    +'<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">'
-    +'<span style="font-size:12px;color:var(--red);">Pendente</span>'
-    +'<span style="font-size:14px;font-weight:700;color:var(--red);">'+fmt(totalPendente)+'</span></div>'
-    +'<div style="display:flex;justify-content:space-between;padding:6px 0;">'
-    +'<span style="font-size:12px;color:var(--green);">Pago</span>'
-    +'<span style="font-size:14px;font-weight:700;color:var(--green);">'+fmt(totalPago)+'</span></div>'
+    // MEDs
+    +'<div style="padding:10px 14px;">'+medsHtml+'</div>'
+    // Descontos
+    +(descsHtml?'<div style="padding:10px 14px;border-top:1px solid var(--border);background:#fef9f9;">'+descsHtml+'</div>':'')
+    // Líquido
+    +'<div style="padding:12px 14px;border-top:2px solid var(--border);background:#f9f9f9;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+    +'<span style="font-size:12px;color:var(--sub);">Pendente bruto</span><span style="font-size:13px;font-weight:700;">'+fmt(totalPendente)+'</span></div>'
+    +(totalDescMarcado?'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+    +'<span style="font-size:12px;color:var(--red);">Descontos marcados</span><span style="font-size:13px;font-weight:700;color:var(--red);">-'+fmt(totalDescMarcado)+'</span></div>':'')
+    +'<div style="display:flex;justify-content:space-between;align-items:center;">'
+    +'<span style="font-size:14px;font-weight:700;">Líquido a pagar</span>'
+    +'<span style="font-size:20px;font-weight:700;color:'+(liquido>0?'var(--green)':'var(--red)')+';">'+fmt(Math.max(0,liquido))+'</span>'
     +'</div></div>'
-    // Lista
-    +'<div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">'
-    +'<div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;">Medicoes</div>'
-    +(!lista.length?'<div class="empty"><p>Nenhuma medicao encontrada.</p></div>'
-      :lista.map(function(m){
-        var isPend=m.status==='pendente';
-        var venceu=isPend&&m.vencimento&&m.vencimento<hoje();
-        var corStatus=isPend?(venceu?'var(--red)':'#B8860B'):'var(--green)';
-        var bgCard=venceu?'rgba(192,57,43,.04)':'#fff';
-        var mLancIds=[];try{mLancIds=JSON.parse(m.lanc_ids||'[]');}catch(e){mLancIds=[];}
-        var mObras=[];
-        mLancIds.forEach(function(lid){var lx=lancs.find(function(l){return l.id===lid;});if(lx){var ox=obras.find(function(o){return o.id===lx.obra_id;});if(ox&&mObras.indexOf(ox.nome)<0)mObras.push(ox.nome);}});
-        var obrasTag=mObras.length?'<div style="font-size:10px;font-weight:700;color:#1a3a5c;margin-top:2px;">'+mObras.join(' · ')+'</div>':'';
-        return '<div style="padding:12px 14px;border-bottom:1px solid var(--border);background:'+bgCard+';">'
-          +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
-          +'<div>'
-          +'<div style="font-size:14px;font-weight:700;">'+m.nome_func+'</div>'
-          +obrasTag
-          +'<div style="font-size:11px;color:var(--sub);">'+fmtD(m.periodo_ini)+' a '+fmtD(m.periodo_fim)+' · '+m.area_m2+'m²</div>'
-          +'<div style="font-size:11px;color:'+(venceu?'var(--red)':'var(--sub)')+';">'
-          +(venceu?'⚠️ Vencido: ':'Vence: ')+fmtD(m.vencimento)
-          +'</div>'
-          +(m.observacao?'<div style="font-size:10px;color:var(--sub);margin-top:2px;">'+m.observacao+'</div>':'')
-          +(function(){
-            var pags=[];try{pags=JSON.parse(m.pagamentos_parciais||'[]');}catch(e){}
-            var totalPago=pags.reduce(function(s,p){return s+(parseFloat(p.valor)||0);},0);
-            var restante=parseFloat(m.valor)-totalPago;
-            var isParcial=pags.length>0&&restante>0.01;
-            var pagsHtml=pags.map(function(p){
-              return '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--green);padding:1px 0;">'                +'<span>'+fmtD(p.data)+(p.forma?' · '+p.forma:'')+'</span>'                +'<span style="font-weight:700;">'+fmt(p.valor)+'</span></div>';
-            }).join('');
-            return (pags.length?'<div style="margin-top:4px;background:#e8f5e9;border-radius:6px;padding:4px 8px;">'+pagsHtml+'<div style="border-top:1px solid rgba(30,132,73,.2);margin-top:3px;padding-top:3px;display:flex;justify-content:space-between;font-size:10px;font-weight:700;"><span>Pago: '+fmt(totalPago)+'</span><span style="color:var(--red);">Restante: '+fmt(restante)+'</span></div></div>':'')
-              +(!isPend&&m.data_pagamento&&!isParcial?'<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:3px;">Pago em '+fmtD(m.data_pagamento)+(m.forma_pagamento?' - '+m.forma_pagamento:'')+'</div>':'');
-          }())
-          +'</div>'
-          +'<div style="text-align:right;">'
-          +'<div style="font-size:16px;font-weight:700;color:'+corStatus+';">'+fmt(m.valor)+'</div>'
-          +'<div style="font-size:10px;font-weight:700;color:'+corStatus+';">'+(isPend?(function(){var pags2=[];try{pags2=JSON.parse(m.pagamentos_parciais||'[]');}catch(e){}var tp=pags2.reduce(function(s,p){return s+(parseFloat(p.valor)||0);},0);return tp>0?'PARCIAL':'PENDENTE';}()):'✓ PAGO')+'</div>'
-          +'</div></div>'
-          +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
-          +(isPend?'<button data-mid="'+m.id+'" onclick="novaBaixaParcial(this.dataset.mid)" style="flex:1;padding:7px;border-radius:20px;border:none;background:var(--green);color:#fff;font-size:11px;font-weight:700;cursor:pointer;">✓ Dar Baixa</button>':'')
-          +'<button data-mid="'+m.id+'" onclick="verDetalhesMED(this.dataset.mid)" style="padding:7px 12px;border-radius:20px;border:1px solid #1a3a5c;background:transparent;color:#1a3a5c;font-size:11px;font-weight:700;cursor:pointer;">🔍 Detalhes</button>'
-          +'<button data-mid="'+m.id+'" onclick="reimprMED(this.dataset.mid)" style="padding:7px 12px;border-radius:20px;border:1px solid var(--gold);background:transparent;color:var(--gold);font-size:11px;font-weight:700;cursor:pointer;">📄 MED</button>'
-          +(!isPend?'<button data-mid="'+m.id+'" onclick="cancelarPagamentoMed(this.dataset.mid)" style="padding:7px 12px;border-radius:20px;border:1px solid #B8860B;background:transparent;color:#B8860B;font-size:11px;font-weight:700;cursor:pointer;">↩ Cancelar Pag.</button>':'')
-          +(isPend?'<button data-mid="'+m.id+'" onclick="excluirMedicao(this.dataset.mid)" style="padding:7px 12px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);font-size:11px;font-weight:700;cursor:pointer;">🗑</button>':'')
-          +'</div></div>';
-      }).join(''))
-    +'</div>'
     +'</div>';
-  el.innerHTML=html;
+}
+
+function _renderAPagarCards(el, lista, S){
+  // Sem funcionário - mostrar cards simples agrupados por nome
+  var porFunc={};
+  lista.forEach(function(m){
+    var k=m.nome_func||'--';
+    if(!porFunc[k]) porFunc[k]=[];
+    porFunc[k].push(m);
+  });
+  if(!lista.length){el.innerHTML='<div class="empty"><p>Nenhum MED encontrado.</p></div>';return;}
+  el.innerHTML=Object.keys(porFunc).map(function(nome){
+    var meds=porFunc[nome];
+    var total=meds.reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
+    var pend=meds.filter(function(m){return m.status!=='pago';}).reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
+    return '<div style="background:#fff;border-radius:12px;border:1px solid var(--border);margin-bottom:8px;overflow:hidden;">'
+      +'<div style="background:var(--dark);padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">'
+      +'<span style="font-size:13px;font-weight:700;color:#fff;">'+nome+'</span>'
+      +'<div style="text-align:right;"><div style="font-size:14px;font-weight:700;color:#B8860B;">'+fmt(total)+'</div>'
+      +(pend>0?'<div style="font-size:10px;color:var(--red);">'+fmt(pend)+' pendente</div>':'<div style="font-size:10px;color:var(--green);">Tudo pago</div>')
+      +'</div></div>'
+      +'<div style="padding:8px 14px;">'
+      +meds.map(function(m){
+        var isPend=m.status!=='pago';
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">'
+          +'<div><div style="font-size:11px;font-weight:700;">'+(m.observacao||fmtD(m.data))+'</div>'
+          +'<div style="font-size:10px;color:var(--sub);">'+(m.periodo_ini?fmtD(m.periodo_ini)+' a '+fmtD(m.periodo_fim):fmtD(m.data))+'</div></div>'
+          +'<div style="text-align:right;">'
+          +'<div style="font-size:13px;font-weight:700;">'+fmt(m.valor)+'</div>'
+          +'<div style="display:flex;gap:4px;margin-top:3px;">'
+          +(isPend?'<button data-mid="'+m.id+'" onclick="novaBaixaParcial(this.dataset.mid)" style="font-size:9px;padding:2px 7px;border-radius:20px;border:none;background:var(--green);color:#fff;cursor:pointer;">Baixa</button>':'')
+          +'<button data-mid="'+m.id+'" onclick="verDetalhesMED(this.dataset.mid)" style="font-size:9px;padding:2px 7px;border-radius:20px;border:1px solid #1a3a5c;background:transparent;color:#1a3a5c;cursor:pointer;">Det.</button>'
+          +'</div></div></div>';
+      }).join('')
+      +'</div></div>';
+  }).join('');
+}
+function _pagarToggleDesc(did, checked){
+  if(!window._pagarState) window._pagarState={descsMarc:{}};
+  if(!window._pagarState.descsMarc) window._pagarState.descsMarc={};
+  if(checked) window._pagarState.descsMarc[did]=true;
+  else delete window._pagarState.descsMarc[did];
+}
+
+function excluirMED(id){
+      +'<button data-mid="'+m.id+'" onclick="excluirMED(this.dataset.mid)" style="font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;">&#128465;</button>'
+  dbDelete('medicoes',id).then(function(){
+    medicoes=medicoes.filter(function(m){return m.id!==id;});
+    toast('MED excluído!'); renderAPagar();
+  });
 }
 
 function novaBaixaParcial(id){
