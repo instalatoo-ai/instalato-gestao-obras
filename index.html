@@ -1566,6 +1566,33 @@ function toggleConfBonus(k) {
   var chk = getEl('cbc-'+k); if(chk) chk.textContent = el.classList.contains('on') ? '✓' : '';
 }
 
+function selecionarTodosConf(sel) {
+  document.querySelectorAll('.conf-chk').forEach(function(chk){ chk.checked = sel; });
+}
+
+function aprovarEmMassa() {
+  var selecionados = Array.from(document.querySelectorAll('.conf-chk:checked'));
+  if(!selecionados.length){ toast('Selecione ao menos um lançamento.'); return; }
+  if(!confirm('Aprovar '+selecionados.length+' lançamento(s) selecionado(s)?')) return;
+  var hoje2=hoje(), hora2=horaAgora(), total=selecionados.length, feitos=0;
+  selecionados.forEach(function(chk){
+    var lancId=chk.getAttribute('data-lid');
+    var oId=chk.getAttribute('data-oid');
+    var pId=chk.getAttribute('data-uid');
+    var apto=chk.getAttribute('data-apto');
+    var amb=decodeURIComponent(chk.getAttribute('data-amb')||'');
+    var lConf=null; for(var i=0;i<lancs.length;i++) if(lancs[i].id===lancId){lConf=lancs[i];break;}
+    var areaConf=lConf?parseFloat(lConf.area_m2)||0:0;
+    var oConf=null; for(var i=0;i<obras.length;i++) if(obras[i].id===oId){oConf=obras[i];break;}
+    var valorVendaConf=areaConf*(oConf?parseFloat(oConf.rate_venda)||0:0);
+    dbInsert('conferencias',{obra_id:oId,lider_id:U.id,profissional_id:pId,lancamento_id:lancId,status:'aprovado',apartamento:apto,ambiente:amb,checklist:'{}',observacao:'',data:hoje2,hora:hora2,valor_venda:valorVendaConf,area_m2:areaConf,bonus_pct:0}).then(function(r){
+      if(r){ confs.push(r); }
+      feitos++;
+      if(feitos===total){ toast('✅ '+total+' lançamento(s) aprovado(s)!'); renderConf(); }
+    });
+  });
+}
+
 function getConfBonusPct() {
   var pct = 0;
   _BONUS_ITEMS.forEach(function(it){
@@ -2346,18 +2373,26 @@ function renderConf() {
   if(pendentes.length){
     pendHtml='<div class="pend-card">'
       +'<div style="font-size:11px;font-weight:700;color:#854F0B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Aguardando conferencia ('+pendentes.length+')</div>';
+    pendHtml+='<div style="display:flex;gap:8px;margin-bottom:8px;">'
+      +'<button type="button" onclick="selecionarTodosConf(true)" style="flex:1;font-size:11px;padding:6px;border-radius:8px;border:1px solid var(--border);background:var(--gray);color:var(--sub);cursor:pointer;">☑ Todos</button>'
+      +'<button type="button" onclick="selecionarTodosConf(false)" style="flex:1;font-size:11px;padding:6px;border-radius:8px;border:1px solid var(--border);background:var(--gray);color:var(--sub);cursor:pointer;">☐ Nenhum</button>'
+      +'<button type="button" onclick="aprovarEmMassa()" style="flex:2;font-size:11px;padding:6px;border-radius:8px;border:none;background:var(--green);color:#fff;cursor:pointer;font-weight:700;">✅ Aprovar selecionados</button>'
+      +'</div>';
     pendentes.forEach(function(l){
       var u=null; for(var i=0;i<users.length;i++) if(users[i].id===l.usuario_id){u=users[i];break;}
       var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===l.obra_id){o=obras[i];break;}
-      pendHtml+='<div class="pend-item"'
-        +' data-lid="'+l.id+'" data-oid="'+l.obra_id+'" data-uid="'+l.usuario_id+'"'
-        +' data-apto="'+(l.apartamento||'')+'" data-amb="'+(l.ambiente||'').replace(/"/g,'')+'"'
-        +' onclick="preencherConfBtn(this)">'
-        +'<div style="display:flex;justify-content:space-between"><div>'
-        +'<div style="font-size:13px;font-weight:700;">'+(u?u.apelido:'--')+' - Apto '+(l.apartamento||'--')+'</div>'
-        +'<div style="font-size:11px;color:var(--sub);">'+(o?o.nome:'--')+' - '+(l.ambiente||'--')+' - '+(l.area_m2||0)+'m2</div>'
-        +'<div style="font-size:10px;color:var(--sub);">'+fmtD(l.data)+' - '+fmt(l.total)+'</div></div>'
-        +'<div style="text-align:right;font-size:10px;background:var(--lg);color:var(--gold);padding:2px 7px;border-radius:20px;">Conferir</div></div></div>';
+      var isOutrosP=l.apartamento==='Outros';
+      var extItensP=[]; try{ var epP=JSON.parse(l.extras||'[]'); extItensP=epP.map(function(e){return e.nome||'';}).filter(Boolean); }catch(e4){}
+      var ambDesc=isOutrosP?(extItensP.length?extItensP.join(', '):'Outros'):(l.ambiente||'--');
+      pendHtml+='<div class="pend-item" style="display:flex;align-items:flex-start;gap:10px;">'
+        +'<input type="checkbox" class="conf-chk" data-lid="'+l.id+'" data-oid="'+l.obra_id+'" data-uid="'+l.usuario_id+'"'
+        +' data-apto="'+(l.apartamento||'')+'" data-amb="'+encodeURIComponent(l.ambiente||'')+'"'
+        +' style="width:18px;height:18px;margin-top:3px;flex-shrink:0;accent-color:var(--gold);cursor:pointer;">'
+        +'<div style="flex:1;" onclick="preencherConfBtn(this.parentElement.querySelector(\'[data-lid]\'))">'
+        +'<div style="font-size:13px;font-weight:700;">'+(u?u.apelido:'--')+' · Apto '+(l.apartamento||'--')+'</div>'
+        +'<div style="font-size:11px;color:var(--sub);">'+(o?o.nome:'--')+' · '+ambDesc+' · '+(l.area_m2||0)+'m²</div>'
+        +'<div style="font-size:10px;color:var(--sub);">'+fmtD(l.data)+' · '+fmt(l.total)+'</div></div>'
+        +'<div style="text-align:right;font-size:10px;background:var(--lg);color:var(--gold);padding:2px 7px;border-radius:20px;flex-shrink:0;">Conferir</div></div>';
     });
     pendHtml+='</div>';
   } else {
