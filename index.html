@@ -5976,8 +5976,11 @@ function gerarRelatorioFin(){
     var m2Btn=f.totalM2;
     html+='<div style="padding:8px 14px;background:#f9f9f9;border-bottom:2px solid #1a3a5c;display:flex;align-items:center;justify-content:space-between;">'
       +'<div style="font-size:10px;color:var(--sub);">Periodo: '+fmtD(ini)+' a '+fmtD(fim)+'</div>'
+      +'<div style="display:flex;gap:6px;">'
+      +'<button data-nome="'+nome+'" onclick="imprimirRelFunc(this)" style="padding:6px 12px;border-radius:20px;border:none;background:#B8860B;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">🖨 Imprimir</button>'
       +'<button data-nome="'+nome+'" data-valor="'+f.totalValor.toFixed(2)+'" data-m2="'+f.totalM2.toFixed(1)+'" data-ini="'+ini+'" data-fim="'+fim+'"'
       +' onclick="abrirMED(this)" style="padding:6px 14px;border-radius:20px;border:none;background:#1e8449;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">📄 Gerar MED</button>'
+      +'</div>'
       +'</div>';
   });
 
@@ -7659,7 +7662,7 @@ function verDetalhesMED(id){
     +(totalDescontos>0?'<div style="display:flex;justify-content:space-between;"><span style="font-size:12px;color:var(--red);">Descontos</span><span style="font-size:13px;font-weight:700;color:var(--red);">-'+fmt(totalDescontos)+'</span></div>':'')
     +'<div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:6px;">'
     +'<span style="font-size:13px;font-weight:700;color:#1e8449;">Liquido a pagar</span>'
-    +'<span style="font-size:16px;font-weight:700;color:#1e8449;">'+fmt(med.valor)+'</span></div>'
+    +'<span style="font-size:16px;font-weight:700;color:#1e8449;">'+fmt(Math.max(0,totalBruto-totalDescontos))+'</span></div>'
     +'</div>'
     +'</div></div></div>';
   document.body.insertAdjacentHTML('beforeend',html);
@@ -7824,6 +7827,61 @@ function enviarRelWhats(){
 
   var url='https://wa.me/'+num+'?text='+encodeURIComponent(texto);
   window.open(url,'_blank');
+}
+
+function imprimirRelFunc(btn){
+  var nome=btn.getAttribute('data-nome');
+  var data=window._relFinData;
+  if(!data||!data.porFunc[nome]){toast('Gere o relatorio primeiro.');return;}
+  var f=data.porFunc[nome];
+  var ini=data.ini, fim=data.fim;
+  var agora=new Date();
+  var dataHora=agora.toLocaleDateString('pt-BR')+' '+agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  var descontos=f.descontos||[];
+  var totalDesc=descontos.reduce(function(s,d){return s+(d.valor||0);},0);
+  var bruto=f.totalValor+totalDesc;
+  var lancHtml=f.itens.sort(function(a,b){return a.data>b.data?1:-1;}).map(function(l){
+    var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===l.obra_id){o=obras[i];break;}
+    return '<tr><td>'+fmtD(l.data)+'</td><td>'+(l.apartamento||'--')+' · '+(l.ambiente||'--')+'</td><td style="text-align:right">'+(parseFloat(l.area_m2)||0).toFixed(1)+'m²</td><td style="text-align:right;font-weight:700;color:#B8860B;">'+fmt(l.total)+'</td></tr>';
+  }).join('');
+  var descHtml=descontos.map(function(d){
+    return '<tr><td colspan="3" style="color:#c0392b;">- '+d.tipo+(d.obs?' ('+d.obs+')':'')+' | '+fmtD(d.data)+'</td><td style="text-align:right;color:#c0392b;font-weight:700;">-'+fmt(d.valor)+'</td></tr>';
+  }).join('');
+  var w=window.open('','_blank');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatorio - '+nome+'</title><style>'
+    +'*{box-sizing:border-box;margin:0;padding:0;}'
+    +'@page{size:A4;margin:15mm;}'
+    +'body{font-family:Arial,sans-serif;font-size:11px;color:#222;}'
+    +'.watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);opacity:0.045;pointer-events:none;z-index:0;text-align:center;}'
+    +'.watermark-txt{font-size:80px;font-weight:900;color:#1a3a5c;letter-spacing:4px;white-space:nowrap;}'
+    +'table{width:100%;border-collapse:collapse;margin-bottom:12px;}'
+    +'th{background:#1a3a5c;color:#fff;padding:6px 8px;text-align:left;font-size:10px;}'
+    +'td{padding:5px 8px;border-bottom:1px solid #eee;}'
+    +'tr:nth-child(even){background:#f9f9f9;}'
+    +'.resumo{background:#f0f4f8;border-radius:8px;padding:12px;margin-top:8px;}'
+    +'@media print{button{display:none!important;}}'
+    +'</style></head><body>'
+    +'<div class="watermark"><div class="watermark-txt">INSTALATO</div></div>'
+    +'<div style="border-bottom:2px solid #1a3a5c;padding-bottom:10px;margin-bottom:16px;display:flex;justify-content:space-between;">'
+    +'<div><div style="font-size:18px;font-weight:900;color:#1a3a5c;">GESTOR INSTALATO</div>'
+    +'<div style="font-size:14px;font-weight:700;margin-top:4px;">Relatório — '+nome+'</div>'
+    +'<div style="font-size:10px;color:#888;margin-top:2px;">Período: '+fmtD(ini)+' a '+fmtD(fim)+'</div></div>'
+    +'<div style="text-align:right;font-size:10px;color:#666;"><div>Gerado em: '+dataHora+'</div><div>Por: '+U.apelido+'</div></div>'
+    +'</div>'
+    +'<table><thead><tr><th>Data</th><th>Apto / Ambiente</th><th style="text-align:right">m²</th><th style="text-align:right">Valor</th></tr></thead><tbody>'
+    +lancHtml
+    +(descHtml?'<tr><td colspan="4" style="background:#fff8f8;font-weight:700;font-size:10px;color:#c0392b;padding:6px 8px;">DESCONTOS</td></tr>'+descHtml:'')
+    +'</tbody></table>'
+    +'<div class="resumo">'
+    +(totalDesc>0?'<div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Bruto</span><span style="font-weight:700;">'+fmt(bruto)+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between;margin-bottom:8px;color:#c0392b;"><span>Descontos</span><span style="font-weight:700;">-'+fmt(totalDesc)+'</span></div>':'')
+    +'<div style="display:flex;justify-content:space-between;border-top:2px solid #1e8449;padding-top:8px;">'
+    +'<span style="font-size:14px;font-weight:700;color:#1e8449;">Líquido a pagar</span>'
+    +'<span style="font-size:16px;font-weight:700;color:#1e8449;">'+fmt(f.totalValor)+'</span></div>'
+    +'</div>'
+    +'</body></html>');
+  w.document.close();
+  setTimeout(function(){w.print();},600);
 }
 
 function imprimirRelFin(){
