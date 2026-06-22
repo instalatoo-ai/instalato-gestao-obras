@@ -998,7 +998,7 @@ function buildNav() {
   var T = U.tipo;
   var tabs = [];
   tabs.push({id:'home',i:'🏠',l:'Início'});
-  if(T==='admin'||T==='lider'||T==='lider_chefe') tabs.push({id:'lancar',i:'➕',l:'Lançar'});
+  tabs.push({id:'lancar',i:'➕',l:'Lançar'});
   tabs.push({id:'meu',i:'📊',l:'Meu Resultado'});
   tabs.push({id:'medicoes',i:'📋',l:'Medicoes'});
   tabs.push({id:'hist',i:'📋',l:'Histórico'});
@@ -1067,7 +1067,7 @@ function buildBNav(){
   // Abas principais
   var main=[];
   main.push({id:'home',i:'🏠',l:'Início'});
-  if(isGestao) main.push({id:'lancar',i:'➕',l:'Lançar'});
+  main.push({id:'lancar',i:'➕',l:'Lançar'});
   if(T==='admin'||T==='lider_chefe'||T==='lider') main.push({id:'meu_financeiro',i:'📊',l:'Demonstrat.'});
   else main.push({id:'meu',i:'📊',l:'Resultado'});
   if(isGestao) main.push({id:'hist',i:'📋',l:'Histórico'});
@@ -1089,7 +1089,7 @@ function openTrayMais(){
   var isGestao=T==='admin'||T==='lider'||T==='lider_chefe';
   // Montar grid de itens
   var items=[];
-  if(isGestao) items.push({id:'lancar',i:'➕',l:'Lançar'});
+  items.push({id:'lancar',i:'➕',l:'Lançar'});
   items.push({id:'meu',i:'📊',l:'Meu Resultado'});
   items.push({id:'medicoes',i:'📋',l:'Medições'});
   if(isGestao) items.push({id:'conf',i:'✅',l:'Conferência'});
@@ -1228,7 +1228,7 @@ function marcarOcorrsLidas(){
 
 function renderAll() {
   var T = U.tipo;
-  if(T==='admin'||T==='lider'||T==='lider_chefe') { renderLancar(); renderHist(); }
+  { renderLancar(); renderHist(); }
   if(T==='admin'||T==='lider_chefe') renderConf();
   if(T==='func') renderHist();
   renderPonto();
@@ -1416,7 +1416,10 @@ function renderLancar() {
   else if(pct<80){mc='msg-warn';mt='⚠️ Abaixo do esperado. Acelere!';}
   var bv = VERSES[Math.floor(Math.random()*VERSES.length)];
   var oOpts = obras.map(function(o) { return '<option value="'+o.id+'">'+o.nome+'</option>'; }).join('');
-  var fOpts = users.filter(function(u) { return u.ativo; }).map(function(u) { return '<option value="'+u.id+'">'+u.apelido+'</option>'; }).join('');
+  var isFunc = U.tipo === 'func';
+  var fOpts = isFunc
+    ? '<option value="'+U.id+'" selected>'+U.apelido+'</option>'
+    : users.filter(function(u) { return u.ativo; }).map(function(u) { return '<option value="'+u.id+'">'+u.apelido+'</option>'; }).join('');
   el.innerHTML = '<div class="hero" style="background:var(--gold)"><p>Lançamento do dia</p><h2>O que você fez hoje?</h2></div>'
     +'<div style="margin:12px 16px 0;padding:12px 14px;background:var(--lg);border-radius:12px;border-left:3px solid var(--gold);">'
     +'<div style="font-size:9px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">✨ Palavra do dia</div>'
@@ -1430,7 +1433,7 @@ function renderLancar() {
     +'<button class="btn-gold" type="button" style="width:auto;padding:11px 14px;font-size:13px;" onclick="definirMeta()">Definir</button></div></div>'
     +'<div><div class="fl">Obra</div><select class="sel" id="l-obra" onchange="obraChanged()"><option value="">-- Selecione --</option>'+oOpts+'</select>'
     +'<div id="obra-inf" style="display:none;background:rgba(184,134,11,.08);border-radius:10px;padding:8px 12px;font-size:11px;color:#854F0B;margin-top:6px;"></div></div>'
-    +'<div><div class="fl">Funcionário</div><select class="sel" id="l-func" onchange="funcChanged()"><option value="">Selecione</option>'+fOpts+'</select></div>'
+    +'<div><div class="fl">Funcionário</div><select class="sel" id="l-func" onchange="funcChanged()"'+(isFunc?' disabled style="opacity:.7"':'')+'>'+(!isFunc?'<option value="">Selecione</option>':'')+fOpts+'</select></div>'
     +'<div><div class="fl">Apartamento</div><select class="sel" id="l-apto-sel"><option value="">Selecione a obra primeiro</option></select></div>'
     +'<div><div class="fl">Ambiente (selecione um por vez)</div>'
     +'<div id="l-amb-lista" style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;padding:4px 0;"></div>'
@@ -1445,11 +1448,8 @@ function renderLancar() {
     +'<div><div class="fl">Outros <span style="font-weight:400;font-size:9px;color:var(--sub)">rodapés, soleiras, cortes...</span></div>'
     +'<div style="display:grid;grid-template-columns:1fr 80px 70px 32px;gap:6px;margin-bottom:4px;"><span class="fl" style="margin:0">Item</span><span class="fl" style="margin:0">Valor</span><span class="fl" style="margin:0">Qtd</span><span></span></div>'
     +'<div id="extras-wrap"></div><button class="btn-add-line" type="button" onclick="addExtra()">＋ Adicionar item</button></div>'
-    +'<div><div class="fl">Bônus de desempenho <span style="font-weight:400;font-size:9px">máx 10%</span></div><div id="bonus-list"></div></div>'
     +'<div class="total-card"><div class="t-row"><span class="tl">Base</span><span class="tv" id="tv-base">R$ 0,00</span></div>'
     +'<div class="t-row"><span class="tl">Extras</span><span class="tv" id="tv-ext">R$ 0,00</span></div>'
-    +'<div class="t-row"><span class="tl">Bônus <span id="tv-pct" style="background:rgba(30,132,73,.12);color:var(--green);font-size:10px;padding:1px 6px;border-radius:20px;margin-left:4px">0%</span></span>'
-    +'<span class="tv" id="tv-bon" style="color:var(--green)">+ R$ 0,00</span></div>'
     +'<div class="t-div"></div><div class="t-final"><span style="font-size:13px;color:var(--sub)">Total a receber</span><span class="tfv" id="tv-tot">R$ 0,00</span></div></div>'
     +'<div style="background:var(--gray);border-radius:12px;padding:12px;">'
     +'<div class="fl">Foto do ambiente (opcional)</div>'
@@ -1465,7 +1465,6 @@ function renderLancar() {
     +'</div></div>'
     +'<div id="ressalva-wrap"></div>'
     +'<button class="btn-gold" type="button" onclick="salvarLanc()">✅ Salvar produção</button></div>';
-  renderBonusList();
   // Injetar ressalva para lider/admin via DOM
   setTimeout(function(){
   if(U.tipo==='lider'||U.tipo==='lider_chefe'||U.tipo==='admin'){
@@ -1545,6 +1544,35 @@ function toggleBonus(k) {
   var el = getEl('b-'+k); el.classList.toggle('on');
   var chk = getEl('bc-'+k); chk.textContent = el.classList.contains('on') ? '✓' : '';
   calcTotal();
+}
+
+var _BONUS_ITEMS = [
+  {k:'qualidade',n:'Qualidade técnica',d:'Assentamento nivelado e com padrão',pct:2},
+  {k:'limpeza',n:'Organização e limpeza',d:'Local limpo ao fim do dia',pct:4},
+  {k:'horario',n:'Horário de entrada/saída',d:'Pontualidade no início e término',pct:2},
+  {k:'retrabalho',n:'Sem retrabalho',d:'Nenhuma correção necessária',pct:2}
+];
+
+function renderConfBonusList() {
+  var el = getEl('conf-bonus-list'); if(!el) return;
+  el.innerHTML = _BONUS_ITEMS.map(function(it) {
+    return '<div class="bonus-item" id="cb-'+it.k+'" onclick="toggleConfBonus(\''+it.k+'\')"><div class="bchk" id="cbc-'+it.k+'"></div><div class="bname">'+it.n+'<br><span style="font-size:10px;color:var(--sub);font-weight:400">'+it.d+'</span></div><div class="bpct">+'+it.pct+'%</div></div>';
+  }).join('');
+}
+
+function toggleConfBonus(k) {
+  var el = getEl('cb-'+k); if(!el) return;
+  el.classList.toggle('on');
+  var chk = getEl('cbc-'+k); if(chk) chk.textContent = el.classList.contains('on') ? '✓' : '';
+}
+
+function getConfBonusPct() {
+  var pct = 0;
+  _BONUS_ITEMS.forEach(function(it){
+    var el = getEl('cb-'+it.k);
+    if(el && el.classList.contains('on')) pct += it.pct;
+  });
+  return pct;
 }
 
 var _obraAndares = {};
@@ -2357,10 +2385,12 @@ function renderConf() {
     +'<button class="btn-st btn-rp" type="button" id="st-rp" onclick="selSt(\'reprovado\')"><span class="si">❌</span>Reprovado</button></div></div>'
     +'<div><div class="fl">Itens avaliados</div>'+chkHtml+'</div>'
     +'<div><div class="fl">Observação</div><textarea class="inp" id="c-obs" rows="3" style="resize:none" placeholder="Descreva o que foi observado..."></textarea></div>'
+    +(U.tipo==='admin'?'<div><div class="fl">Bônus de desempenho <span style="font-weight:400;font-size:9px">máx 10% · somente admin</span></div><div id="conf-bonus-list"></div></div>':'')
     +'<button class="btn-gold" type="button" id="btn-conf" onclick="salvarConf()" disabled style="opacity:.5;cursor:not-allowed">📋 Selecione um lançamento acima</button>'
     +(confs.length?'<div><div class="fl">Histórico</div>'+hist+'</div>':'')
     +'</div>';
   chkState={};
+  if(U.tipo==='admin') setTimeout(renderConfBonusList, 0);
 }
 
 function editarConf(confId){
@@ -2520,7 +2550,8 @@ function salvarConf(){
     var rVenda=vfConf>0?vfConf:(oConf?parseFloat(oConf.rate_venda)||0:0);
     var rVendaMl=vfConf>0?vfConf:(isRejunteConf&&oConf&&oConf.rate_rejunte_venda?parseFloat(oConf.rate_rejunte_venda):oConf?parseFloat(oConf.rate_venda_ml)||0:0);
     var valorVendaConf=valorFixoConf>0?areaConf*valorFixoConf:(unidadeConf==='ml'||isRejunteConf)?areaConf*rVendaMl:areaConf*rVenda;
-    return dbInsert('conferencias',{obra_id:oId,lider_id:U.id,profissional_id:pId,lancamento_id:lancId||null,status:confSt,apartamento:apto,ambiente:ambNomeConf,checklist:JSON.stringify(chkState),observacao:obs,data:hoje(),hora:horaAgora(),valor_venda:valorVendaConf,area_m2:areaConf});
+    var confBonusPct = (U.tipo==='admin') ? getConfBonusPct() : 0;
+    return dbInsert('conferencias',{obra_id:oId,lider_id:U.id,profissional_id:pId,lancamento_id:lancId||null,status:confSt,apartamento:apto,ambiente:ambNomeConf,checklist:JSON.stringify(chkState),observacao:obs,data:hoje(),hora:horaAgora(),valor_venda:valorVendaConf,area_m2:areaConf,bonus_pct:confBonusPct});
   });
   Promise.all(promises).then(function(results){
     var validos=results.filter(function(r){return r;});
