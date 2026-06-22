@@ -2305,9 +2305,12 @@ function renderHistFiltro() {
           +'</div>';
       }
     }
+    var isOutros2=l.apartamento==='Outros';
+    var extItens2=[]; try{ var ep2=JSON.parse(l.extras||'[]'); extItens2=ep2.map(function(e){return e.nome||'';}).filter(Boolean); }catch(e3){}
+    var subInfo2=isOutros2?(o?o.nome:'--')+' · '+(extItens2.length?extItens2.join(', '):'Outros'):(o?o.nome:'--')+' · '+l.area_m2+'m²';
     return '<div class="hi" style="border-left:3px solid '+statusCor+';"><div class="hi-ico">&#129683;</div><div class="hi-b">'
-      +'<div class="hi-t">'+(u?u.apelido:'--')+' - '+(l.ambiente||'--')+' - Apto '+(l.apartamento||'--')+'</div>'
-      +'<div class="hi-s">'+(o?o.nome:'--')+' - '+l.area_m2+'m2 - bonus '+l.bonus_pct+'%</div>'
+      +'<div class="hi-t">'+(u?u.apelido:'--')+' · '+(l.ambiente||'--')+' · Apto '+(l.apartamento||'--')+'</div>'
+      +'<div class="hi-s">'+subInfo2+'</div>'
       +'<div style="font-size:10px;font-weight:700;color:'+statusCor+';margin-top:2px;">'+statusTxt+'</div>'
       +(l.ressalva?'<div style="font-size:10px;background:#fff3cd;color:#854F0B;font-weight:700;padding:2px 8px;border-radius:20px;display:inline-block;margin-top:3px;">⚠️ Ressalva: '+l.ressalva+'</div>':'')
       +btns+'</div>'
