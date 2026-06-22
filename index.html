@@ -2044,8 +2044,12 @@ function renderMeu() {
   var hist=meus.slice(0,10).map(function(l){
     var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===l.obra_id){o=obras[i];break;}
     var confOk=confs.some(function(c){return c.lancamento_id===l.id&&c.status==='aprovado';});
+    var isOutros=l.apartamento==='Outros';
+    var extrasItens=[];
+    try{ var ep=JSON.parse(l.extras||'[]'); extrasItens=ep.map(function(e){return e.nome||'';}).filter(Boolean); }catch(e2){}
+    var subInfo=isOutros?(o?o.nome:'--')+' · '+(extrasItens.length?extrasItens.join(', '):'Outros'):(o?o.nome:'--')+' · '+l.area_m2+'m²';
     return '<div class="hi" style="border-left:3px solid '+(confOk?'var(--green)':'var(--gold)')+';"><div class="hi-ico">🪵</div><div class="hi-b"><div class="hi-t">'+(l.ambiente||'--')+' · Apto '+(l.apartamento||'--')+'</div>'
-      +'<div class="hi-s">'+(o?o.nome:'--')+' · '+l.area_m2+'m²</div>'
+      +'<div class="hi-s">'+subInfo+'</div>'
       +'<div style="font-size:10px;color:'+(confOk?'var(--green)':'#B8860B')+';font-weight:700;">'+(confOk?'✓ Aprovado':'⏳ Aguardando conferencia')+'</div>'
       +'</div>'
       +'<div class="hi-r"><div class="hi-v">'+fmt(l.total)+'</div><div class="hi-d">'+fmtD(l.data)+'</div></div></div>';
@@ -2459,7 +2463,8 @@ function salvarEdicaoConfAtual(){
 function salvarEdicaoConf(confId){
   if(!confSt){toast('Selecione o resultado.');return;}
   var obs=(getEl('c-obs')?getEl('c-obs').value:'').trim();
-  var obj={status:confSt,checklist:JSON.stringify(chkState),observacao:obs,data:hoje(),hora:horaAgora()};
+  var confBonusPct2 = (U.tipo==='admin') ? getConfBonusPct() : 0;
+  var obj={status:confSt,checklist:JSON.stringify(chkState),observacao:obs,data:hoje(),hora:horaAgora(),bonus_pct:confBonusPct2};
   dbUpdate('conferencias',confId,obj).then(function(ok){
     if(ok){
       for(var i=0;i<confs.length;i++) if(confs[i].id===confId){Object.assign(confs[i],obj);break;}
