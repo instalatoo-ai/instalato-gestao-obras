@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-
+<!-- saved from url=(0045)file:///C:/Users/Inae/Downloads/index_18.html -->
 <html lang="pt-BR"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
-  <link href="https://fonts.googleapis.com/css2?family=Righteous&display=swap" rel="stylesheet">
+  <link href="file:///C:/Users/Inae/Downloads/index_files/css2" rel="stylesheet">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>GESTOR INSTALATO</title>
 <style>
@@ -6399,6 +6399,7 @@ function renderMeuFinanceiro(){
     despsPorCat[cat].push(d);
   });
   var totalDespsFunc=despsFunc.filter(function(d){return !d.descontado;}).reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
+
   // Comissao
   var comissaoPendente=medsComissao.filter(function(m){return m.status!=='pago';}).reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
   var comissaoPago=medsComissao.filter(function(m){return m.status==='pago';}).reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
@@ -6421,10 +6422,16 @@ function renderMeuFinanceiro(){
   var descontosHtml='';
   if(totalMarmitas>0) descontosHtml+='<div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="font-size:12px;color:var(--red);">&#127859; Marmitas ('+marmitasFunc.length+'x)</span><span style="font-size:13px;font-weight:700;color:var(--red);">-'+fmt(totalMarmitas)+'</span></div>';
   Object.keys(despsPorCat).forEach(function(cat){
-    var total=despsPorCat[cat].reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
-    descontosHtml+='<div style="display:flex;justify-content:space-between;padding:6px 0;">'
-      +'<span style="font-size:12px;color:var(--red);">&#8595; '+cat+' ('+despsPorCat[cat].length+'x)</span>'
+    var naoDesc=despsPorCat[cat].filter(function(d){return !d.descontado;});
+    var jaDesc=despsPorCat[cat].filter(function(d){return d.descontado;});
+    var total=naoDesc.reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
+    var totalDesc=jaDesc.reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
+    if(naoDesc.length>0) descontosHtml+='<div style="display:flex;justify-content:space-between;padding:6px 0;">'
+      +'<span style="font-size:12px;color:var(--red);">&#8595; '+cat+' ('+naoDesc.length+'x)</span>'
       +'<span style="font-size:13px;font-weight:700;color:var(--red);">-'+fmt(total)+'</span></div>';
+    if(jaDesc.length>0) descontosHtml+='<div style="display:flex;justify-content:space-between;padding:6px 0;">'
+      +'<span style="font-size:12px;color:var(--sub);text-decoration:line-through;">&#8595; '+cat+' ('+jaDesc.length+'x)</span>'
+      +'<span style="font-size:12px;color:var(--green);">✓ Já descontado</span></div>';
   });
 
   var corSaldo=saldo>0?'var(--green)':saldo<0?'var(--red)':'var(--sub)';
@@ -6545,7 +6552,7 @@ function renderRelFuncResultado(){
     if(!despsPorCat[cat]) despsPorCat[cat]=[];
     despsPorCat[cat].push(d);
   });
-  var totalDespsFunc=despsFunc.filter(function(d){return !d.descontado;}).reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
+  var totalDespsFunc=despsFunc.reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
 
   // Comissão
   var totalComissao=medsComissao.reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
@@ -6573,11 +6580,16 @@ function renderRelFuncResultado(){
   var descontosHtml='';
   if(totalMarmitas>0) descontosHtml+='<div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="font-size:12px;color:var(--red);">&#127859; Marmitas ('+marmitasFunc.length+'x)</span><span style="font-size:13px;font-weight:700;color:var(--red);">-'+fmt(totalMarmitas)+'</span></div>';
   Object.keys(despsPorCat).forEach(function(cat){
-    var total=despsPorCat[cat].reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
-    var itens=despsPorCat[cat].map(function(d){return d.descricao+(d.data?' ('+fmtD(d.data)+')':'');}).join(', ');
-    descontosHtml+='<div style="display:flex;justify-content:space-between;padding:5px 0;" title="'+itens+'">'
-      +'<span style="font-size:12px;color:var(--red);">&#8595; '+cat+' ('+despsPorCat[cat].length+'x)</span>'
+    var naoDesc2=despsPorCat[cat].filter(function(d){return !d.descontado;});
+    var jaDesc2=despsPorCat[cat].filter(function(d){return d.descontado;});
+    var total=naoDesc2.reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
+    var totalDesc2=jaDesc2.reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
+    if(naoDesc2.length>0) descontosHtml+='<div style="display:flex;justify-content:space-between;padding:5px 0;">'
+      +'<span style="font-size:12px;color:var(--red);">&#8595; '+cat+' ('+naoDesc2.length+'x)</span>'
       +'<span style="font-size:13px;font-weight:700;color:var(--red);">-'+fmt(total)+'</span></div>';
+    if(jaDesc2.length>0) descontosHtml+='<div style="display:flex;justify-content:space-between;padding:5px 0;">'
+      +'<span style="font-size:12px;color:var(--sub);text-decoration:line-through;">&#8595; '+cat+' ('+jaDesc2.length+'x)</span>'
+      +'<span style="font-size:12px;color:var(--green);">✓ Já descontado</span></div>';
   });
 
   var corSaldo=saldo>0?'var(--green)':saldo<0?'var(--red)':'var(--sub)';
