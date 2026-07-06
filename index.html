@@ -6398,8 +6398,7 @@ function renderMeuFinanceiro(){
     if(!despsPorCat[cat]) despsPorCat[cat]=[];
     despsPorCat[cat].push(d);
   });
-  var totalDespsFunc=despsFunc.reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
-
+  var totalDespsFunc=despsFunc.filter(function(d){return !d.descontado;}).reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
   // Comissao
   var comissaoPendente=medsComissao.filter(function(m){return m.status!=='pago';}).reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
   var comissaoPago=medsComissao.filter(function(m){return m.status==='pago';}).reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
