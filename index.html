@@ -998,7 +998,7 @@ function buildNav() {
   var T = U.tipo;
   var tabs = [];
   tabs.push({id:'home',i:'🏠',l:'Início'});
-  if(T==='admin'||T==='lider'||T==='lider_chefe') tabs.push({id:'lancar',i:'➕',l:'Lançar'});
+  tabs.push({id:'lancar',i:'➕',l:'Lançar'});
   tabs.push({id:'meu',i:'📊',l:'Meu Resultado'});
   tabs.push({id:'medicoes',i:'📋',l:'Medicoes'});
   tabs.push({id:'hist',i:'📋',l:'Histórico'});
@@ -1067,7 +1067,7 @@ function buildBNav(){
   // Abas principais
   var main=[];
   main.push({id:'home',i:'🏠',l:'Início'});
-  if(isGestao) main.push({id:'lancar',i:'➕',l:'Lançar'});
+  main.push({id:'lancar',i:'➕',l:'Lançar'});
   if(T==='admin'||T==='lider_chefe'||T==='lider') main.push({id:'meu_financeiro',i:'📊',l:'Demonstrat.'});
   else main.push({id:'meu',i:'📊',l:'Resultado'});
   if(isGestao) main.push({id:'hist',i:'📋',l:'Histórico'});
@@ -1089,7 +1089,7 @@ function openTrayMais(){
   var isGestao=T==='admin'||T==='lider'||T==='lider_chefe';
   // Montar grid de itens
   var items=[];
-  if(isGestao) items.push({id:'lancar',i:'➕',l:'Lançar'});
+  items.push({id:'lancar',i:'➕',l:'Lançar'});
   items.push({id:'meu',i:'📊',l:'Meu Resultado'});
   items.push({id:'medicoes',i:'📋',l:'Medições'});
   if(isGestao) items.push({id:'conf',i:'✅',l:'Conferência'});
@@ -1228,7 +1228,7 @@ function marcarOcorrsLidas(){
 
 function renderAll() {
   var T = U.tipo;
-  if(T==='admin'||T==='lider'||T==='lider_chefe') { renderLancar(); renderHist(); }
+  { renderLancar(); renderHist(); }
   if(T==='admin'||T==='lider_chefe') renderConf();
   if(T==='func') renderHist();
   renderPonto();
@@ -1554,6 +1554,31 @@ function toggleBonus(k) {
   var chk = getEl('bc-'+k); chk.textContent = el.classList.contains('on') ? '✓' : '';
   calcTotal();
 }
+
+var _BONUS_ITEMS_CONF=[{k:'qualidade',n:'Qualidade técnica',d:'Assentamento nivelado e com padrão',pct:2},{k:'limpeza',n:'Organização e limpeza',d:'Local limpo ao fim do dia',pct:4},{k:'horario',n:'Horário de entrada/saída',d:'Pontualidade no início e término',pct:2},{k:'retrabalho',n:'Sem retrabalho',d:'Nenhuma correção necessária',pct:2}];
+function renderConfBonusList(){var el=getEl('conf-bonus-list');if(!el)return;el.innerHTML=_BONUS_ITEMS_CONF.map(function(it){return '<div class="bonus-item" id="cb-'+it.k+'" onclick="toggleConfBonus(\''+it.k+'\')"><div class="bchk" id="cbc-'+it.k+'"></div><div class="bname">'+it.n+'<br><span style="font-size:10px;color:var(--sub);font-weight:400">'+it.d+'</span></div><div class="bpct">+'+it.pct+'%</div></div>';}).join('');}
+function toggleConfBonus(k){var el=getEl('cb-'+k);if(!el)return;el.classList.toggle('on');var chk=getEl('cbc-'+k);if(chk)chk.textContent=el.classList.contains('on')?'✓':'';}
+function selecionarTodosConf(sel){document.querySelectorAll('.conf-chk').forEach(function(chk){chk.checked=sel;});}
+function aprovarEmMassa(){
+  var selecionados=Array.from(document.querySelectorAll('.conf-chk:checked'));
+  if(!selecionados.length){toast('Selecione ao menos um lançamento.');return;}
+  if(!confirm('Aprovar '+selecionados.length+' lançamento(s) selecionado(s)?')) return;
+  var hoje2=hoje(),hora2=horaAgora(),total=selecionados.length,feitos=0;
+  selecionados.forEach(function(chk){
+    var lancId=chk.getAttribute('data-lid'),oId=chk.getAttribute('data-oid'),pId=chk.getAttribute('data-uid');
+    var apto=chk.getAttribute('data-apto'),amb=decodeURIComponent(chk.getAttribute('data-amb')||'');
+    var lConf=null; for(var i=0;i<lancs.length;i++) if(lancs[i].id===lancId){lConf=lancs[i];break;}
+    var areaConf=lConf?parseFloat(lConf.area_m2)||0:0;
+    var oConf=null; for(var i=0;i<obras.length;i++) if(obras[i].id===oId){oConf=obras[i];break;}
+    var valorVendaConf=areaConf*(oConf?parseFloat(oConf.rate_venda)||0:0);
+    dbInsert('conferencias',{obra_id:oId,lider_id:U.id,profissional_id:pId,lancamento_id:lancId,status:'aprovado',apartamento:apto,ambiente:amb,checklist:'{}',observacao:'',data:hoje2,hora:hora2,valor_venda:valorVendaConf,area_m2:areaConf,bonus_pct:0}).then(function(r){
+      if(r){confs.push(r);}
+      feitos++;
+      if(feitos===total){toast('✅ '+total+' lançamento(s) aprovado(s)!');renderConf();}
+    });
+  });
+}
+function getConfBonusPct(){var pct=0;_BONUS_ITEMS_CONF.forEach(function(it){var el=getEl('cb-'+it.k);if(el&&el.classList.contains('on'))pct+=it.pct;});return pct;}
 
 var _obraAndares = {};
 var _editAptoRef = null;
@@ -2056,8 +2081,11 @@ function renderMeu() {
   var hist=meus.slice(0,10).map(function(l){
     var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===l.obra_id){o=obras[i];break;}
     var confOk=confs.some(function(c){return c.lancamento_id===l.id&&c.status==='aprovado';});
+    var isOutrosH=l.apartamento==='Outros';
+    var extItensH=[]; try{var epH=JSON.parse(l.extras||'[]');extItensH=epH.map(function(e){return e.nome||'';}).filter(Boolean);}catch(eH){}
+    var subInfoH=isOutrosH?(o?o.nome:'--')+' · '+(extItensH.length?extItensH.join(', '):'Outros'):(o?o.nome:'--')+' · '+l.area_m2+'m²';
     return '<div class="hi" style="border-left:3px solid '+(confOk?'var(--green)':'var(--gold)')+';"><div class="hi-ico">🪵</div><div class="hi-b"><div class="hi-t">'+(l.ambiente||'--')+' · Apto '+(l.apartamento||'--')+'</div>'
-      +'<div class="hi-s">'+(o?o.nome:'--')+' · '+l.area_m2+'m²</div>'
+      +'<div class="hi-s">'+subInfoH+'</div>'
       +'<div style="font-size:10px;color:'+(confOk?'var(--green)':'#B8860B')+';font-weight:700;">'+(confOk?'✓ Aprovado':'⏳ Aguardando conferencia')+'</div>'
       +'</div>'
       +'<div class="hi-r"><div class="hi-v">'+fmt(l.total)+'</div><div class="hi-d">'+fmtD(l.data)+'</div></div></div>';
@@ -2313,9 +2341,12 @@ function renderHistFiltro() {
           +'</div>';
       }
     }
+    var isOutros2=l.apartamento==='Outros';
+    var extItens2=[]; try{var ep2=JSON.parse(l.extras||'[]');extItens2=ep2.map(function(e){return e.nome||'';}).filter(Boolean);}catch(e3){}
+    var subInfo2=isOutros2?(o?o.nome:'--')+' · '+(extItens2.length?extItens2.join(', '):'Outros'):(o?o.nome:'--')+' · '+l.area_m2+'m²';
     return '<div class="hi" style="border-left:3px solid '+statusCor+';"><div class="hi-ico">&#129683;</div><div class="hi-b">'
-      +'<div class="hi-t">'+(u?u.apelido:'--')+' - '+(l.ambiente||'--')+' - Apto '+(l.apartamento||'--')+'</div>'
-      +'<div class="hi-s">'+(o?o.nome:'--')+' - '+l.area_m2+'m2 - bonus '+l.bonus_pct+'%</div>'
+      +'<div class="hi-t">'+(u?u.apelido:'--')+' · '+(l.ambiente||'--')+' · Apto '+(l.apartamento||'--')+'</div>'
+      +'<div class="hi-s">'+subInfo2+'</div>'
       +'<div style="font-size:10px;font-weight:700;color:'+statusCor+';margin-top:2px;">'+statusTxt+'</div>'
       +(l.ressalva?'<div style="font-size:10px;background:#fff3cd;color:#854F0B;font-weight:700;padding:2px 8px;border-radius:20px;display:inline-block;margin-top:3px;">⚠️ Ressalva: '+l.ressalva+'</div>':'')
       +btns+'</div>'
@@ -2351,18 +2382,26 @@ function renderConf() {
   if(pendentes.length){
     pendHtml='<div class="pend-card">'
       +'<div style="font-size:11px;font-weight:700;color:#854F0B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Aguardando conferencia ('+pendentes.length+')</div>';
+    pendHtml+='<div style="display:flex;gap:8px;margin-bottom:8px;">'
+      +'<button type="button" onclick="selecionarTodosConf(true)" style="flex:1;font-size:11px;padding:6px;border-radius:8px;border:1px solid var(--border);background:var(--gray);color:var(--sub);cursor:pointer;">☑ Todos</button>'
+      +'<button type="button" onclick="selecionarTodosConf(false)" style="flex:1;font-size:11px;padding:6px;border-radius:8px;border:1px solid var(--border);background:var(--gray);color:var(--sub);cursor:pointer;">☐ Nenhum</button>'
+      +'<button type="button" onclick="aprovarEmMassa()" style="flex:2;font-size:11px;padding:6px;border-radius:8px;border:none;background:var(--green);color:#fff;cursor:pointer;font-weight:700;">✅ Aprovar selecionados</button>'
+      +'</div>';
     pendentes.forEach(function(l){
       var u=null; for(var i=0;i<users.length;i++) if(users[i].id===l.usuario_id){u=users[i];break;}
       var o=null; for(var i=0;i<obras.length;i++) if(obras[i].id===l.obra_id){o=obras[i];break;}
-      pendHtml+='<div class="pend-item"'
-        +' data-lid="'+l.id+'" data-oid="'+l.obra_id+'" data-uid="'+l.usuario_id+'"'
-        +' data-apto="'+(l.apartamento||'')+'" data-amb="'+(l.ambiente||'').replace(/"/g,'')+'"'
-        +' onclick="preencherConfBtn(this)">'
-        +'<div style="display:flex;justify-content:space-between"><div>'
-        +'<div style="font-size:13px;font-weight:700;">'+(u?u.apelido:'--')+' - Apto '+(l.apartamento||'--')+'</div>'
-        +'<div style="font-size:11px;color:var(--sub);">'+(o?o.nome:'--')+' - '+(l.ambiente||'--')+' - '+(l.area_m2||0)+'m2</div>'
-        +'<div style="font-size:10px;color:var(--sub);">'+fmtD(l.data)+' - '+fmt(l.total)+'</div></div>'
-        +'<div style="text-align:right;font-size:10px;background:var(--lg);color:var(--gold);padding:2px 7px;border-radius:20px;">Conferir</div></div></div>';
+      var isOutrosP=l.apartamento==='Outros';
+      var extItensP=[]; try{ var epP=JSON.parse(l.extras||'[]'); extItensP=epP.map(function(e){return e.nome||'';}).filter(Boolean); }catch(e4){}
+      var ambDesc=isOutrosP?(extItensP.length?extItensP.join(', '):'Outros'):(l.ambiente||'--');
+      pendHtml+='<div class="pend-item" style="display:flex;align-items:flex-start;gap:10px;">'
+        +'<input type="checkbox" class="conf-chk" data-lid="'+l.id+'" data-oid="'+l.obra_id+'" data-uid="'+l.usuario_id+'"'
+        +' data-apto="'+(l.apartamento||'')+'" data-amb="'+encodeURIComponent(l.ambiente||'')+'"'
+        +' style="width:18px;height:18px;margin-top:3px;flex-shrink:0;accent-color:var(--gold);cursor:pointer;">'
+        +'<div style="flex:1;" onclick="preencherConfBtn(this.parentElement.querySelector(\'[data-lid]\'))">'
+        +'<div style="font-size:13px;font-weight:700;">'+(u?u.apelido:'--')+' · Apto '+(l.apartamento||'--')+'</div>'
+        +'<div style="font-size:11px;color:var(--sub);">'+(o?o.nome:'--')+' · '+ambDesc+' · '+(l.area_m2||0)+'m²</div>'
+        +'<div style="font-size:10px;color:var(--sub);">'+fmtD(l.data)+' · '+fmt(l.total)+'</div></div>'
+        +'<div style="text-align:right;font-size:10px;background:var(--lg);color:var(--gold);padding:2px 7px;border-radius:20px;flex-shrink:0;">Conferir</div></div>';
     });
     pendHtml+='</div>';
   } else {
@@ -2398,9 +2437,11 @@ function renderConf() {
     +'<div><div class="fl">Itens avaliados</div>'+chkHtml+'</div>'
     +'<div><div class="fl">Observação</div><textarea class="inp" id="c-obs" rows="3" style="resize:none" placeholder="Descreva o que foi observado..."></textarea></div>'
     +'<button class="btn-gold" type="button" id="btn-conf" onclick="salvarConf()" disabled style="opacity:.5;cursor:not-allowed">📋 Selecione um lançamento acima</button>'
+    +(U.tipo==='admin'?'<div><div class="fl">Bônus de desempenho <span style="font-weight:400;font-size:9px">máx 10% · somente admin</span></div><div id="conf-bonus-list"></div></div>':'')
     +(confs.length?'<div><div class="fl">Histórico</div>'+hist+'</div>':'')
     +'</div>';
   chkState={};
+  if(U.tipo==='admin') setTimeout(renderConfBonusList,0);
 }
 
 function editarConf(confId){
@@ -2469,7 +2510,8 @@ function salvarEdicaoConfAtual(){
 function salvarEdicaoConf(confId){
   if(!confSt){toast('Selecione o resultado.');return;}
   var obs=(getEl('c-obs')?getEl('c-obs').value:'').trim();
-  var obj={status:confSt,checklist:JSON.stringify(chkState),observacao:obs,data:hoje(),hora:horaAgora()};
+  var confBonusPct2=(U.tipo==='admin')?getConfBonusPct():0;
+  var obj={status:confSt,checklist:JSON.stringify(chkState),observacao:obs,data:hoje(),hora:horaAgora(),bonus_pct:confBonusPct2};
   dbUpdate('conferencias',confId,obj).then(function(ok){
     if(ok){
       for(var i=0;i<confs.length;i++) if(confs[i].id===confId){Object.assign(confs[i],obj);break;}
@@ -2560,7 +2602,8 @@ function salvarConf(){
     var rVenda=vfConf>0?vfConf:(oConf?parseFloat(oConf.rate_venda)||0:0);
     var rVendaMl=vfConf>0?vfConf:(isRejunteConf&&oConf&&oConf.rate_rejunte_venda?parseFloat(oConf.rate_rejunte_venda):oConf?parseFloat(oConf.rate_venda_ml)||0:0);
     var valorVendaConf=valorFixoConf>0?areaConf*valorFixoConf:(unidadeConf==='ml'||isRejunteConf)?areaConf*rVendaMl:areaConf*rVenda;
-    return dbInsert('conferencias',{obra_id:oId,lider_id:U.id,profissional_id:pId,lancamento_id:lancId||null,status:confSt,apartamento:apto,ambiente:ambNomeConf,checklist:JSON.stringify(chkState),observacao:obs,data:hoje(),hora:horaAgora(),valor_venda:valorVendaConf,area_m2:areaConf});
+    var confBonusPct=(U.tipo==='admin')?getConfBonusPct():0;
+    return dbInsert('conferencias',{obra_id:oId,lider_id:U.id,profissional_id:pId,lancamento_id:lancId||null,status:confSt,apartamento:apto,ambiente:ambNomeConf,checklist:JSON.stringify(chkState),observacao:obs,data:hoje(),hora:horaAgora(),valor_venda:valorVendaConf,area_m2:areaConf,bonus_pct:confBonusPct});
   });
   Promise.all(promises).then(function(results){
     var validos=results.filter(function(r){return r;});
@@ -7625,7 +7668,7 @@ function verDetalhesMED(id){
     +(totalDescontos>0?'<div style="display:flex;justify-content:space-between;"><span style="font-size:12px;color:var(--red);">Descontos</span><span style="font-size:13px;font-weight:700;color:var(--red);">-'+fmt(totalDescontos)+'</span></div>':'')
     +'<div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:6px;">'
     +'<span style="font-size:13px;font-weight:700;color:#1e8449;">Liquido a pagar</span>'
-    +'<span style="font-size:16px;font-weight:700;color:#1e8449;">'+fmt(med.valor)+'</span></div>'
+    +'<span style="font-size:16px;font-weight:700;color:#1e8449;">'+fmt(Math.max(0,totalBruto-totalDescontos))+'</span></div>'
     +'</div>'
     +'</div></div></div>';
   document.body.insertAdjacentHTML('beforeend',html);
