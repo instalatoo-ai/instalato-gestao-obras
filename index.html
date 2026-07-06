@@ -7232,7 +7232,7 @@ function _renderAPagarResultado(){
       +(isPend?'<button data-mid="'+m.id+'" onclick="novaBaixaParcial(this.dataset.mid)" style="font-size:10px;padding:4px 10px;border-radius:20px;border:none;background:var(--green);color:#fff;font-weight:700;cursor:pointer;">✓ Dar Baixa</button>':'')
       +'<button data-mid="'+m.id+'" onclick="verDetalhesMED(this.dataset.mid)" style="font-size:10px;padding:4px 10px;border-radius:20px;border:1px solid #1a3a5c;background:transparent;color:#1a3a5c;cursor:pointer;">🔍 Detalhes</button>'
       +'<button data-mid="'+m.id+'" onclick="verDetalhesMED(this.dataset.mid)" style="font-size:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--sub);background:transparent;color:var(--sub);cursor:pointer;">MED</button>'
-      +'<button data-mid="'+m.id+'" onclick="excluirMED(this.dataset.mid)" style="font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;">&#128465;</button>'
+      +'<button data-mid="'+m.id+'" onclick="excluirMedicao(this.dataset.mid)" style="font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;">&#128465;</button>'
       +'</div></div>';
   }).join(''):'<div style="font-size:12px;color:var(--sub);padding:10px 0;">Nenhum MED encontrado.</div>';
 
@@ -7471,7 +7471,7 @@ function _pagarToggleDesc(did, checked){
 }
 
 function excluirMED(id){
-      +'<button data-mid="'+m.id+'" onclick="excluirMED(this.dataset.mid)" style="font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;">&#128465;</button>'
+      +'<button data-mid="'+m.id+'" onclick="excluirMedicao(this.dataset.mid)" style="font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;">&#128465;</button>'
   dbDelete('medicoes',id).then(function(){
     medicoes=medicoes.filter(function(m){return m.id!==id;});
     toast('MED excluído!'); renderAPagar();
