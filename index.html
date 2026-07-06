@@ -7260,7 +7260,7 @@ function _renderAPagarCards(el, lista, S){
     var uObj=users.find(function(u){return u.apelido===nome;});
     var descTotal=uObj?desps.filter(function(d){return d.usuario_id===uObj.id&&!d.descontado;}).reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0):0;
     var marmsTotal=uObj?marmitas.filter(function(m){return m.usuario_id===uObj.id;}).reduce(function(s,m){return s+(parseFloat(m.valor)||15);},0):0;
-    var liquido=isNaN(pend)||isNaN(descTotal)||isNaN(marmsTotal)?pend:Math.max(0,pend-descTotal-marmsTotal);
+    var liquido=pend;
     return '<div style="background:#fff;border-radius:12px;border:1px solid var(--border);margin-bottom:8px;overflow:hidden;">'      +'<div style="background:var(--dark);padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">'      +'<span style="font-size:13px;font-weight:700;color:#fff;">'+nome+'</span>'      +'<div style="text-align:right;"><div style="font-size:14px;font-weight:700;color:#B8860B;">'+fmt(total)+'</div>'      +(pend>0?'<div style="font-size:10px;color:var(--red);">'+fmt(liquido)+' líquido pendente</div>':'<div style="font-size:10px;color:var(--green);">Tudo pago</div>')      +'</div></div>'
       +'<div style="padding:8px 14px;">'
       +meds.map(function(m){
