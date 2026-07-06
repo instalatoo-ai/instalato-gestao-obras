@@ -6545,7 +6545,7 @@ function renderRelFuncResultado(){
     if(!despsPorCat[cat]) despsPorCat[cat]=[];
     despsPorCat[cat].push(d);
   });
-  var totalDespsFunc=despsFunc.reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
+  var totalDespsFunc=despsFunc.filter(function(d){return !d.descontado;}).reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
 
   // Comissão
   var totalComissao=medsComissao.reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
