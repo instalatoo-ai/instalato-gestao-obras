@@ -7732,6 +7732,7 @@ function verDetalhesMED(id){
     +'<span style="font-size:13px;font-weight:700;color:#1e8449;">Liquido a pagar</span>'
     +'<span style="font-size:16px;font-weight:700;color:#1e8449;">'+fmt(Math.max(0,totalBruto-totalDescontos))+'</span></div>'
     +'</div>'
+    +(med.status==='pago'&&U.tipo==='admin'?'<div style="padding:0 0 8px;"><button data-mid="'+med.id+'" onclick="cancelarPagamentoMed(this.dataset.mid);fecharDetMED()" style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--red);background:transparent;color:var(--red);font-size:13px;font-weight:700;cursor:pointer;">↩ Cancelar pagamento</button></div>':'')
     +'</div></div></div>';
   document.body.insertAdjacentHTML('beforeend',html);
 }
