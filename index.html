@@ -2038,15 +2038,24 @@ function renderMeu() {
     });
   }
 
-  // Gerar chips de meses (6 meses anteriores + mes atual)
+  // Gerar chips usando período do sistema: dia 5 ao dia 4 do mês seguinte
   var agoraF=new Date();
   var mesesChips=[];
+  // Calcular período atual (igual ao card de Meta)
+  var _diaAtualF=agoraF.getDate();
+  var _anoBaseF=agoraF.getFullYear(), _mesBaseF=agoraF.getMonth();
+  var _periodoIniBaseF, _nomeMesesF=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  if(_diaAtualF>=5){
+    _periodoIniBaseF=new Date(_anoBaseF,_mesBaseF,5);
+  } else {
+    _periodoIniBaseF=new Date(_anoBaseF,_mesBaseF-1,5);
+  }
   for(var mi=0;mi<=5;mi++){
-    var d=new Date(agoraF.getFullYear(),agoraF.getMonth()-mi,1);
-    var y=d.getFullYear(), m2c=d.getMonth();
-    var ini2=y+'-'+String(m2c+1).padStart(2,'0')+'-01';
-    var fim2=y+'-'+String(m2c+1).padStart(2,'0')+'-'+String(new Date(y,m2c+1,0).getDate()).padStart(2,'0');
-    var mLabel=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][m2c]+(mi===0?' (atual)':'');
+    var pIni=new Date(_periodoIniBaseF.getFullYear(),_periodoIniBaseF.getMonth()-mi,5);
+    var pFim=new Date(pIni.getFullYear(),pIni.getMonth()+1,4);
+    function toDS(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+    var ini2=toDS(pIni), fim2=toDS(pFim);
+    var mLabel=_nomeMesesF[pIni.getMonth()]+'/'+(pIni.getFullYear()+'').slice(-2)+(mi===0?' (atual)':'');
     mesesChips.push({label:mLabel,ini:ini2,fim:fim2});
   }
   var chipAtivo=_mIni&&_mFim?mesesChips.findIndex(function(c){return c.ini===_mIni&&c.fim===_mFim;}):-1;
