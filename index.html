@@ -1260,7 +1260,8 @@ function renderHome(){
   // Stats topo
   var statsHtml='';
   if(T==='admin'){
-    var totalReceber=medicoes.filter(function(m){return m.status==='pendente';}).reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
+    var medsAdminPend=medicoes.filter(function(m){return m.usuario_id===U.id&&m.status==='pendente';});
+    var totalReceber=medsAdminPend.reduce(function(s,m){return s+(parseFloat(m.valor)||0);},0);
     var confPend=lancs.filter(function(l){return !confs.some(function(c){return c.lancamento_id===l.id;});}).length;
     var hoje2=hoje();
     var lancsHoje=lancs.filter(function(l){return l.data===hoje2;});
@@ -5941,7 +5942,7 @@ function gerarRelatorioFin(){
   });
 
   // Adicionar despesas vinculadas no agrupamento
-  despsFunc.forEach(function(d){
+  despsFunc.filter(function(d){return !d.descontado;}).forEach(function(d){
     var u=null; if(d.usuario_id){for(var i=0;i<users.length;i++) if(users[i].id===d.usuario_id){u=users[i];break;}}
     if(!u) return;
     var nome=u.apelido;
