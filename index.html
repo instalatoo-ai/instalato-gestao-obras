@@ -4533,6 +4533,10 @@ function renderDesp(){
     var uDesp=null; if(d.usuario_id){for(var k=0;k<users.length;k++) if(users[k].id===d.usuario_id){uDesp=users[k];break;}}
     var btnsDesp=U&&(U.tipo==='admin'||U.tipo==='lider_chefe')?
       '<div style="display:flex;gap:5px;margin-top:5px;">'
+      +(d.usuario_id?(d.descontado
+        ?'<button type="button" data-did="'+d.id+'" onclick="desmarcarDescontadoDesp(this.dataset.did)" style="font-size:10px;padding:3px 9px;border-radius:20px;border:none;background:var(--green);color:#fff;cursor:pointer;font-weight:700;">✓ Descontado</button>'
+        :'<button type="button" data-did="'+d.id+'" onclick="marcarDescontadoDesp(this.dataset.did)" style="font-size:10px;padding:3px 9px;border-radius:20px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;font-weight:700;">Marcar descontado</button>'
+      ):'')
       +'<button type="button" data-did="'+d.id+'" onclick="editarDesp(this.dataset.did)" style="font-size:10px;padding:3px 9px;border-radius:20px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;font-weight:700;">Editar</button>'
       +'<button type="button" data-did="'+d.id+'" onclick="excluirDesp(this.dataset.did)" style="font-size:10px;padding:3px 9px;border-radius:20px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;font-weight:700;">Excluir</button>'
       +'</div>':'';
@@ -4601,6 +4605,18 @@ function renderDesp(){
     +'</div>';
 }
 
+function marcarDescontadoDesp(id){
+  dbUpdate('despesas',id,{descontado:true}).then(function(ok){
+    if(ok){for(var i=0;i<desps.length;i++) if(desps[i].id===id){desps[i].descontado=true;break;}
+    toast('✅ Marcado como descontado!');renderDesp();}
+  });
+}
+function desmarcarDescontadoDesp(id){
+  dbUpdate('despesas',id,{descontado:false}).then(function(ok){
+    if(ok){for(var i=0;i<desps.length;i++) if(desps[i].id===id){desps[i].descontado=false;break;}
+    toast('Desmarcado.');renderDesp();}
+  });
+}
 function excluirDesp(id){
   if(!confirm('Excluir esta despesa?')) return;
   dbDelete('despesas',id).then(function(){
