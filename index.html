@@ -4533,6 +4533,7 @@ function renderDesp(){
     var uDesp=null; if(d.usuario_id){for(var k=0;k<users.length;k++) if(users[k].id===d.usuario_id){uDesp=users[k];break;}}
     var btnsDesp=U&&(U.tipo==='admin'||U.tipo==='lider_chefe')?
       '<div style="display:flex;gap:5px;margin-top:5px;">'
+      (+((d.usuario_id||d.responsavel)?(d.descontado
         ?'<button type="button" data-did="'+d.id+'" onclick="desmarcarDescontadoDesp(this.dataset.did)" style="font-size:10px;padding:3px 9px;border-radius:20px;border:none;background:var(--green);color:#fff;cursor:pointer;font-weight:700;">✓ Descontado</button>'
         :'<button type="button" data-did="'+d.id+'" onclick="marcarDescontadoDesp(this.dataset.did)" style="font-size:10px;padding:3px 9px;border-radius:20px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;font-weight:700;">Marcar descontado</button>'
       ):'')
