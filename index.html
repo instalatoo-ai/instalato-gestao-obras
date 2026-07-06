@@ -6415,12 +6415,12 @@ function renderMeuFinanceiro(){
     var medsPago=g.meds.filter(function(m){return m.status==='pago';});
     medsPend.forEach(function(m){
       linhas+='<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="verDetalhesMED(\''+m.id+'\')">';
-      linhas+='<span style="font-size:12px;color:#B8860B;">&#9651; '+g.label+(m.observacao?' · '+(m.observacao.length>30?m.observacao.slice(0,30)+'…':m.observacao):'')+' — A receber</span>';
+      linhas+='<span style="font-size:12px;color:#B8860B;">&#9651; '+g.label+(m.observacao?' · '+(m.observacao.length>30?m.observacao.slice(0,30)+'...':m.observacao):'')+' — A receber</span>';
       linhas+='<span style="font-size:13px;font-weight:700;color:#B8860B;text-decoration:underline;">'+fmt(parseFloat(m.valor)||0)+'</span></div>';
     });
     medsPago.forEach(function(m){
       linhas+='<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="verDetalhesMED(\''+m.id+'\')">';
-      linhas+='<span style="font-size:12px;color:var(--green);">&#10003; '+g.label+(m.observacao?' · '+(m.observacao.length>30?m.observacao.slice(0,30)+'…':m.observacao):'')+' — Pago</span>';
+      linhas+='<span style="font-size:12px;color:var(--green);">&#10003; '+g.label+(m.observacao?' · '+(m.observacao.length>30?m.observacao.slice(0,30)+'...':m.observacao):'')+' — Pago</span>';
       linhas+='<span style="font-size:13px;font-weight:700;color:var(--green);text-decoration:underline;">'+fmt(parseFloat(m.valor)||0)+'</span></div>';
     });
     return linhas;
@@ -6441,12 +6441,16 @@ function renderMeuFinanceiro(){
       +'<span style="font-size:13px;font-weight:700;color:var(--red);">-'+fmt(total)+'</span></div>';
     if(jaDesc.length>0){
       var jaDescTotal=jaDesc.reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
-      var jdk='_desc_'+cat.replace(/\W/g,'');
-      window[jdk]=jaDesc.map(function(d){return {desc:d.descricao||d.categoria,val:d.valor,data:d.data};});
-      descontosHtml+='<div style="display:flex;justify-content:space-between;padding:6px 0;cursor:pointer;" onclick="abrirDetalheDesconto(\''+jdk+'\')">'
+      descontosHtml+='<div style="display:flex;justify-content:space-between;padding:6px 0;">'
         +'<span style="font-size:12px;color:var(--sub);text-decoration:line-through;">&#8595; '+cat+' ('+jaDesc.length+'x)</span>'
-        +'<span style="font-size:12px;color:var(--green);">✓ Já descontado · '+fmt(jaDescTotal)+'</span></div>';
+        +'<span style="font-size:12px;color:var(--green);">&#10003; Ja descontado - '+fmt(jaDescTotal)+'</span></div>';
+      jaDesc.forEach(function(d){
+        descontosHtml+='<div style="display:flex;justify-content:space-between;padding:2px 0 2px 16px;">'
+          +'<span style="font-size:10px;color:var(--sub);">'+fmtD(d.data)+' - '+(d.descricao||d.categoria||'')+'</span>'
+          +'<span style="font-size:10px;color:var(--green);">'+fmt(d.valor)+'</span></div>';
+      });
     }
+  });
 
   var corSaldo=saldo>0?'var(--green)':saldo<0?'var(--red)':'var(--sub)';
 
@@ -6602,11 +6606,14 @@ function renderRelFuncResultado(){
       +'<span style="font-size:13px;font-weight:700;color:var(--red);">-'+fmt(total)+'</span></div>';
     if(jaDesc2.length>0){
       var jaDescTotal2=jaDesc2.reduce(function(s,d){return s+(parseFloat(d.valor)||0);},0);
-      var jaDescKey2='_desc2_'+cat.replace(/\W/g,'');
-      window[jaDescKey2]=jaDesc2.map(function(d){return {desc:d.descricao||d.categoria,val:d.valor,data:d.data};});
-      descontosHtml+='<div style="display:flex;justify-content:space-between;padding:5px 0;cursor:pointer;" onclick="abrirDetalheDesconto(\''+jaDescKey2+'\')">'
+      descontosHtml+='<div style="display:flex;justify-content:space-between;padding:5px 0;">'
         +'<span style="font-size:12px;color:var(--sub);text-decoration:line-through;">&#8595; '+cat+' ('+jaDesc2.length+'x)</span>'
-        +'<span style="font-size:12px;color:var(--green);">✓ Já descontado · '+fmt(jaDescTotal2)+'</span></div>';
+        +'<span style="font-size:12px;color:var(--green);">&#10003; Ja descontado - '+fmt(jaDescTotal2)+'</span></div>';
+      jaDesc2.forEach(function(d){
+        descontosHtml+='<div style="display:flex;justify-content:space-between;padding:2px 0 2px 16px;">'
+          +'<span style="font-size:10px;color:var(--sub);">'+fmtD(d.data)+' - '+(d.descricao||d.categoria||'')+'</span>'
+          +'<span style="font-size:10px;color:var(--green);">'+fmt(d.valor)+'</span></div>';
+      });
     }
   });
 
@@ -7728,25 +7735,6 @@ function verDetalhesMED(id){
   document.body.insertAdjacentHTML('beforeend',html);
 }
 
-function abrirDetalheDesconto(key){
-  var itens=window[key]||[];
-  var existing=document.getElementById('modal-desc-det'); if(existing) existing.remove();
-  var html='<div class="modal-bg show" id="modal-desc-det" style="z-index:9999;align-items:center;padding:20px;">'
-    +'<div style="background:var(--bg,#fff);border-radius:16px;width:100%;max-width:400px;overflow:hidden;">'
-    +'<div style="background:var(--dark);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">'
-    +'<span style="font-size:15px;font-weight:700;color:#fff;">Detalhes · Já descontado</span>'
-    +'<button onclick="document.getElementById(\'modal-desc-det\').remove()" style="background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;">✕</button>'
-    +'</div>'
-    +'<div style="padding:16px;">'
-    +itens.map(function(it){
-      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">'
-        +'<div><div style="font-size:13px;font-weight:700;">'+it.desc+'</div>'
-        +'<div style="font-size:11px;color:var(--sub);">'+fmtD(it.data)+'</div></div>'
-        +'<span style="font-size:13px;font-weight:700;color:var(--green);">✓ '+fmt(it.val)+'</span></div>';
-    }).join('')
-    +'</div></div></div>';
-  document.body.insertAdjacentHTML('beforeend',html);
-}
 function fecharDetMED(){var m=document.getElementById('modal-det-med');if(m)m.remove();}
 function cancelarPagamentoMed(id){
   if(!confirm('Cancelar o pagamento desta medicao? Ela voltara para PENDENTE e podera ser editada ou excluida.')) return;
