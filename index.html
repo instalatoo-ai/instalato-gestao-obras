@@ -6377,9 +6377,9 @@ function renderMeuFinanceiro(){
       var lx=lancs.find(function(l){return lids.indexOf(l.id)>=0;});
       if(lx){var ox=obras.find(function(o){return o.id===lx.obra_id;});if(ox){obraKey=ox.id;obraLabel=ox.nome;}}
     }
-    if(!porObra[obraKey]) porObra[obraKey]={label:obraLabel,pendente:0,pago:0};
+    if(!porObra[obraKey]) porObra[obraKey]={label:obraLabel,pendente:0,pago:0,meds:[]};
     if(m.status==='pago') porObra[obraKey].pago+=parseFloat(m.valor)||0;
-    else porObra[obraKey].pendente+=parseFloat(m.valor)||0;
+    else porObra[obraKey].pendente+=parseFloat(m.valor)||0; porObra[obraKey].meds.push(m);
   });
 
   // Marmitas
@@ -6431,8 +6431,7 @@ function renderMeuFinanceiro(){
       +'<span style="font-size:13px;font-weight:700;color:var(--red);">-'+fmt(total)+'</span></div>';
     if(jaDesc.length>0) descontosHtml+='<div style="display:flex;justify-content:space-between;padding:6px 0;">'
       +'<span style="font-size:12px;color:var(--sub);text-decoration:line-through;">&#8595; '+cat+' ('+jaDesc.length+'x)</span>'
-      +'<span style="font-size:12px;color:var(--green);">✓ Já descontado</span></div>';
-  });
+      +'<span style="font-size:12px;color:var(--green);">✓ Já descontado · '+fmt(jaDescTotal)+'</span></div>';
 
   var corSaldo=saldo>0?'var(--green)':saldo<0?'var(--red)':'var(--sub)';
 
